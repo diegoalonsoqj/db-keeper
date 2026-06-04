@@ -8,19 +8,24 @@
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=../../.env dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts"
+    "migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
+    "seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts"
   },
   "dependencies": {
     "@dbkeeper/shared": "workspace:*",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "jose": "^5.9.6",
+    "ldapts": "^7.2.1",
     "pg": "^8.13.0",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.9.0",

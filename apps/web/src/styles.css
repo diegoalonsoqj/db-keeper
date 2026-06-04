@@ -1,6 +1,14 @@
 :root {
+  --bg: #0f141a;
+  --panel: #1a2230;
+  --panel-2: #222c3c;
+  --border: #2c3a4f;
+  --text: #e6edf3;
+  --muted: #8b9bb0;
+  --accent: #3b82f6;
+  --danger: #ef4444;
+  --success: #22c55e;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color-scheme: light dark;
 }
 
 * {
@@ -9,25 +17,234 @@
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
 }
 
+button {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+button.secondary {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button.danger {
+  background: var(--danger);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+input,
+select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---- Layout ---- */
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 1rem 0.75rem;
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.2rem;
+  padding: 0.5rem 0.6rem 1rem;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sidebar nav a {
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.sidebar nav a:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.sidebar nav a.active {
+  background: var(--accent);
+  color: white;
+}
+.content {
+  display: flex;
+  flex-direction: column;
+}
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+  border-bottom: 1px solid var(--border);
 }
-
-.tagline {
-  opacity: 0.7;
-  font-size: 0.9rem;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
-
+.user-chip {
+  background: var(--panel-2);
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
 .app-main {
   padding: 1.25rem;
 }
+.tagline {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.muted {
+  color: var(--muted);
+}
+.centered {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
 
-.lang-switcher select {
-  margin-left: 0.25rem;
+/* ---- Pages ---- */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.error {
+  color: var(--danger);
+}
+.success {
+  color: var(--success);
+}
+
+/* ---- Tables ---- */
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+table.grid th,
+table.grid td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+table.grid th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.center {
+  text-align: center;
+}
+
+/* ---- Matrix ---- */
+.matrix-wrap {
+  overflow-x: auto;
+}
+.matrix .cat-row td {
+  background: var(--panel);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.lock {
+  font-size: 0.8rem;
+}
+
+/* ---- Cards / forms ---- */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+.form-card {
+  margin-top: 1.25rem;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.form-card label,
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.form-card label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+}
+.form-card fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.form-card legend {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ---- Login ---- */
+.login-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+.login-card {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.login-card h1 {
+  margin: 0;
+}
+.login-card button[type="submit"] {
+  margin-top: 0.5rem;
+}
+.login-lang {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
 }

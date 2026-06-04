@@ -5,10 +5,71 @@
   },
   "nav": {
     "dashboard": "Panel",
+    "users": "Usuarios",
+    "roles": "Roles y permisos",
+    "audit": "Auditoría",
     "settings": "Configuración"
   },
   "common": {
     "language": "Idioma",
-    "loading": "Cargando…"
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "actions": "Acciones",
+    "confirm": "¿Confirmas esta acción?",
+    "logout": "Cerrar sesión",
+    "yes": "Sí",
+    "no": "No",
+    "active": "Activo",
+    "inactive": "Inactivo"
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "error": "No se pudo iniciar sesión"
+  },
+  "users": {
+    "title": "Usuarios",
+    "new": "Nuevo usuario",
+    "username": "Usuario",
+    "email": "Correo",
+    "fullName": "Nombre completo",
+    "authType": "Tipo",
+    "local": "Local",
+    "ad": "Active Directory",
+    "status": "Estado",
+    "roles": "Roles",
+    "password": "Contraseña",
+    "passwordHint": "Mínimo 8 caracteres. Déjalo vacío para no cambiarla.",
+    "lastLogin": "Último ingreso",
+    "created": "Usuario creado",
+    "updated": "Usuario actualizado",
+    "deleted": "Usuario eliminado"
+  },
+  "roles": {
+    "title": "Roles y permisos",
+    "new": "Nuevo rol",
+    "key": "Clave",
+    "name": "Nombre",
+    "description": "Descripción",
+    "system": "Sistema",
+    "permissions": "Permisos",
+    "matrix": "Matriz de permisos",
+    "saved": "Permisos guardados",
+    "superadminLocked": "Los permisos de superadmin no son editables"
+  },
+  "audit": {
+    "title": "Auditoría",
+    "when": "Fecha",
+    "user": "Usuario",
+    "action": "Acción",
+    "entity": "Entidad",
+    "ip": "IP",
+    "empty": "Sin registros"
   }
 }

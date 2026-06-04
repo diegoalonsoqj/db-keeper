@@ -31,8 +31,12 @@ packages/
 pnpm install
 cp .env.example .env        # completa DBKEEPER_MASTER_KEY, DATABASE_URL, etc.
 pnpm migrate                # aplica las migraciones SQL versionadas
-pnpm dev                    # levanta API (:3001) y Web (:5173) en paralelo
+pnpm --filter @dbkeeper/api seed   # siembra permisos, roles y el superadmin inicial
+pnpm dev                    # levanta API (APP_PORT) y Web (:5173) en paralelo
 ```
+
+El primer login usa el superadmin sembrado (`BOOTSTRAP_ADMIN_USERNAME`, por defecto `admin`).
+Si no defines `BOOTSTRAP_ADMIN_PASSWORD`, el seed imprime una contraseña temporal en consola.
 
 Generar la clave maestra de cifrado:
 
@@ -49,11 +53,12 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `pnpm build` | Compila todos los paquetes |
 | `pnpm typecheck` | Chequeo de tipos en todo el monorepo |
 | `pnpm migrate` | Aplica migraciones pendientes |
+| `pnpm --filter @dbkeeper/api seed` | Siembra permisos, roles de sistema y superadmin |
 
 ## Estado: desarrollo por etapas
 
 - [x] **Etapa 0** — Fundaciones (monorepo, API base, Web base, migraciones, esquemas).
-- [ ] **Etapa 1** — Auth (local + AD/LDAP), Usuarios, Roles/Permisos, auditoría base.
+- [x] **Etapa 1** — Auth (local + AD/LDAP), Usuarios, Roles/Permisos, auditoría base.
 - [ ] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
 - [ ] **Etapa 3** — Descubrimiento de instancias → selección de BDs.
 - [ ] **Etapa 4** — Motor de ejecución (método `dump`) + cola + evento de backup multi-BD.

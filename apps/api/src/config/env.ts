@@ -20,6 +20,21 @@ const envSchema = z.object({
   REDIS_URL: z.string().url().optional(),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+
+  // --- AD / LDAP (temporal en env; migra al módulo Settings en la Etapa 2) ---
+  LDAP_URL: z.string().optional(), // ldap(s)://host:389
+  LDAP_BIND_DN: z.string().optional(), // cuenta de servicio para buscar usuarios
+  LDAP_BIND_PASSWORD: z.string().optional(),
+  LDAP_SEARCH_BASE: z.string().optional(), // OU=Users,DC=empresa,DC=com
+  LDAP_USER_FILTER: z.string().default("(sAMAccountName={{username}})"),
+  LDAP_TLS_REJECT_UNAUTHORIZED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+
+  // --- Bootstrap del superadmin inicial (solo lo usa el seed) ---
+  BOOTSTRAP_ADMIN_USERNAME: z.string().default("admin"),
+  BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,0 +1,128 @@
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { PermissionDto, RoleDto } from "@dbkeeper/shared";
+import { api, ApiClientError } from "../lib/api";
+import { useAuth } from "../auth/AuthContext";
+
+export function RolesPage() {
+  const { t } = useTranslation();
+  const { has } = useAuth();
+  const canWrite = has("roles:write");
+
+  const [roles, setRoles] = useState<RoleDto[]>([]);
+  const [perms, setPerms] = useState<PermissionDto[]>([]);
+  const [draft, setDraft] = useState<Record<string, Set<string>>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function reload() {
+    const [r, p] = await Promise.all([
+      api.get<RoleDto[]>("/roles"),
+      api.get<PermissionDto[]>("/permissions"),
+    ]);
+    setRoles(r);
+    setPerms(p);
+    setDraft(Object.fromEntries(r.map((role) => [role.id, new Set(role.permissions)])));
+  }
+
+  useEffect(() => {
+    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+  }, []);
+
+  const categories = useMemo(() => {
+    const map = new Map<string, PermissionDto[]>();
+    for (const p of perms) {
+      const arr = map.get(p.category) ?? [];
+      arr.push(p);
+      map.set(p.category, arr);
+    }
+    return [...map.entries()];
+  }, [perms]);
+
+  function toggle(roleId: string, key: string) {
+    setDraft((d) => {
+      const set = new Set(d[roleId]);
+      set.has(key) ? set.delete(key) : set.add(key);
+      return { ...d, [roleId]: set };
+    });
+  }
+
+  async function save(role: RoleDto) {
+    setError(null);
+    setMsg(null);
+    try {
+      await api.patch(`/roles/${role.id}`, { permissions: [...(draft[role.id] ?? [])] });
+      setMsg(`${role.name}: ${t("roles.saved")}`);
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : String(e));
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-head">
+        <h1>{t("roles.title")}</h1>
+      </div>
+      {error && <p className="error">{error}</p>}
+      {msg && <p className="success">{msg}</p>}
+
+      <div className="matrix-wrap">
+        <table className="grid matrix">
+          <thead>
+            <tr>
+              <th>{t("roles.permissions")}</th>
+              {roles.map((r) => (
+                <th key={r.id} title={r.description ?? ""}>
+                  {r.name}
+                  {r.key === "superadmin" && <span className="lock" title={t("roles.superadminLocked")}> 🔒</span>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {categories.map(([cat, list]) => (
+              <Fragment key={`cat-${cat}`}>
+                <tr className="cat-row">
+                  <td colSpan={roles.length + 1}>{cat}</td>
+                </tr>
+                {list.map((p) => (
+                  <tr key={p.key}>
+                    <td title={p.description}>{p.key}</td>
+                    {roles.map((r) => {
+                      const locked = r.key === "superadmin" || !canWrite;
+                      return (
+                        <td key={r.id} className="center">
+                          <input
+                            type="checkbox"
+                            checked={draft[r.id]?.has(p.key) ?? false}
+                            disabled={locked}
+                            onChange={() => toggle(r.id, p.key)}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+          {canWrite && (
+            <tfoot>
+              <tr>
+                <td></td>
+                {roles.map((r) => (
+                  <td key={r.id} className="center">
+                    {r.key !== "superadmin" && (
+                      <button onClick={() => save(r)}>{t("common.save")}</button>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </section>
+  );
+}
