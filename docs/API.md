@@ -20,6 +20,8 @@ protegidas requieren sesión válida; muchas requieren además un **permiso** co
 | POST | `/login` | — | — | Inicia sesión (`{ username, password }`); setea la cookie. |
 | POST | `/logout` | ✅ | — | Cierra sesión; limpia la cookie. |
 | GET | `/me` | ✅ | — | Identidad actual (`{ user, permissions }`). |
+| PATCH | `/profile` | ✅ | — | Actualiza el perfil propio: `fullName`, `email`, `preferredLanguage`, `preferredTheme`, `avatar` (data URL; `""`/`null` lo borra). |
+| POST | `/change-password` | ✅ | — | Cambia la contraseña propia (`{ currentPassword, newPassword }`); solo usuarios locales. |
 
 ## Usuarios — `/api/users`
 

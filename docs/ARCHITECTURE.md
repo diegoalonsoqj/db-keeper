@@ -104,10 +104,25 @@ Validación estricta con Zod al arrancar (falla rápido si algo falta).
 
 ## Frontend
 
-- **AuthContext** restaura la sesión (`/auth/me`) y expone `login`, `logout` y
-  `has(permiso)`.
+- **AuthContext** restaura la sesión (`/auth/me`) y expone `login`, `logout`,
+  `has(permiso)`, `updateProfile` y `changePassword`. Al iniciar sesión aplica las
+  **preferencias** del usuario (tema e idioma).
 - **Guards**: `RequireAuth` (redirige a `/login`) y `RequirePermission` (oculta/redirige
   rutas según permiso). La navegación del layout se filtra por permiso.
 - **Cliente API** tipado sobre `fetch` con `credentials: include` y manejo del sobre
   de respuesta uniforme.
 - **i18n** con `react-i18next` (`es-419` por defecto, `en`), persistido en `localStorage`.
+
+### UI / UX
+
+- **Tema claro/oscuro** (`ThemeContext`): aplica `data-theme` en `<html>`, persiste en
+  `localStorage` y respeta `prefers-color-scheme`; el usuario puede fijar un tema por
+  defecto en su perfil.
+- **Layout**: barra lateral **contraíble** (riel de iconos) con botón flotante sobre la
+  divisoria y logo de marca; cabecera con menú de usuario.
+- **Menú de usuario**: avatar (imagen o iniciales) + nombre/usuario, con *Ver mi perfil*,
+  cambio de idioma y cerrar sesión.
+- **Perfil** (modal): datos básicos, idioma y tema por defecto, **avatar** (recortado y
+  reducido a 96×96 en el cliente) y cambio de contraseña (usuarios locales).
+- **Modales** centrados reutilizables para los formularios de Usuarios, Instancias y
+  Buckets. Iconografía con **lucide-react** (SVG monocromos que heredan el color del tema).

@@ -18,8 +18,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
   Instancias y Buckets ahora se muestran en **modales centrados**.
 
 ### Cambiado
-- Iconos de navegación con **lucide-react** (SVG monocromos) en vez de emoji.
-- Selector de **tema claro/oscuro** y **sidebar contraíble** (riel de iconos).
+- Iconos con **lucide-react** (SVG monocromos) en vez de emoji.
+- Selector de **tema claro/oscuro** (con preferencia por usuario).
+- **Barra lateral contraíble**: logo de marca y botón flotante sobre la divisoria
+  para contraer/expandir (riel de iconos al contraer).
 
 ## [Etapa 2] — Instancias, credenciales cifradas, buckets y Settings · 2026-06-04
 

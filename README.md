@@ -8,7 +8,7 @@ Sistema centralizado para la **generación, programación y monitoreo de backups
 
 - **Monorepo** con [pnpm workspaces](https://pnpm.io/workspaces) + **TypeScript**.
 - **API:** Node.js + Express 5 (estructura en capas).
-- **Web:** React + Vite + i18n (`es-419`, `en`).
+- **Web:** React + Vite + i18n (`es-419`, `en`), iconos `lucide-react`, tema claro/oscuro.
 - **BD de metadatos:** PostgreSQL 16+.
 - **Cola / tiempo real (desde Etapa 4):** Redis + BullMQ.
 
@@ -25,7 +25,10 @@ apps/
   web/                      # React + Vite
     src/
       auth/                 # AuthContext + guards
-      components/ pages/    # layout, login y módulos
+      theme/                # ThemeContext (claro/oscuro)
+      components/           # layout, modal, menú de usuario, perfil
+      pages/                # login y módulos
+      lib/                  # cliente API, avatar
       i18n/                 # es-419 · en
 packages/
   shared/                   # Tipos y contratos compartidos (enums, RBAC, DTOs)
@@ -89,6 +92,14 @@ de Roles y Permisos. Roles de sistema sembrados:
 | `viewer` | Solo lectura |
 
 Toda acción relevante queda registrada en la **auditoría** (`audit.activity_log`).
+
+## Interfaz
+
+- **Tema claro/oscuro** con preferencia por usuario y respeto al sistema.
+- **Barra lateral contraíble** (riel de iconos) con logo de marca.
+- **Menú de usuario** con avatar, cambio de idioma, *Ver mi perfil* y cerrar sesión.
+- **Perfil**: editar datos, idioma/tema por defecto, avatar y contraseña (usuarios locales).
+- Formularios de alta/edición en **modales** centrados; iconografía `lucide-react`.
 
 ## Estado: desarrollo por etapas
 
