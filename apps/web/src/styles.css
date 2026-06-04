@@ -130,9 +130,8 @@ a {
   color: white;
 }
 .nav-icon {
-  width: 1.3rem;
-  text-align: center;
   flex: 0 0 auto;
+  display: block;
 }
 .app-shell.collapsed .nav-label {
   display: none;
@@ -142,8 +141,16 @@ a {
   padding: 0.5rem 0;
 }
 .icon-btn {
-  padding: 0.35rem 0.55rem;
+  padding: 0.4rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .header-left {
   display: flex;

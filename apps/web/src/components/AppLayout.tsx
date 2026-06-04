@@ -1,6 +1,18 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import {
+  Database,
+  HardDrive,
+  LayoutDashboard,
+  LogOut,
+  type LucideIcon,
+  PanelLeft,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import type { PermissionKey } from "@dbkeeper/shared";
 import { useAuth } from "../auth/AuthContext";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -9,7 +21,7 @@ import { ThemeToggle } from "./ThemeToggle";
 interface NavItem {
   to: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   perm?: PermissionKey;
 }
 
@@ -30,13 +42,13 @@ export function AppLayout() {
   }
 
   const items: NavItem[] = [
-    { to: "/", label: t("nav.dashboard"), icon: "📊" },
-    { to: "/servers", label: t("nav.servers"), icon: "🗄️", perm: "servers:read" },
-    { to: "/buckets", label: t("nav.buckets"), icon: "🪣", perm: "servers:read" },
-    { to: "/users", label: t("nav.users"), icon: "👥", perm: "users:read" },
-    { to: "/roles", label: t("nav.roles"), icon: "🛡️", perm: "roles:read" },
-    { to: "/audit", label: t("nav.audit"), icon: "📜", perm: "audit:read" },
-    { to: "/settings", label: t("nav.settings"), icon: "⚙️", perm: "settings:read" },
+    { to: "/", label: t("nav.dashboard"), icon: LayoutDashboard },
+    { to: "/servers", label: t("nav.servers"), icon: Database, perm: "servers:read" },
+    { to: "/buckets", label: t("nav.buckets"), icon: HardDrive, perm: "servers:read" },
+    { to: "/users", label: t("nav.users"), icon: Users, perm: "users:read" },
+    { to: "/roles", label: t("nav.roles"), icon: ShieldCheck, perm: "roles:read" },
+    { to: "/audit", label: t("nav.audit"), icon: ScrollText, perm: "audit:read" },
+    { to: "/settings", label: t("nav.settings"), icon: Settings, perm: "settings:read" },
   ];
 
   async function onLogout() {
@@ -51,12 +63,15 @@ export function AppLayout() {
         <nav>
           {items
             .filter((i) => !i.perm || has(i.perm))
-            .map((i) => (
-              <NavLink key={i.to} to={i.to} end={i.to === "/"} title={collapsed ? i.label : undefined}>
-                <span className="nav-icon">{i.icon}</span>
-                <span className="nav-label">{i.label}</span>
-              </NavLink>
-            ))}
+            .map((i) => {
+              const Icon = i.icon;
+              return (
+                <NavLink key={i.to} to={i.to} end={i.to === "/"} title={collapsed ? i.label : undefined}>
+                  <Icon className="nav-icon" size={18} strokeWidth={1.75} aria-hidden />
+                  <span className="nav-label">{i.label}</span>
+                </NavLink>
+              );
+            })}
         </nav>
       </aside>
       <div className="content">
@@ -69,7 +84,7 @@ export function AppLayout() {
               title={collapsed ? "Expandir menú" : "Contraer menú"}
               aria-label="Alternar menú lateral"
             >
-              ☰
+              <PanelLeft size={18} strokeWidth={1.75} aria-hidden />
             </button>
             <span className="tagline">{t("app.tagline")}</span>
           </div>
@@ -77,7 +92,8 @@ export function AppLayout() {
             <ThemeToggle />
             <LanguageSwitcher />
             <span className="user-chip">{identity?.user.username}</span>
-            <button className="secondary" onClick={onLogout}>
+            <button className="secondary btn-icon-text" onClick={onLogout}>
+              <LogOut size={16} strokeWidth={1.75} aria-hidden />
               {t("common.logout")}
             </button>
           </div>
