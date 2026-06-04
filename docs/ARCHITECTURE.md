@@ -1,0 +1,101 @@
+# Arquitectura
+
+DBKeeper es un monorepo TypeScript con tres paquetes: una API (Express 5), una SPA
+(React + Vite) y un paquete de contratos compartidos. Este documento describe lo
+construido hasta la **Etapa 1**; las piezas de etapas futuras se marcan como tal.
+
+## Componentes
+
+| Componente | Estado | Descripción |
+|---|---|---|
+| **API / Backend** | ✅ | REST sobre Express 5, estructura en capas, sesión por cookie. |
+| **Web / SPA** | ✅ | React + Vite, i18n `es-419`/`en`, RBAC en el cliente. |
+| **BD de metadatos** | ✅ | PostgreSQL 16 (esquemas `auth`/`core`/`secrets`/`audit`). |
+| **Worker de ejecución** | ⏳ Etapa 4 | Ejecuta los backups fuera de la API. |
+| **Programador** | ⏳ Etapa 6 | Dispara backups programados. |
+| **Cola / tiempo real** | ⏳ Etapa 4–5 | Redis + BullMQ; progreso por WebSocket/SSE. |
+
+## Capas de la API
+
+```
+HTTP → routes (controllers)  →  services (lógica)  →  repositories (acceso a datos) → PostgreSQL
+                 │                      │
+            validación Zod        reglas de negocio
+            authn/authz           y errores tipados
+```
+
+- **routes**: definen endpoints, validan entrada con Zod, registran auditoría y
+  delegan en servicios. Sin lógica de negocio ni SQL.
+- **services**: reglas de negocio, orquestación y errores (`HttpError`).
+- **repositories**: única capa con SQL, siempre **parametrizado**.
+- **middleware**: `authenticate` (verifica la cookie JWT y carga la identidad) y
+  `authorize(permiso)`; manejo de errores centralizado con respuesta uniforme.
+
+Cada módulo vive en `apps/api/src/modules/<modulo>/` con sus archivos
+`*.repository.ts`, `*.service.ts` y `*.routes.ts`.
+
+### Respuesta uniforme
+
+```jsonc
+// éxito
+{ "ok": true, "data": { /* ... */ } }
+// error
+{ "ok": false, "error": { "code": "FORBIDDEN", "message": "…", "details": [] } }
+```
+
+## Esquemas de base de datos
+
+Separación por responsabilidad (permite políticas de acceso más estrictas):
+
+- **`auth`** — `users`, `roles`, `permissions`, `role_permissions`, `user_roles`.
+- **`audit`** — `activity_log` (quién, qué, cuándo, IP, user-agent, detalle).
+- **`core`** — entidades operativas (instancias, bases, trabajos, ejecuciones). *Etapa 2+*.
+- **`secrets`** — credenciales y secretos cifrados. *Etapa 2*.
+
+Migraciones SQL versionadas en `apps/api/migrations/`, aplicadas por un runner
+propio que registra cada archivo en `public._migrations` dentro de una transacción.
+
+### Modelo de datos (Etapa 1)
+
+```
+auth.users (id, username, email, full_name, auth_type[local|ad], password_hash?, is_active, …)
+   └─< auth.user_roles >─┐
+auth.roles (id, key, name, description, is_system)
+   └─< auth.role_permissions >─┐
+auth.permissions (key, category, description)
+
+audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip?, detail, created_at)
+```
+
+## Seguridad
+
+- **Contraseñas locales**: hash **scrypt** (`node:crypto`), sin dependencias nativas;
+  formato `scrypt$N$r$p$salt$hash` con comparación en tiempo constante.
+- **AD/LDAP**: autenticación bind-search-bind contra Active Directory. El usuario de
+  AD debe existir previamente en `auth.users` (provisionado por un admin con sus roles).
+- **Sesión**: JWT HS256 (`jose`) firmado con `APP_SECRET_KEY`, en cookie
+  `httpOnly`/`sameSite=lax` (`secure` en producción). Los permisos se resuelven
+  desde la BD en cada request, no se confían del token.
+- **RBAC**: permisos `recurso:acción` por rol, editables. `superadmin` siempre tiene
+  todos los permisos y no es editable/eliminable.
+- **Cifrado de secretos** (Etapa 2): AES-256-GCM a nivel de aplicación con
+  `DBKEEPER_MASTER_KEY`; los secretos nunca se guardan en claro ni se loguean.
+- **Auditoría**: toda acción relevante se registra en `audit.activity_log`.
+- **Endurecimiento HTTP**: `helmet`, CORS con credenciales, `trust proxy` para IP real.
+
+## Configuración (12-factor)
+
+El `.env` se mantiene **mínimo** (solo el arranque): clave de app, clave maestra de
+cifrado, `DATABASE_URL`, `REDIS_URL` y logging. La configuración de LDAP está hoy en
+`.env` de forma temporal y migrará al **módulo Settings** (BD) en la Etapa 2.
+Validación estricta con Zod al arrancar (falla rápido si algo falta).
+
+## Frontend
+
+- **AuthContext** restaura la sesión (`/auth/me`) y expone `login`, `logout` y
+  `has(permiso)`.
+- **Guards**: `RequireAuth` (redirige a `/login`) y `RequirePermission` (oculta/redirige
+  rutas según permiso). La navegación del layout se filtra por permiso.
+- **Cliente API** tipado sobre `fetch` con `credentials: include` y manejo del sobre
+  de respuesta uniforme.
+- **i18n** con `react-i18next` (`es-419` por defecto, `en`), persistido en `localStorage`.

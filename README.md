@@ -14,11 +14,29 @@ Sistema centralizado para la **generación, programación y monitoreo de backups
 
 ```
 apps/
-  api/        # Express + TS (rutas → servicios → repositorios)
-  web/        # React + Vite
+  api/                      # Express + TS (rutas → servicios → repositorios)
+    migrations/             # SQL versionado (0001_init_schemas, 0002_auth_audit, …)
+    src/
+      config/               # env (Zod), logger (pino)
+      db/                   # pool, runner de migraciones, seed
+      lib/                  # password (scrypt), jwt (jose), http-error, respond
+      middleware/           # error-handler, auth (authenticate + authorize)
+      modules/              # auth · users · roles · permissions · audit
+  web/                      # React + Vite
+    src/
+      auth/                 # AuthContext + guards
+      components/ pages/    # layout, login y módulos
+      i18n/                 # es-419 · en
 packages/
-  shared/     # Tipos y contratos compartidos
+  shared/                   # Tipos y contratos compartidos (enums, RBAC, DTOs)
 ```
+
+## Documentación
+
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — componentes, capas, esquemas de BD y modelo de seguridad.
+- [`docs/API.md`](./docs/API.md) — referencia de endpoints y permisos requeridos.
+- [`CHANGELOG.md`](./CHANGELOG.md) — avances por etapa.
+- [`DBKeeper-Especificaciones.md`](./DBKeeper-Especificaciones.md) — especificación funcional.
 
 ## Requisitos
 
@@ -54,6 +72,23 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `pnpm typecheck` | Chequeo de tipos en todo el monorepo |
 | `pnpm migrate` | Aplica migraciones pendientes |
 | `pnpm --filter @dbkeeper/api seed` | Siembra permisos, roles de sistema y superadmin |
+
+## Autenticación y roles
+
+Login con usuarios **locales** (hash scrypt) y de **Active Directory** (LDAP/LDAPS).
+La sesión viaja en una cookie httpOnly (JWT). El control de acceso es **RBAC granular**:
+cada rol tiene un conjunto de permisos (`recurso:acción`) **editable** desde el módulo
+de Roles y Permisos. Roles de sistema sembrados:
+
+| Rol | Por defecto |
+|---|---|
+| `superadmin` | Todos los permisos (no editable, no eliminable) |
+| `admin` | Usuarios, instancias, backups, settings y auditoría |
+| `editor` | Configura y ejecuta/programa backups |
+| `operator` | Ejecuta backups a demanda |
+| `viewer` | Solo lectura |
+
+Toda acción relevante queda registrada en la **auditoría** (`audit.activity_log`).
 
 ## Estado: desarrollo por etapas
 
