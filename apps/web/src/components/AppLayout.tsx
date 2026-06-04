@@ -2,12 +2,13 @@ import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  ChevronLeft,
+  ChevronRight,
   Database,
+  DatabaseBackup,
   HardDrive,
   LayoutDashboard,
   type LucideIcon,
-  PanelLeftClose,
-  PanelLeftOpen,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -54,20 +55,10 @@ export function AppLayout() {
     <div className={`app-shell${collapsed ? " collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-head">
-          {!collapsed && <span className="brand">{t("app.name")}</span>}
-          <button
-            type="button"
-            className="collapse-btn"
-            onClick={toggleSidebar}
-            title={collapsed ? "Expandir menú" : "Contraer menú"}
-            aria-label="Alternar menú lateral"
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={20} strokeWidth={1.75} aria-hidden />
-            ) : (
-              <PanelLeftClose size={20} strokeWidth={1.75} aria-hidden />
-            )}
-          </button>
+          <span className="brand-badge" aria-hidden>
+            <DatabaseBackup size={20} strokeWidth={1.9} />
+          </span>
+          {!collapsed && <span className="brand-name">{t("app.name")}</span>}
         </div>
         <nav>
           {items
@@ -82,6 +73,19 @@ export function AppLayout() {
               );
             })}
         </nav>
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={toggleSidebar}
+          title={collapsed ? "Expandir menú" : "Contraer menú"}
+          aria-label="Alternar menú lateral"
+        >
+          {collapsed ? (
+            <ChevronRight size={16} strokeWidth={2} aria-hidden />
+          ) : (
+            <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+          )}
+        </button>
       </aside>
       <div className="content">
         <header className="app-header">
