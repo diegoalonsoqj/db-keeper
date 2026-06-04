@@ -46,3 +46,4 @@ export interface ApiError {
 export type ApiResponse<T> = ApiOk<T> | ApiError;
 
 export * from "./auth.js";
+export * from "./resources.js";

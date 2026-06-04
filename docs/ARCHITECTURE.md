@@ -49,8 +49,9 @@ Separación por responsabilidad (permite políticas de acceso más estrictas):
 
 - **`auth`** — `users`, `roles`, `permissions`, `role_permissions`, `user_roles`.
 - **`audit`** — `activity_log` (quién, qué, cuándo, IP, user-agent, detalle).
-- **`core`** — entidades operativas (instancias, bases, trabajos, ejecuciones). *Etapa 2+*.
-- **`secrets`** — credenciales y secretos cifrados. *Etapa 2*.
+- **`core`** — `servers` (instancias), `storage_buckets`, `app_settings`; y más
+  adelante bases, trabajos y ejecuciones.
+- **`secrets`** — `credentials` (1:1 con instancia), con contraseña/extra cifrados.
 
 Migraciones SQL versionadas en `apps/api/migrations/`, aplicadas por un runner
 propio que registra cada archivo en `public._migrations` dentro de una transacción.
@@ -67,6 +68,15 @@ auth.permissions (key, category, description)
 audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip?, detail, created_at)
 ```
 
+### Modelo de datos (Etapa 2)
+
+```
+core.servers (id, name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_*, notes, …)
+   └─1:1─ secrets.credentials (server_id, username, password_encrypted, extra_encrypted)
+core.storage_buckets (id, name, provider, bucket, prefix, service_account_encrypted, is_active, …)
+core.app_settings (key, value jsonb)   -- 'general' (timezone, idioma) · 'ldap' (config AD)
+```
+
 ## Seguridad
 
 - **Contraseñas locales**: hash **scrypt** (`node:crypto`), sin dependencias nativas;
@@ -78,8 +88,10 @@ audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip
   desde la BD en cada request, no se confían del token.
 - **RBAC**: permisos `recurso:acción` por rol, editables. `superadmin` siempre tiene
   todos los permisos y no es editable/eliminable.
-- **Cifrado de secretos** (Etapa 2): AES-256-GCM a nivel de aplicación con
-  `DBKEEPER_MASTER_KEY`; los secretos nunca se guardan en claro ni se loguean.
+- **Cifrado de secretos**: AES-256-GCM a nivel de aplicación (`lib/crypto.ts`) con
+  `DBKEEPER_MASTER_KEY` (32 bytes base64). Contraseñas de instancias, claves de
+  servicio GCP y contraseña de bind LDAP se cifran; nunca se guardan en claro ni se
+  loguean ni se devuelven por la API.
 - **Auditoría**: toda acción relevante se registra en `audit.activity_log`.
 - **Endurecimiento HTTP**: `helmet`, CORS con credenciales, `trust proxy` para IP real.
 

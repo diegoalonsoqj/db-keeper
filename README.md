@@ -21,7 +21,7 @@ apps/
       db/                   # pool, runner de migraciones, seed
       lib/                  # password (scrypt), jwt (jose), http-error, respond
       middleware/           # error-handler, auth (authenticate + authorize)
-      modules/              # auth · users · roles · permissions · audit
+      modules/              # auth · users · roles · permissions · audit · servers · buckets · settings
   web/                      # React + Vite
     src/
       auth/                 # AuthContext + guards
@@ -94,7 +94,7 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 
 - [x] **Etapa 0** — Fundaciones (monorepo, API base, Web base, migraciones, esquemas).
 - [x] **Etapa 1** — Auth (local + AD/LDAP), Usuarios, Roles/Permisos, auditoría base.
-- [ ] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
+- [x] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
 - [ ] **Etapa 3** — Descubrimiento de instancias → selección de BDs.
 - [ ] **Etapa 4** — Motor de ejecución (método `dump`) + cola + evento de backup multi-BD.
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo).

@@ -3,6 +3,30 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 2] — Instancias, credenciales cifradas, buckets y Settings · 2026-06-04
+
+### Añadido
+- **Esquema `core`/`secrets`** (migración `0003`): `core.servers` (instancias con
+  datos de conexión), `secrets.credentials` (1:1, contraseña/extra cifrados),
+  `core.storage_buckets` (destinos GCS) y `core.app_settings` (configuración).
+- **Cifrado de secretos** a nivel de aplicación: **AES-256-GCM** (`lib/crypto.ts`)
+  con `DBKEEPER_MASTER_KEY`. Contraseñas de instancias, claves de servicio GCP y
+  contraseña de bind de LDAP se guardan cifradas y nunca se devuelven en claro.
+- **Módulo Instancias** (`/api/servers`): CRUD con credencial embebida; el motor,
+  host, puerto, entorno, SSL y flags de Cloud SQL. Selector base para los backups.
+- **Módulo Buckets** (`/api/buckets`): CRUD de destinos de almacenamiento GCS.
+- **Módulo Settings** (`/api/settings`): configuración general (zona horaria,
+  idioma por defecto) y de **AD/LDAP**.
+- **LDAP movido a la BD**: la configuración de AD ahora vive en Settings; las
+  variables de entorno quedan como *fallback*.
+- **Frontend**: páginas de Instancias (CRUD + credenciales), Buckets (CRUD) y
+  Settings (general + LDAP), con navegación filtrada por permiso e i18n.
+
+### Seguridad
+- Secretos cifrados en reposo (AES-256-GCM); verificado que no aparecen en claro
+  en la BD ni en las respuestas de la API.
+- La contraseña de bind LDAP no se incluye en la auditoría ni en las respuestas.
+
 ## [Etapa 1] — Autenticación, RBAC y auditoría · 2026-06-04
 
 ### Añadido

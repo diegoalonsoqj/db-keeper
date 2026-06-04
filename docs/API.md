@@ -68,6 +68,50 @@ Cuerpo de creación:
 |---|---|---|---|
 | GET | `/` | `audit:read` | Lista paginada. Query: `limit` (1–200), `offset`, `userId`, `action`. |
 
+## Instancias — `/api/servers`
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `servers:read` | Lista instancias (nunca expone la contraseña). |
+| GET | `/:id` | `servers:read` | Detalle de una instancia. |
+| POST | `/` | `servers:write` | Crea instancia + credencial. |
+| PATCH | `/:id` | `servers:write` | Actualiza datos y/o credencial. |
+| DELETE | `/:id` | `servers:delete` | Elimina (cascada a su credencial). |
+
+Cuerpo de creación:
+
+```jsonc
+{
+  "name": "PG Prod",
+  "engine": "postgres",          // postgres | mysql | sqlserver | mongo
+  "host": "db.prod.local",
+  "port": 5432,
+  "environment": "produccion",
+  "useSsl": true,
+  "isCloudSql": false,            // true habilita gcpProject/gcpInstance
+  "credential": { "username": "backup_user", "password": "…", "extra": {} }
+}
+```
+
+En `PATCH`, si `credential.password` se omite, se conserva la contraseña actual.
+
+## Buckets — `/api/buckets`
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `servers:read` | Lista buckets (nunca expone la clave de servicio). |
+| POST | `/` | `servers:write` | Crea bucket (`{ name, bucket, prefix?, isActive?, serviceAccount? }`). |
+| PATCH | `/:id` | `servers:write` | Actualiza; `serviceAccount` vacío borra la clave. |
+| DELETE | `/:id` | `servers:delete` | Elimina. |
+
+## Configuración — `/api/settings`
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `settings:read` | Configuración general + LDAP (sin contraseña de bind). |
+| PATCH | `/general` | `settings:write` | Zona horaria, idioma por defecto. |
+| PATCH | `/ldap` | `settings:write` | Config de AD/LDAP. `bindPassword` se cifra; `""` la borra. |
+
 ## Catálogo de permisos (`recurso:acción`)
 
 | Categoría | Permisos |

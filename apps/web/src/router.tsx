@@ -3,9 +3,12 @@ import { AppLayout } from "./components/AppLayout";
 import { RequireAuth, RequirePermission } from "./auth/guards";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ServersPage } from "./pages/ServersPage";
+import { BucketsPage } from "./pages/BucketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { AuditPage } from "./pages/AuditPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -18,6 +21,22 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
+      {
+        path: "servers",
+        element: (
+          <RequirePermission perm="servers:read">
+            <ServersPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "buckets",
+        element: (
+          <RequirePermission perm="servers:read">
+            <BucketsPage />
+          </RequirePermission>
+        ),
+      },
       {
         path: "users",
         element: (
@@ -39,6 +58,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="audit:read">
             <AuditPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "settings",
+        element: (
+          <RequirePermission perm="settings:read">
+            <SettingsPage />
           </RequirePermission>
         ),
       },

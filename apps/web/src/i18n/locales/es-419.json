@@ -5,6 +5,8 @@
   },
   "nav": {
     "dashboard": "Panel",
+    "servers": "Instancias",
+    "buckets": "Buckets",
     "users": "Usuarios",
     "roles": "Roles y permisos",
     "audit": "Auditoría",
@@ -24,7 +26,8 @@
     "yes": "Sí",
     "no": "No",
     "active": "Activo",
-    "inactive": "Inactivo"
+    "inactive": "Inactivo",
+    "none": "—"
   },
   "login": {
     "title": "Iniciar sesión",
@@ -71,5 +74,53 @@
     "entity": "Entidad",
     "ip": "IP",
     "empty": "Sin registros"
+  },
+  "servers": {
+    "title": "Instancias",
+    "new": "Nueva instancia",
+    "name": "Nombre",
+    "engine": "Motor",
+    "host": "Host",
+    "port": "Puerto",
+    "environment": "Entorno",
+    "useSsl": "Usar SSL/TLS",
+    "isCloudSql": "Instancia gestionada (Cloud SQL)",
+    "gcpProject": "Proyecto GCP",
+    "gcpInstance": "Instancia GCP",
+    "notes": "Notas",
+    "credentials": "Credenciales",
+    "credUsername": "Usuario de conexión",
+    "credPassword": "Contraseña",
+    "credPasswordHintEdit": "Déjala vacía para conservar la actual.",
+    "hasCredential": "Credencial"
+  },
+  "buckets": {
+    "title": "Buckets",
+    "new": "Nuevo bucket",
+    "name": "Nombre",
+    "provider": "Proveedor",
+    "bucket": "Bucket",
+    "prefix": "Prefijo",
+    "status": "Estado",
+    "serviceAccount": "Clave de servicio (JSON)",
+    "serviceAccountHint": "Pega el JSON de la cuenta de servicio GCP. Déjalo vacío para conservar la actual.",
+    "hasServiceAccount": "Clave configurada"
+  },
+  "settings": {
+    "title": "Configuración",
+    "general": "General",
+    "timezone": "Zona horaria",
+    "defaultLanguage": "Idioma por defecto",
+    "ldap": "Active Directory (LDAP)",
+    "ldapEnabled": "Habilitar autenticación AD",
+    "ldapUrl": "URL del servidor",
+    "ldapBindDn": "Bind DN (cuenta de servicio)",
+    "ldapBindPassword": "Contraseña de bind",
+    "ldapBindPasswordHint": "Déjala vacía para conservar la actual.",
+    "ldapSearchBase": "Base de búsqueda",
+    "ldapUserFilter": "Filtro de usuario",
+    "ldapTls": "Validar certificado TLS",
+    "hasBindPassword": "Contraseña de bind configurada",
+    "saved": "Configuración guardada"
   }
 }

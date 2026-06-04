@@ -17,9 +17,12 @@ export function AppLayout() {
 
   const items: NavItem[] = [
     { to: "/", label: t("nav.dashboard") },
+    { to: "/servers", label: t("nav.servers"), perm: "servers:read" },
+    { to: "/buckets", label: t("nav.buckets"), perm: "servers:read" },
     { to: "/users", label: t("nav.users"), perm: "users:read" },
     { to: "/roles", label: t("nav.roles"), perm: "roles:read" },
     { to: "/audit", label: t("nav.audit"), perm: "audit:read" },
+    { to: "/settings", label: t("nav.settings"), perm: "settings:read" },
   ];
 
   async function onLogout() {

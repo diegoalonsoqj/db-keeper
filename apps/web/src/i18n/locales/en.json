@@ -5,6 +5,8 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "servers": "Instances",
+    "buckets": "Buckets",
     "users": "Users",
     "roles": "Roles & permissions",
     "audit": "Audit",
@@ -24,7 +26,8 @@
     "yes": "Yes",
     "no": "No",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "none": "—"
   },
   "login": {
     "title": "Sign in",
@@ -71,5 +74,53 @@
     "entity": "Entity",
     "ip": "IP",
     "empty": "No records"
+  },
+  "servers": {
+    "title": "Instances",
+    "new": "New instance",
+    "name": "Name",
+    "engine": "Engine",
+    "host": "Host",
+    "port": "Port",
+    "environment": "Environment",
+    "useSsl": "Use SSL/TLS",
+    "isCloudSql": "Managed instance (Cloud SQL)",
+    "gcpProject": "GCP project",
+    "gcpInstance": "GCP instance",
+    "notes": "Notes",
+    "credentials": "Credentials",
+    "credUsername": "Connection user",
+    "credPassword": "Password",
+    "credPasswordHintEdit": "Leave empty to keep current.",
+    "hasCredential": "Credential"
+  },
+  "buckets": {
+    "title": "Buckets",
+    "new": "New bucket",
+    "name": "Name",
+    "provider": "Provider",
+    "bucket": "Bucket",
+    "prefix": "Prefix",
+    "status": "Status",
+    "serviceAccount": "Service account (JSON)",
+    "serviceAccountHint": "Paste the GCP service account JSON. Leave empty to keep current.",
+    "hasServiceAccount": "Key configured"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "timezone": "Timezone",
+    "defaultLanguage": "Default language",
+    "ldap": "Active Directory (LDAP)",
+    "ldapEnabled": "Enable AD authentication",
+    "ldapUrl": "Server URL",
+    "ldapBindDn": "Bind DN (service account)",
+    "ldapBindPassword": "Bind password",
+    "ldapBindPasswordHint": "Leave empty to keep current.",
+    "ldapSearchBase": "Search base",
+    "ldapUserFilter": "User filter",
+    "ldapTls": "Validate TLS certificate",
+    "hasBindPassword": "Bind password set",
+    "saved": "Settings saved"
   }
 }

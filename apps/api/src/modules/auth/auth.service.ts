@@ -3,7 +3,8 @@ import { HttpError } from "../../lib/http-error.js";
 import { verifyPassword } from "../../lib/password.js";
 import * as usersRepo from "../users/users.repository.js";
 import type { UserWithSecret } from "../users/users.repository.js";
-import { authenticateLdap, isLdapEnabled } from "./ldap.js";
+import { getLdapRuntimeConfig } from "../settings/settings.service.js";
+import { authenticateLdap } from "./ldap.js";
 
 function stripSecret(u: UserWithSecret): UserDto {
   const { passwordHash: _omit, ...dto } = u;
@@ -28,10 +29,11 @@ export async function login(username: string, password: string): Promise<UserDto
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) throw invalid;
   } else {
-    if (!isLdapEnabled()) {
+    const ldapConfig = await getLdapRuntimeConfig();
+    if (!ldapConfig) {
       throw HttpError.unauthorized("La autenticación AD/LDAP no está configurada");
     }
-    const ldapUser = await authenticateLdap(user.username, password);
+    const ldapUser = await authenticateLdap(user.username, password, ldapConfig);
     if (!ldapUser) throw invalid;
   }
 
