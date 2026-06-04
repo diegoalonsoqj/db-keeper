@@ -6,7 +6,8 @@ import {
   HardDrive,
   LayoutDashboard,
   type LucideIcon,
-  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -52,7 +53,22 @@ export function AppLayout() {
   return (
     <div className={`app-shell${collapsed ? " collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="brand">{collapsed ? "DB" : t("app.name")}</div>
+        <div className="sidebar-head">
+          {!collapsed && <span className="brand">{t("app.name")}</span>}
+          <button
+            type="button"
+            className="collapse-btn"
+            onClick={toggleSidebar}
+            title={collapsed ? "Expandir menú" : "Contraer menú"}
+            aria-label="Alternar menú lateral"
+          >
+            {collapsed ? (
+              <PanelLeftOpen size={20} strokeWidth={1.75} aria-hidden />
+            ) : (
+              <PanelLeftClose size={20} strokeWidth={1.75} aria-hidden />
+            )}
+          </button>
+        </div>
         <nav>
           {items
             .filter((i) => !i.perm || has(i.perm))
@@ -70,15 +86,6 @@ export function AppLayout() {
       <div className="content">
         <header className="app-header">
           <div className="header-left">
-            <button
-              type="button"
-              className="secondary icon-btn"
-              onClick={toggleSidebar}
-              title={collapsed ? "Expandir menú" : "Contraer menú"}
-              aria-label="Alternar menú lateral"
-            >
-              <PanelLeft size={18} strokeWidth={1.75} aria-hidden />
-            </button>
             <span className="tagline">{t("app.tagline")}</span>
           </div>
           <div className="header-right">

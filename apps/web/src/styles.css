@@ -97,15 +97,35 @@ a {
   padding: 1rem 0.75rem;
   overflow: hidden;
 }
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.6rem 1rem;
+}
+.app-shell.collapsed .sidebar-head {
+  justify-content: center;
+  padding: 0.25rem 0 1rem;
+}
 .brand {
   font-weight: 700;
   font-size: 1.2rem;
-  padding: 0.5rem 0.6rem 1rem;
   white-space: nowrap;
 }
-.app-shell.collapsed .brand {
-  text-align: center;
-  padding: 0.5rem 0 1rem;
+.collapse-btn {
+  background: transparent;
+  color: var(--muted);
+  padding: 0.3rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.collapse-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
 }
 .sidebar nav {
   display: flex;
