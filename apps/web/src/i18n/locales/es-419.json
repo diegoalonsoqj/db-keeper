@@ -1,0 +1,14 @@
+{
+  "app": {
+    "name": "DBKeeper",
+    "tagline": "Generación, programación y monitoreo de backups"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "settings": "Configuración"
+  },
+  "common": {
+    "language": "Idioma",
+    "loading": "Cargando…"
+  }
+}

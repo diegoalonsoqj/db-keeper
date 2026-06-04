@@ -1,0 +1,22 @@
+{
+  "name": "dbkeeper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema centralizado de generación, programación y monitoreo de backups de bases de datos.",
+  "license": "CC-BY-NC-4.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@11.5.1",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @dbkeeper/api dev",
+    "dev:web": "pnpm --filter @dbkeeper/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "migrate": "pnpm --filter @dbkeeper/api migrate"
+  }
+}
