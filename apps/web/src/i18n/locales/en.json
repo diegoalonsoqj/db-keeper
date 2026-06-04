@@ -36,6 +36,25 @@
     "submit": "Sign in",
     "error": "Could not sign in"
   },
+  "profile": {
+    "title": "My profile",
+    "saved": "Profile updated",
+    "saveProfile": "Save profile",
+    "language": "Default language",
+    "theme": "Default theme",
+    "systemDefault": "System default",
+    "dark": "Dark",
+    "light": "Light",
+    "changeAvatar": "Change photo",
+    "removeAvatar": "Remove photo",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "passwordMismatch": "Passwords do not match",
+    "passwordChanged": "Password updated",
+    "adManaged": "Your account is Active Directory; the password is managed there."
+  },
   "users": {
     "title": "Users",
     "new": "New user",

@@ -85,6 +85,9 @@ export interface UserDto {
   authType: AuthType;
   isActive: boolean;
   roles: string[]; // keys de rol
+  avatar: string | null; // data URL de imagen pequeña
+  preferredLanguage: string | null;
+  preferredTheme: "dark" | "light" | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;

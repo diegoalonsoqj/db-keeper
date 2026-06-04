@@ -3,6 +3,24 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [UX] — Perfil de usuario, temas y modales · 2026-06-04
+
+### Añadido
+- **Perfil de usuario** (migración `0004`): columnas `avatar`, `preferred_language`,
+  `preferred_theme` en `auth.users`. Endpoints self-service `PATCH /api/auth/profile`
+  y `POST /api/auth/change-password` (solo usuarios locales).
+- **Menú de usuario** en el header: avatar + nombre completo y usuario; desplegable
+  con *Ver mi perfil*, cambio de idioma y *Cerrar sesión*.
+- **Modal de perfil**: cambiar contraseña, idioma y tema por defecto, y subir
+  **avatar** (la imagen se recorta y reduce a 96×96 en el cliente antes de guardarse).
+- Las **preferencias** de idioma/tema del usuario se aplican al iniciar sesión.
+- **Componente Modal** reutilizable; los formularios de crear/editar de Usuarios,
+  Instancias y Buckets ahora se muestran en **modales centrados**.
+
+### Cambiado
+- Iconos de navegación con **lucide-react** (SVG monocromos) en vez de emoji.
+- Selector de **tema claro/oscuro** y **sidebar contraíble** (riel de iconos).
+
 ## [Etapa 2] — Instancias, credenciales cifradas, buckets y Settings · 2026-06-04
 
 ### Añadido

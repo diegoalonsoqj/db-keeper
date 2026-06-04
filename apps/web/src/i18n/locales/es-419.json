@@ -36,6 +36,25 @@
     "submit": "Entrar",
     "error": "No se pudo iniciar sesión"
   },
+  "profile": {
+    "title": "Ver mi perfil",
+    "saved": "Perfil actualizado",
+    "saveProfile": "Guardar perfil",
+    "language": "Idioma por defecto",
+    "theme": "Tema por defecto",
+    "systemDefault": "Predeterminado del sistema",
+    "dark": "Oscuro",
+    "light": "Claro",
+    "changeAvatar": "Cambiar foto",
+    "removeAvatar": "Quitar foto",
+    "changePassword": "Cambiar contraseña",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordChanged": "Contraseña actualizada",
+    "adManaged": "Tu cuenta es de Active Directory; la contraseña se gestiona allí."
+  },
   "users": {
     "title": "Usuarios",
     "new": "Nuevo usuario",

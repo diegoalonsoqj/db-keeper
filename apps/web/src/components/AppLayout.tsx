@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Database,
   HardDrive,
   LayoutDashboard,
-  LogOut,
   type LucideIcon,
   PanelLeft,
   ScrollText,
@@ -15,8 +14,8 @@ import {
 } from "lucide-react";
 import type { PermissionKey } from "@dbkeeper/shared";
 import { useAuth } from "../auth/AuthContext";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
+import { UserMenu } from "./UserMenu";
 
 interface NavItem {
   to: string;
@@ -29,8 +28,7 @@ const COLLAPSE_KEY = "dbkeeper.sidebarCollapsed";
 
 export function AppLayout() {
   const { t } = useTranslation();
-  const { identity, logout, has } = useAuth();
-  const navigate = useNavigate();
+  const { has } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === "1");
 
   function toggleSidebar() {
@@ -50,11 +48,6 @@ export function AppLayout() {
     { to: "/audit", label: t("nav.audit"), icon: ScrollText, perm: "audit:read" },
     { to: "/settings", label: t("nav.settings"), icon: Settings, perm: "settings:read" },
   ];
-
-  async function onLogout() {
-    await logout();
-    navigate("/login", { replace: true });
-  }
 
   return (
     <div className={`app-shell${collapsed ? " collapsed" : ""}`}>
@@ -90,12 +83,7 @@ export function AppLayout() {
           </div>
           <div className="header-right">
             <ThemeToggle />
-            <LanguageSwitcher />
-            <span className="user-chip">{identity?.user.username}</span>
-            <button className="secondary btn-icon-text" onClick={onLogout}>
-              <LogOut size={16} strokeWidth={1.75} aria-hidden />
-              {t("common.logout")}
-            </button>
+            <UserMenu />
           </div>
         </header>
         <main className="app-main">

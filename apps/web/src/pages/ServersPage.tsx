@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { DB_ENGINES, DEFAULT_PORTS, type DbEngine, type ServerDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { Modal } from "../components/Modal";
 
 interface FormState {
   id: string | null;
@@ -152,8 +153,18 @@ export function ServersPage() {
       </table>
 
       {form && (
-        <div className="card form-card">
-          <h2>{form.id ? t("common.edit") : t("servers.new")}</h2>
+        <Modal
+          title={form.id ? t("common.edit") : t("servers.new")}
+          onClose={() => setForm(null)}
+          footer={
+            <>
+              <button className="secondary" onClick={() => setForm(null)}>
+                {t("common.cancel")}
+              </button>
+              <button onClick={submit}>{t("common.save")}</button>
+            </>
+          }
+        >
           <label>
             {t("servers.name")}
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -230,11 +241,7 @@ export function ServersPage() {
             {t("servers.notes")}
             <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </label>
-          <div className="form-actions">
-            <button onClick={submit}>{t("common.save")}</button>
-            <button className="secondary" onClick={() => setForm(null)}>{t("common.cancel")}</button>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   );

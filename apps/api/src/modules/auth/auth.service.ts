@@ -1,6 +1,6 @@
 import type { AuthIdentity, PermissionKey, UserDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
-import { verifyPassword } from "../../lib/password.js";
+import { hashPassword, verifyPassword } from "../../lib/password.js";
 import * as usersRepo from "../users/users.repository.js";
 import type { UserWithSecret } from "../users/users.repository.js";
 import { getLdapRuntimeConfig } from "../settings/settings.service.js";
@@ -47,4 +47,33 @@ export async function getIdentity(userId: string): Promise<AuthIdentity | null> 
   if (!user || !user.isActive) return null;
   const permissions = (await usersRepo.getUserPermissions(userId)) as PermissionKey[];
   return { user: stripSecret(user), permissions };
+}
+
+/** Actualiza el perfil propio (datos básicos + preferencias + avatar). */
+export async function updateOwnProfile(
+  userId: string,
+  data: usersRepo.ProfileInput,
+): Promise<UserDto> {
+  await usersRepo.updateProfile(userId, data);
+  const user = await usersRepo.findById(userId);
+  if (!user) throw HttpError.notFound("Usuario no encontrado");
+  return stripSecret(user);
+}
+
+/** Cambia la contraseña propia (solo usuarios locales). */
+export async function changeOwnPassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const user = await usersRepo.findById(userId);
+  if (!user) throw HttpError.notFound("Usuario no encontrado");
+  if (user.authType !== "local") {
+    throw HttpError.badRequest("Los usuarios de AD gestionan su contraseña en Active Directory");
+  }
+  const currentHash = await usersRepo.getPasswordHash(userId);
+  if (!currentHash || !(await verifyPassword(currentPassword, currentHash))) {
+    throw HttpError.badRequest("La contraseña actual es incorrecta");
+  }
+  await usersRepo.updateUser(userId, { passwordHash: await hashPassword(newPassword) });
 }

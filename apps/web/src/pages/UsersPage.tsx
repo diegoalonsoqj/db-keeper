@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { RoleDto, UserDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { Modal } from "../components/Modal";
 
 interface FormState {
   id: string | null;
@@ -154,8 +155,18 @@ export function UsersPage() {
       </table>
 
       {form && (
-        <div className="card form-card">
-          <h2>{form.id ? t("common.edit") : t("users.new")}</h2>
+        <Modal
+          title={form.id ? t("common.edit") : t("users.new")}
+          onClose={() => setForm(null)}
+          footer={
+            <>
+              <button className="secondary" onClick={() => setForm(null)}>
+                {t("common.cancel")}
+              </button>
+              <button onClick={submit}>{t("common.save")}</button>
+            </>
+          }
+        >
           {!form.id && (
             <label>
               {t("users.username")}
@@ -214,13 +225,7 @@ export function UsersPage() {
               </label>
             ))}
           </fieldset>
-          <div className="form-actions">
-            <button onClick={submit}>{t("common.save")}</button>
-            <button className="secondary" onClick={() => setForm(null)}>
-              {t("common.cancel")}
-            </button>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   );

@@ -3,9 +3,10 @@ import { z } from "zod";
 import { env } from "../../config/env.js";
 import { ok } from "../../lib/respond.js";
 import { SESSION_COOKIE, signSession } from "../../lib/jwt.js";
+import { APP_LOCALES } from "@dbkeeper/shared";
 import { authenticate } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
-import { getIdentity, login } from "./auth.service.js";
+import { changeOwnPassword, getIdentity, login, updateOwnProfile } from "./auth.service.js";
 
 export const authRouter: Router = Router();
 
@@ -63,4 +64,48 @@ authRouter.post("/logout", authenticate, async (req, res, next) => {
 
 authRouter.get("/me", authenticate, (req, res) => {
   ok(res, req.auth);
+});
+
+// Campos omitidos (undefined) NO se tocan; null limpia el valor.
+const profileSchema = z.object({
+  fullName: z.string().max(255).nullable().optional(),
+  email: z.string().email().nullable().optional(),
+  preferredLanguage: z.enum(APP_LOCALES).nullable().optional(),
+  preferredTheme: z.enum(["dark", "light"]).nullable().optional(),
+  // Avatar como data URL de imagen (pequeña); "" o null lo elimina.
+  avatar: z
+    .string()
+    .max(400_000, "La imagen es demasiado grande")
+    .refine((v) => v === "" || v.startsWith("data:image/"), "Avatar inválido")
+    .nullable()
+    .optional()
+    .transform((v) => (v === "" ? null : v)),
+});
+
+authRouter.patch("/profile", authenticate, async (req, res, next) => {
+  try {
+    const data = profileSchema.parse(req.body);
+    const user = await updateOwnProfile(req.auth!.user.id, data);
+    await recordAudit(req, { action: "profile.update", entityType: "user", entityId: user.id });
+    const identity = await getIdentity(user.id);
+    ok(res, identity);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1).max(1024),
+  newPassword: z.string().min(8).max(1024),
+});
+
+authRouter.post("/change-password", authenticate, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = passwordSchema.parse(req.body);
+    await changeOwnPassword(req.auth!.user.id, currentPassword, newPassword);
+    await recordAudit(req, { action: "profile.change_password", entityType: "user", entityId: req.auth!.user.id });
+    ok(res, { changed: true });
+  } catch (err) {
+    next(err);
+  }
 });

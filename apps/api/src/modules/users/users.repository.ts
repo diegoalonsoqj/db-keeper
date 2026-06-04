@@ -10,6 +10,9 @@ interface UserRow {
   auth_type: AuthType;
   password_hash: string | null;
   is_active: boolean;
+  avatar: string | null;
+  preferred_language: string | null;
+  preferred_theme: "dark" | "light" | null;
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -29,6 +32,9 @@ function toUser(row: UserRow): UserWithSecret {
     authType: row.auth_type,
     isActive: row.is_active,
     roles: row.role_keys.filter((k): k is string => k !== null),
+    avatar: row.avatar,
+    preferredLanguage: row.preferred_language,
+    preferredTheme: row.preferred_theme,
     lastLoginAt: row.last_login_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -108,6 +114,44 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<vo
 
 export async function deleteUser(id: string): Promise<void> {
   await query("DELETE FROM auth.users WHERE id = $1", [id]);
+}
+
+export interface ProfileInput {
+  fullName?: string | null;
+  email?: string | null;
+  avatar?: string | null;
+  preferredLanguage?: string | null;
+  preferredTheme?: "dark" | "light" | null;
+}
+
+/** Actualiza los campos de perfil propios del usuario. */
+export async function updateProfile(id: string, input: ProfileInput): Promise<void> {
+  const map: Record<string, string> = {
+    fullName: "full_name",
+    email: "email",
+    avatar: "avatar",
+    preferredLanguage: "preferred_language",
+    preferredTheme: "preferred_theme",
+  };
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  let i = 1;
+  for (const [k, col] of Object.entries(map)) {
+    const v = (input as Record<string, unknown>)[k];
+    if (v !== undefined) (sets.push(`${col} = $${i++}`), params.push(v));
+  }
+  if (sets.length === 0) return;
+  params.push(id);
+  await query(`UPDATE auth.users SET ${sets.join(", ")} WHERE id = $${i}`, params);
+}
+
+/** Hash de contraseña actual (para verificar el cambio de contraseña propio). */
+export async function getPasswordHash(id: string): Promise<string | null> {
+  const { rows } = await query<{ password_hash: string | null }>(
+    "SELECT password_hash FROM auth.users WHERE id = $1",
+    [id],
+  );
+  return rows[0]?.password_hash ?? null;
 }
 
 export async function touchLastLogin(id: string): Promise<void> {

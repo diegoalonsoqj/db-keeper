@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { BucketDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { Modal } from "../components/Modal";
 
 interface FormState {
   id: string | null;
@@ -108,8 +109,18 @@ export function BucketsPage() {
       </table>
 
       {form && (
-        <div className="card form-card">
-          <h2>{form.id ? t("common.edit") : t("buckets.new")}</h2>
+        <Modal
+          title={form.id ? t("common.edit") : t("buckets.new")}
+          onClose={() => setForm(null)}
+          footer={
+            <>
+              <button className="secondary" onClick={() => setForm(null)}>
+                {t("common.cancel")}
+              </button>
+              <button onClick={submit}>{t("common.save")}</button>
+            </>
+          }
+        >
           <label>
             {t("buckets.name")}
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -135,11 +146,7 @@ export function BucketsPage() {
             <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
             {t("common.active")}
           </label>
-          <div className="form-actions">
-            <button onClick={submit}>{t("common.save")}</button>
-            <button className="secondary" onClick={() => setForm(null)}>{t("common.cancel")}</button>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   );
