@@ -1,4 +1,5 @@
-:root {
+:root,
+:root[data-theme="dark"] {
   --bg: #0f141a;
   --panel: #1a2230;
   --panel-2: #222c3c;
@@ -8,6 +9,23 @@
   --accent: #3b82f6;
   --danger: #ef4444;
   --success: #22c55e;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --panel-2: #eef2f7;
+  --border: #d6deea;
+  --text: #1b2430;
+  --muted: #5b6b80;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --success: #16a34a;
+  color-scheme: light;
+}
+
+:root {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -68,16 +86,26 @@ a {
   display: grid;
   grid-template-columns: 220px 1fr;
   min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+.app-shell.collapsed {
+  grid-template-columns: 64px 1fr;
 }
 .sidebar {
   background: var(--panel);
   border-right: 1px solid var(--border);
   padding: 1rem 0.75rem;
+  overflow: hidden;
 }
 .brand {
   font-weight: 700;
   font-size: 1.2rem;
   padding: 0.5rem 0.6rem 1rem;
+  white-space: nowrap;
+}
+.app-shell.collapsed .brand {
+  text-align: center;
+  padding: 0.5rem 0 1rem;
 }
 .sidebar nav {
   display: flex;
@@ -85,9 +113,13 @@ a {
   gap: 0.25rem;
 }
 .sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   padding: 0.5rem 0.6rem;
   border-radius: 6px;
   color: var(--muted);
+  white-space: nowrap;
 }
 .sidebar nav a:hover {
   background: var(--panel-2);
@@ -96,6 +128,27 @@ a {
 .sidebar nav a.active {
   background: var(--accent);
   color: white;
+}
+.nav-icon {
+  width: 1.3rem;
+  text-align: center;
+  flex: 0 0 auto;
+}
+.app-shell.collapsed .nav-label {
+  display: none;
+}
+.app-shell.collapsed .sidebar nav a {
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+.icon-btn {
+  padding: 0.35rem 0.55rem;
+  line-height: 1;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 .content {
   display: flex;
@@ -252,4 +305,8 @@ table.grid th {
   margin-top: 0.5rem;
   font-size: 0.8rem;
   color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }

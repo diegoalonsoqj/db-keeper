@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../lib/api";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -52,6 +53,7 @@ export function LoginPage() {
         </button>
         <div className="login-lang">
           <LanguageSwitcher />
+          <ThemeToggle />
         </div>
       </form>
     </div>
