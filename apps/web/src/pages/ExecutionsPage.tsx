@@ -34,6 +34,34 @@ export function ExecutionsPage() {
 
   const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString(i18n.language) : "—");
 
+  /** Formatea bytes a B/KB/MB/GB. Devuelve «—» si no hay dato. */
+  const fmtBytes = (n: number | null) => {
+    if (n == null) return "—";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let v = n;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) (v /= 1024), i++;
+    return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  };
+
+  /** Duración entre inicio y fin en formato compacto (s / m s / h m). */
+  const fmtDuration = (start: string | null, end: string | null) => {
+    if (!start || !end) return "—";
+    const ms = new Date(end).getTime() - new Date(start).getTime();
+    if (ms < 0) return "—";
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} m ${s % 60} s`;
+    return `${Math.floor(m / 60)} h ${m % 60} m`;
+  };
+
+  /** Suma de pesos de los ítems con archivo generado. */
+  const totalBytes = (e: ExecutionDto) =>
+    e.items.some((it) => it.fileBytes != null)
+      ? e.items.reduce((acc, it) => acc + (it.fileBytes ?? 0), 0)
+      : null;
+
   return (
     <section>
       <div className="page-head">
@@ -50,12 +78,15 @@ export function ExecutionsPage() {
               <th>{t("executions.origin")}</th>
               <th>{t("executions.databases")}</th>
               <th>{t("executions.created")}</th>
+              <th>{t("executions.finished")}</th>
+              <th>{t("executions.duration")}</th>
+              <th>{t("executions.size")}</th>
             </tr>
           </thead>
           <tbody>
             {data.items.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={8} className="muted">
                   {t("executions.empty")}
                 </td>
               </tr>
@@ -68,9 +99,18 @@ export function ExecutionsPage() {
                 </td>
                 <td>{t(`executions.origin_${e.origin}`)}</td>
                 <td>
-                  {e.items.map((it) => `${it.dbName} (${t(`status.${it.status}`)})`).join(", ") || "—"}
+                  {e.items
+                    .map(
+                      (it) =>
+                        `${it.dbName} (${t(`status.${it.status}`)}` +
+                        `${it.fileBytes != null ? `, ${fmtBytes(it.fileBytes)}` : ""})`,
+                    )
+                    .join(", ") || "—"}
                 </td>
                 <td>{fmt(e.createdAt)}</td>
+                <td>{fmt(e.finishedAt)}</td>
+                <td>{fmtDuration(e.startedAt, e.finishedAt)}</td>
+                <td>{fmtBytes(totalBytes(e))}</td>
               </tr>
             ))}
           </tbody>

@@ -150,6 +150,9 @@
     "origin_scheduled": "Programado",
     "databases": "Bases de datos",
     "created": "Creada",
+    "finished": "Finalizada",
+    "duration": "Duración",
+    "size": "Peso",
     "empty": "Sin ejecuciones"
   },
   "servers": {

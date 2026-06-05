@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
+import { verifyGzip } from "./verify.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
 const GZIP_LEVEL = 6;
@@ -38,13 +39,21 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     filePath,
   ];
 
-  await runPgDump(args, {
-    PGPASSWORD: input.password,
-    ...(input.ssl ? { PGSSLMODE: "require" } : {}),
-  });
-
-  const { size } = await stat(filePath);
-  return { filePath, bytes: size };
+  try {
+    await runPgDump(args, {
+      PGPASSWORD: input.password,
+      ...(input.ssl ? { PGSSLMODE: "require" } : {}),
+    });
+    const { size } = await stat(filePath);
+    if (size === 0) throw new Error("El dump quedó vacío");
+    // Validar integridad: el .gz debe descomprimir sin error.
+    if (input.compress) await verifyGzip(filePath);
+    return { filePath, bytes: size };
+  } catch (err) {
+    // Limpiar el archivo parcial/corrupto para no dejar dumps inválidos.
+    await rm(filePath, { force: true });
+    throw err;
+  }
 }
 
 /** Lanza pg_dump como proceso externo y resuelve/rechaza según el código de salida. */

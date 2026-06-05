@@ -150,6 +150,9 @@
     "origin_scheduled": "Scheduled",
     "databases": "Databases",
     "created": "Created",
+    "finished": "Finished",
+    "duration": "Duration",
+    "size": "Size",
     "empty": "No executions"
   },
   "servers": {

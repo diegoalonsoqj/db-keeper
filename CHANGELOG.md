@@ -18,14 +18,20 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
     (`options.excludeTables` → `--exclude-table`). La contraseña viaja por
     `PGPASSWORD` (nunca en la línea de comandos ni en logs); los argumentos van como
     array (sin shell, sin inyección).
-  - **Scripts de referencia** (`docs/pg_backup.py`, `docs/mysql_backup.py`) que
-    definen los parámetros de dump esperados.
+  - **Nombre de archivo** `backup_{db}_{ambiente}_{timestamp}.sql[.gz]` (el ambiente
+    sale de `server.environment`), igual que el script de referencia.
+  - **Validación de integridad**: el `.sql.gz` se verifica descomprimiéndolo entero
+    (equivalente a `gunzip -t`) y se rechaza el dump vacío; si pg_dump o la
+    validación fallan, se borra el archivo parcial para no dejar dumps inválidos.
+  - **Scripts de referencia** (`docs/pg_backup.py`, `docs/mysql_backup.py`,
+    `docs/mongo_backup_telegram.py`) que definen los parámetros de dump esperados.
   - Registry de dumpers por motor; el resto (mysql/mongo/sqlserver) y el destino
     **gcloud/GCS** quedan para pasos siguientes (fallan con mensaje claro por ahora).
 - **Recuperación de huérfanas** al arrancar: como la ejecución es en-proceso, un
   reinicio marca como `failed` las corridas que quedaron en `pending`/`running`.
 - **Frontend**: la página *Ejecuciones* refresca cada 3 s mientras haya corridas
-  activas, para ver el avance del motor en vivo.
+  activas y ahora muestra **fin, duración y peso** (suma de los dumps; peso por BD en
+  el detalle).
 
 ### Configuración
 - Nuevas env: `BACKUP_DIR` (destino local, por defecto `/backups` en la raíz,
