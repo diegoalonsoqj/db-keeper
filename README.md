@@ -106,7 +106,8 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 - [x] **Etapa 0** — Fundaciones (monorepo, API base, Web base, migraciones, esquemas).
 - [x] **Etapa 1** — Auth (local + AD/LDAP), Usuarios, Roles/Permisos, auditoría base.
 - [x] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
-- [ ] **Etapa 3** — Descubrimiento de instancias → selección de BDs.
+- [~] **Etapa 3** — Catálogo de credenciales reutilizables ✅; descubrimiento de
+  instancias → selección de BDs (pendiente).
 - [ ] **Etapa 4** — Motor de ejecución (método `dump`) + cola + evento de backup multi-BD.
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo).
 - [ ] **Etapa 6** — Programación (scheduler).

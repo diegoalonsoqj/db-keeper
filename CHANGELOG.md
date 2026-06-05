@@ -3,6 +3,31 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 3 · parte 1] — Catálogo de credenciales reutilizables · 2026-06-04
+
+### Añadido
+- **Catálogo de credenciales** (migración `0005`): `secrets.credentials` deja de ser
+  1:1 con la instancia y pasa a ser un catálogo independiente (un "usuario de backups"
+  reutilizable). `core.servers` referencia una credencial por `credential_id` (muchas
+  instancias a una credencial). La migración convierte las credenciales 1:1 existentes
+  al catálogo y las enlaza.
+- **Módulo Credenciales** (`/api/credentials`): CRUD del catálogo con contraseña y
+  `extra` cifrados (AES-256-GCM); nunca expone la contraseña. Auditoría de altas,
+  cambios y bajas.
+- **Frontend**: página *Credenciales* (CRUD, campo `extra` como JSON cifrado) y, en
+  *Instancias*, un **selector** de credencial del catálogo en vez de capturar
+  usuario/contraseña por instancia.
+
+### Cambiado
+- **Instancias**: el alta/edición ya no embebe la credencial; usa `credentialId`
+  (opcional, se puede asignar luego). `ServerDto` expone `credentialId`/`credentialName`.
+
+### Seguridad
+- **Borrado coherente** (migración `0006`): la FK `core.servers.credential_id` pasa a
+  `ON DELETE RESTRICT`, alineando la BD con la regla del service (no se borra una
+  credencial en uso). El service captura `foreign_key_violation` (23503) y responde
+  **409**, cerrando la carrera entre la verificación y el borrado (TOCTOU).
+
 ## [UX] — Perfil de usuario, temas y modales · 2026-06-04
 
 ### Añadido

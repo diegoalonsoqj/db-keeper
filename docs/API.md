@@ -74,11 +74,11 @@ Cuerpo de creación:
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/` | `servers:read` | Lista instancias (nunca expone la contraseña). |
+| GET | `/` | `servers:read` | Lista instancias (incluye `credentialId`/`credentialName`). |
 | GET | `/:id` | `servers:read` | Detalle de una instancia. |
-| POST | `/` | `servers:write` | Crea instancia + credencial. |
-| PATCH | `/:id` | `servers:write` | Actualiza datos y/o credencial. |
-| DELETE | `/:id` | `servers:delete` | Elimina (cascada a su credencial). |
+| POST | `/` | `servers:write` | Crea instancia; referencia una credencial del catálogo. |
+| PATCH | `/:id` | `servers:write` | Actualiza datos y/o la credencial referenciada. |
+| DELETE | `/:id` | `servers:delete` | Elimina la instancia (no borra la credencial del catálogo). |
 
 Cuerpo de creación:
 
@@ -91,11 +91,41 @@ Cuerpo de creación:
   "environment": "produccion",
   "useSsl": true,
   "isCloudSql": false,            // true habilita gcpProject/gcpInstance
-  "credential": { "username": "backup_user", "password": "…", "extra": {} }
+  "credentialId": "uuid | null"  // credencial del catálogo (opcional, ver /api/credentials)
 }
 ```
 
-En `PATCH`, si `credential.password` se omite, se conserva la contraseña actual.
+La credencial ya no se embebe en la instancia: se gestiona en el **catálogo**
+(`/api/credentials`) y se referencia por `credentialId`. Si la credencial indicada no
+existe, la API responde `400`.
+
+## Credenciales — `/api/credentials`
+
+Catálogo de credenciales reutilizables (un "usuario de backups" se define una vez y se
+asigna a varias instancias). Nunca expone la contraseña ni los datos `extra`.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `servers:read` | Lista credenciales (sin secretos; `hasExtra` indica si hay `extra`). |
+| GET | `/:id` | `servers:read` | Detalle de una credencial. |
+| POST | `/` | `servers:write` | Crea credencial (`password` obligatoria). |
+| PATCH | `/:id` | `servers:write` | Actualiza; `password`/`extra` vacíos conservan los actuales. |
+| DELETE | `/:id` | `servers:delete` | Elimina; `409` si está en uso por alguna instancia. |
+
+Cuerpo de creación:
+
+```jsonc
+{
+  "name": "Backups Prod",
+  "username": "backup_user",
+  "password": "…",
+  "description": "Usuario de solo lectura para backups",
+  "extra": { "type": "service_account" }   // opcional; JSON cifrado (p. ej. clave GCP)
+}
+```
+
+En `PATCH`, omitir `password` conserva la actual; omitir `extra` conserva el actual
+(enviar `null` lo borra).
 
 ## Buckets — `/api/buckets`
 

@@ -51,7 +51,8 @@ Separación por responsabilidad (permite políticas de acceso más estrictas):
 - **`audit`** — `activity_log` (quién, qué, cuándo, IP, user-agent, detalle).
 - **`core`** — `servers` (instancias), `storage_buckets`, `app_settings`; y más
   adelante bases, trabajos y ejecuciones.
-- **`secrets`** — `credentials` (1:1 con instancia), con contraseña/extra cifrados.
+- **`secrets`** — `credentials`: **catálogo** de credenciales reutilizables, con
+  contraseña/`extra` cifrados (una credencial puede usarse en varias instancias).
 
 Migraciones SQL versionadas en `apps/api/migrations/`, aplicadas por un runner
 propio que registra cada archivo en `public._migrations` dentro de una transacción.
@@ -71,11 +72,24 @@ audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip
 ### Modelo de datos (Etapa 2)
 
 ```
-core.servers (id, name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_*, notes, …)
-   └─1:1─ secrets.credentials (server_id, username, password_encrypted, extra_encrypted)
 core.storage_buckets (id, name, provider, bucket, prefix, service_account_encrypted, is_active, …)
 core.app_settings (key, value jsonb)   -- 'general' (timezone, idioma) · 'ldap' (config AD)
 ```
+
+### Modelo de datos (Etapa 3 · parte 1)
+
+El catálogo de credenciales reemplaza la relación 1:1 instancia–credencial: muchas
+instancias pueden referenciar una misma credencial por `credential_id`.
+
+```
+secrets.credentials (id, name, username, password_encrypted, extra_encrypted, description, …)
+   ^
+   │ credential_id (FK, ON DELETE RESTRICT)
+core.servers (id, name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_*, notes, credential_id?, …)
+```
+
+La FK es `ON DELETE RESTRICT`: una credencial en uso no puede borrarse; el service lo
+verifica de antemano (409) y la BD lo garantiza ante condiciones de carrera.
 
 ## Seguridad
 
