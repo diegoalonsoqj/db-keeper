@@ -175,7 +175,7 @@
     "engine": "Motor",
     "host": "Host",
     "port": "Puerto",
-    "environment": "Entorno",
+    "environment": "Ambiente",
     "useSsl": "Usar SSL/TLS",
     "isCloudSql": "Instancia gestionada (Cloud SQL)",
     "gcpProject": "Proyecto GCP",
