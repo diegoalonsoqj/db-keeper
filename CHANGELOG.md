@@ -3,6 +3,24 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 3] — Log, descarga, reintento y dumps por motor · 2026-06-05
+
+### Añadido
+- **Detalle de ejecución en la UI**: cada corrida es expandible y muestra, por BD,
+  estado, peso, duración, **descarga del dump** y **log** del motor (cuando falló).
+- **Descarga**: `GET /api/backups/executions/:execId/items/:itemId/download`
+  (`backups:read`) — sirve el archivo con guard anti path-traversal y validación de
+  que el ítem pertenece a la ejecución.
+- **Reintento**: `POST /api/backups/executions/:execId/retry` (`backups:run`) — crea
+  una nueva corrida del mismo evento con las mismas BDs registradas y dispara el motor.
+- `ExecutionItemDto.log` se expone en la API para mostrar el error por BD.
+
+### Cambiado
+- **Organización de los dumps**: se guardan sueltos **por motor**
+  (`backups/<motor>/<archivo>`) en vez de una carpeta por id de ejecución. El nombre
+  ya identifica la corrida (`{db}_{ambiente}_{timestamp}`) y el id de ejecución queda
+  como registro en `core.executions`.
+
 ## [Etapa 4 · parte 2] — Motor real de backup (PostgreSQL) · 2026-06-05
 
 ### Añadido

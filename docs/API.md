@@ -122,6 +122,8 @@ corrida genera una **ejecución** con su identificador, estado y un detalle por 
 | PATCH | `/:id` | `backups:schedule` | Edita un evento. |
 | DELETE | `/:id` | `backups:schedule` | Elimina un evento. |
 | POST | `/:id/run` | `backups:run` | Lo lanza ahora: crea la ejecución (`pending`) con un ítem por BD y **dispara el motor en segundo plano** (el estado avanza a `running`→`success`/`failed`). |
+| POST | `/executions/:execId/retry` | `backups:run` | Reintenta una ejecución: nueva corrida del mismo evento con las mismas BDs. |
+| GET | `/executions/:execId/items/:itemId/download` | `backups:read` | Descarga el archivo de backup de esa BD. |
 
 Cuerpo de creación:
 

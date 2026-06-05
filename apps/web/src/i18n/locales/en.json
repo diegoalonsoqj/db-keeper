@@ -153,6 +153,13 @@
     "finished": "Finished",
     "duration": "Duration",
     "size": "Size",
+    "database": "Database",
+    "detail": "Details",
+    "hideDetail": "Hide",
+    "download": "Download",
+    "log": "View log",
+    "retry": "Retry",
+    "retried": "Retry started for “{{name}}”.",
     "empty": "No executions"
   },
   "servers": {

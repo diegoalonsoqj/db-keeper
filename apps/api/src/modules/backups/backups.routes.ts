@@ -45,6 +45,41 @@ backupsRouter.get("/executions", authorize("backups:read"), async (req, res, nex
   }
 });
 
+// Descarga del archivo de un ítem (una BD) de una ejecución.
+backupsRouter.get(
+  "/executions/:execId/items/:itemId/download",
+  authorize("backups:read"),
+  async (req, res, next) => {
+    try {
+      const execId = z.string().uuid().parse(req.params.execId);
+      const itemId = z.string().uuid().parse(req.params.itemId);
+      const { filePath, fileName } = await service.getItemDownload(execId, itemId);
+      res.download(filePath, fileName, (err) => {
+        if (err && !res.headersSent) next(err);
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Reintenta una ejecución (crea una nueva corrida con las mismas BDs).
+backupsRouter.post("/executions/:execId/retry", authorize("backups:run"), async (req, res, next) => {
+  try {
+    const execId = z.string().uuid().parse(req.params.execId);
+    const exec = await service.retryExecution(execId);
+    await recordAudit(req, {
+      action: "backups.run",
+      entityType: "execution",
+      entityId: exec.id,
+      detail: { retryOf: execId },
+    });
+    ok(res, exec, 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
 backupsRouter.get("/", authorize("backups:read"), async (req, res, next) => {
   try {
     ok(res, await service.listJobs(paginationSchema.parse(req.query)));

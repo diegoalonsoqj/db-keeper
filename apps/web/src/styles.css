@@ -337,6 +337,32 @@ table.grid th {
   gap: 0.4rem;
 }
 
+/* ---- Detalle expandible de una ejecución ---- */
+tr.detail-row > td {
+  background: var(--bg-elev, rgba(255, 255, 255, 0.03));
+  padding: 0.4rem 0.8rem;
+}
+table.grid.sub {
+  font-size: 0.85rem;
+}
+table.grid.sub th {
+  position: static;
+  box-shadow: none;
+  background: transparent;
+}
+pre.log {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.7rem;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
 /* ---- Badges de estado ---- */
 .badge {
   display: inline-block;

@@ -106,6 +106,8 @@ export interface ExecutionItemDto {
   status: ExecutionState;
   fileName: string | null;
   fileBytes: number | null;
+  /** Salida de error del motor cuando la BD falló; null si fue bien. */
+  log: string | null;
   startedAt: string | null;
   finishedAt: string | null;
 }

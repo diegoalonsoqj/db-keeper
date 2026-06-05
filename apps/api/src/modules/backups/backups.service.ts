@@ -3,10 +3,12 @@ import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
 import * as bucketsRepo from "../buckets/buckets.repository.js";
+import { access } from "node:fs/promises";
+import path from "node:path";
 import { logger } from "../../config/logger.js";
 import * as repo from "./backups.repository.js";
 import type { JobFields } from "./backups.repository.js";
-import { runExecution } from "./engine/runner.js";
+import { runExecution, resolveBackupFile } from "./engine/runner.js";
 
 export interface JobData {
   name: string;
@@ -98,4 +100,40 @@ export async function runNow(jobId: string): Promise<ExecutionDto> {
 
 export async function listExecutions(p: { limit: number; offset: number; jobId?: string }) {
   return repo.listExecutions(p);
+}
+
+/**
+ * Reintenta una ejecución: crea una nueva corrida del mismo evento con las mismas
+ * BDs registradas y dispara el motor. Devuelve la nueva ejecución (`pending`).
+ */
+export async function retryExecution(executionId: string): Promise<ExecutionDto> {
+  const exec = await repo.findExecutionById(executionId);
+  if (!exec) throw HttpError.notFound("Ejecución no encontrada");
+  if (!exec.jobId) throw HttpError.badRequest("El evento ya no existe; no se puede reintentar");
+  if (!(await repo.findJobById(exec.jobId))) {
+    throw HttpError.badRequest("El evento ya no existe; no se puede reintentar");
+  }
+  const databases = exec.items.map((it) => it.dbName);
+  const newId = await repo.createExecution(exec.jobId, exec.label, databases);
+  const created = await repo.findExecutionById(newId);
+  if (!created) throw HttpError.notFound("Ejecución no encontrada");
+  void runExecution(newId).catch((err) => logger.error({ err, newId }, "Error al disparar el motor"));
+  return created;
+}
+
+/** Resuelve el archivo descargable de un ítem (valida pertenencia y existencia). */
+export async function getItemDownload(
+  executionId: string,
+  itemId: string,
+): Promise<{ filePath: string; fileName: string }> {
+  const item = await repo.findItemFile(executionId, itemId);
+  if (!item) throw HttpError.notFound("Ítem de ejecución no encontrado");
+  if (!item.fileName) throw HttpError.badRequest("Esta base de datos no generó un archivo");
+  const filePath = resolveBackupFile(item.fileName);
+  try {
+    await access(filePath);
+  } catch {
+    throw HttpError.notFound("El archivo de backup ya no está disponible");
+  }
+  return { filePath, fileName: path.basename(item.fileName) };
 }

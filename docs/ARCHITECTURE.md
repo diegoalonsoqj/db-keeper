@@ -119,9 +119,10 @@ del evento puede heredarse de la instancia o ser un override.
 segundo plano (in-proceso, sin cola todavía) vuelca cada BD y actualiza los estados
 `pending→running→success/failed` con archivo, peso y log por BD. PostgreSQL usa
 `pg_dump -Fp` (`--no-owner --no-privileges --serializable-deferrable`, `--exclude-table`
-por `options.excludeTables`) generando `{db}_{ambiente}_{timestamp}.sql[.gz]` (gzip
-configurable por `options.compress`), con validación de integridad del `.gz` y borrado
-del parcial si falla. Las contraseñas viajan por `PGPASSWORD` y los argumentos como
+por `options.excludeTables`) generando `backups/<motor>/{db}_{ambiente}_{timestamp}.sql[.gz]`
+(gzip configurable por `options.compress`), con validación de integridad del `.gz` y
+borrado del parcial si falla. El archivo se descarga desde *Ejecuciones* y el `log` por
+BD queda disponible; una corrida fallida se puede **reintentar**. Las contraseñas viajan por `PGPASSWORD` y los argumentos como
 array (sin shell). Al arrancar, las ejecuciones que quedaron en curso por un reinicio se
 marcan `failed`. El destino GCS, el resto de motores, la cola (Redis/BullMQ) y el
 scheduler son fases siguientes.

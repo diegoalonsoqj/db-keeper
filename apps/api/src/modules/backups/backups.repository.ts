@@ -201,7 +201,7 @@ const SELECT_EXECUTION = `
       json_agg(
         json_build_object(
           'id', i.id, 'dbName', i.db_name, 'status', i.status,
-          'fileName', i.file_name, 'fileBytes', i.file_bytes,
+          'fileName', i.file_name, 'fileBytes', i.file_bytes, 'log', i.log,
           'startedAt', i.started_at, 'finishedAt', i.finished_at
         ) ORDER BY i.db_name
       ) FILTER (WHERE i.id IS NOT NULL), '[]'
@@ -243,6 +243,20 @@ export async function createExecution(
 export async function findExecutionById(id: string): Promise<ExecutionDto | null> {
   const { rows } = await query<ExecutionRow>(`${SELECT_EXECUTION} WHERE e.id = $1 GROUP BY e.id`, [id]);
   return rows[0] ? toExecutionDto(rows[0]) : null;
+}
+
+/** Devuelve el archivo de un ítem (para descarga), validando que pertenezca a la ejecución. */
+export async function findItemFile(
+  executionId: string,
+  itemId: string,
+): Promise<{ fileName: string | null; dbName: string; status: ExecutionDto["status"] } | null> {
+  const { rows } = await query<{ file_name: string | null; db_name: string; status: ExecutionDto["status"] }>(
+    "SELECT file_name, db_name, status FROM core.execution_items WHERE id = $1 AND execution_id = $2",
+    [itemId, executionId],
+  );
+  return rows[0]
+    ? { fileName: rows[0].file_name, dbName: rows[0].db_name, status: rows[0].status }
+    : null;
 }
 
 // ---- Transiciones de estado (motor, fase 2) ----
