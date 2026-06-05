@@ -108,8 +108,10 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 - [x] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
 - [x] **Etapa 3** — Catálogo de credenciales reutilizables ✅; descubrimiento de
   instancias → selección de BDs ✅.
-- [~] **Etapa 4** — Evento de backup multi-BD + ejecutar ahora (registro) ✅; motor de
-  ejecución real (`dump`) + cola (pendiente).
+- [~] **Etapa 4** — Evento de backup multi-BD + ejecutar ahora ✅; motor de ejecución
+  real (`dump`) para **PostgreSQL** (`pg_dump` → `.sql`/`.sql.gz`, integridad y datos
+  de ejecución) ✅; resto de motores (MySQL/Mongo/SQL Server), destino GCS y cola
+  (pendiente).
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo).
 - [ ] **Etapa 6** — Programación (scheduler).
 - [ ] **Etapa 7** — Notificaciones (Email + Telegram).

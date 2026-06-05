@@ -121,7 +121,7 @@ corrida genera una **ejecución** con su identificador, estado y un detalle por 
 | POST | `/` | `backups:schedule` | Crea un evento. |
 | PATCH | `/:id` | `backups:schedule` | Edita un evento. |
 | DELETE | `/:id` | `backups:schedule` | Elimina un evento. |
-| POST | `/:id/run` | `backups:run` | Lo lanza ahora: crea la ejecución (`pending`) con un ítem por BD. |
+| POST | `/:id/run` | `backups:run` | Lo lanza ahora: crea la ejecución (`pending`) con un ítem por BD y **dispara el motor en segundo plano** (el estado avanza a `running`→`success`/`failed`). |
 
 Cuerpo de creación:
 
@@ -133,9 +133,18 @@ Cuerpo de creación:
   "method": "dump",                 // dump | gcloud (gcloud exige bucketId)
   "bucketId": "uuid | null",
   "databases": ["app", "reporting"],
+  "options": {                      // opciones del motor (dump)
+    "compress": true,               // true → .sql.gz (gzip); false → .sql plano
+    "excludeTables": ["audit.log"]  // patrones --exclude-table (opcional)
+  },
   "isActive": true
 }
 ```
+
+> **Motor (método `dump`)**: hoy solo **PostgreSQL** (`pg_dump`). Genera
+> `{db}_{ambiente}_{timestamp}.sql[.gz]` en disco local (`BACKUP_DIR`), valida la
+> integridad del `.gz` y registra peso/log por BD. El destino GCS (`gcloud`) y el resto
+> de motores llegan en fases siguientes.
 
 ## Credenciales — `/api/credentials`
 

@@ -11,9 +11,9 @@ construido hasta la **Etapa 1**; las piezas de etapas futuras se marcan como tal
 | **API / Backend** | ✅ | REST sobre Express 5, estructura en capas, sesión por cookie. |
 | **Web / SPA** | ✅ | React + Vite, i18n `es-419`/`en`, RBAC en el cliente. |
 | **BD de metadatos** | ✅ | PostgreSQL 16 (esquemas `auth`/`core`/`secrets`/`audit`). |
-| **Worker de ejecución** | ⏳ Etapa 4 | Ejecuta los backups fuera de la API. |
+| **Motor de ejecución** | ◑ Etapa 4 | Vuelca cada BD en segundo plano dentro de la API (in-proceso). **PostgreSQL** listo (`pg_dump`); resto de motores y destino GCS pendientes. |
 | **Programador** | ⏳ Etapa 6 | Dispara backups programados. |
-| **Cola / tiempo real** | ⏳ Etapa 4–5 | Redis + BullMQ; progreso por WebSocket/SSE. |
+| **Cola / tiempo real** | ⏳ Etapa 4–5 | Redis + BullMQ; progreso por WebSocket/SSE. Hoy el motor corre in-proceso, sin cola. |
 
 ## Capas de la API
 
@@ -113,8 +113,18 @@ core.executions (id, job_id? → core.backup_jobs, label, status, origin[manual|
 
 Un **evento de backup** (`backup_jobs`) es la definición reutilizable; cada corrida
 crea una **ejecución** (con su identificador propio) y un **ítem por BD**. La credencial
-del evento puede heredarse de la instancia o ser un override. El motor de ejecución
-real (volcado, cola, progreso) y el scheduler son fases siguientes.
+del evento puede heredarse de la instancia o ser un override.
+
+**Motor de ejecución** (`modules/backups/engine/`): al lanzar un evento, un runner en
+segundo plano (in-proceso, sin cola todavía) vuelca cada BD y actualiza los estados
+`pending→running→success/failed` con archivo, peso y log por BD. PostgreSQL usa
+`pg_dump -Fp` (`--no-owner --no-privileges --serializable-deferrable`, `--exclude-table`
+por `options.excludeTables`) generando `{db}_{ambiente}_{timestamp}.sql[.gz]` (gzip
+configurable por `options.compress`), con validación de integridad del `.gz` y borrado
+del parcial si falla. Las contraseñas viajan por `PGPASSWORD` y los argumentos como
+array (sin shell). Al arrancar, las ejecuciones que quedaron en curso por un reinicio se
+marcan `failed`. El destino GCS, el resto de motores, la cola (Redis/BullMQ) y el
+scheduler son fases siguientes.
 
 ## Seguridad
 
