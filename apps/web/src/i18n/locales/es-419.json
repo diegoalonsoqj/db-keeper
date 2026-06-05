@@ -6,6 +6,7 @@
   "nav": {
     "dashboard": "Panel",
     "servers": "Instancias",
+    "credentials": "Credenciales",
     "buckets": "Buckets",
     "users": "Usuarios",
     "roles": "Roles y permisos",
@@ -107,11 +108,24 @@
     "gcpProject": "Proyecto GCP",
     "gcpInstance": "Instancia GCP",
     "notes": "Notas",
-    "credentials": "Credenciales",
-    "credUsername": "Usuario de conexión",
-    "credPassword": "Contraseña",
-    "credPasswordHintEdit": "Déjala vacía para conservar la actual.",
-    "hasCredential": "Credencial"
+    "credential": "Credencial",
+    "credentialNone": "Sin credencial",
+    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde."
+  },
+  "credentials": {
+    "title": "Credenciales",
+    "new": "Nueva credencial",
+    "intro": "Usuarios de backup reutilizables. Define una credencial una vez y asígnala a varias instancias.",
+    "name": "Nombre",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "passwordHintEdit": "Déjala vacía para conservar la actual.",
+    "description": "Descripción",
+    "extra": "Datos extra (JSON)",
+    "extraPlaceholder": "{ \"type\": \"service_account\", ... }",
+    "extraHint": "Opcional. JSON cifrado (p. ej. clave de servicio GCP).",
+    "extraHintKeep": "Hay datos extra guardados. Déjalo vacío para conservarlos.",
+    "extraInvalid": "El JSON de datos extra no es válido."
   },
   "buckets": {
     "title": "Buckets",

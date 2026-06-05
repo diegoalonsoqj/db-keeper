@@ -11,6 +11,7 @@ import { rolesRouter } from "./modules/roles/roles.routes.js";
 import { permissionsRouter } from "./modules/permissions/permissions.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 import { serversRouter } from "./modules/servers/servers.routes.js";
+import { credentialsRouter } from "./modules/credentials/credentials.routes.js";
 import { bucketsRouter } from "./modules/buckets/buckets.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
@@ -41,6 +42,7 @@ export function createApp(): Express {
   app.use("/api/permissions", permissionsRouter);
   app.use("/api/audit", auditRouter);
   app.use("/api/servers", serversRouter);
+  app.use("/api/credentials", credentialsRouter);
   app.use("/api/buckets", bucketsRouter);
   app.use("/api/settings", settingsRouter);
 

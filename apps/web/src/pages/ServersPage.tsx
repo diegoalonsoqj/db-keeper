@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DB_ENGINES, DEFAULT_PORTS, type DbEngine, type ServerDto } from "@dbkeeper/shared";
+import {
+  DB_ENGINES,
+  DEFAULT_PORTS,
+  type CredentialDto,
+  type DbEngine,
+  type ServerDto,
+} from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
@@ -17,8 +23,7 @@ interface FormState {
   gcpProject: string;
   gcpInstance: string;
   notes: string;
-  credUsername: string;
-  credPassword: string;
+  credentialId: string;
 }
 
 const emptyForm: FormState = {
@@ -33,8 +38,7 @@ const emptyForm: FormState = {
   gcpProject: "",
   gcpInstance: "",
   notes: "",
-  credUsername: "",
-  credPassword: "",
+  credentialId: "",
 };
 
 export function ServersPage() {
@@ -44,11 +48,17 @@ export function ServersPage() {
   const canDelete = has("servers:delete");
 
   const [servers, setServers] = useState<ServerDto[]>([]);
+  const [credentials, setCredentials] = useState<CredentialDto[]>([]);
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    setServers(await api.get<ServerDto[]>("/servers"));
+    const [srv, creds] = await Promise.all([
+      api.get<ServerDto[]>("/servers"),
+      api.get<CredentialDto[]>("/credentials"),
+    ]);
+    setServers(srv);
+    setCredentials(creds);
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
@@ -68,8 +78,7 @@ export function ServersPage() {
       gcpProject: s.gcpProject ?? "",
       gcpInstance: s.gcpInstance ?? "",
       notes: s.notes ?? "",
-      credUsername: s.credentialUsername ?? "",
-      credPassword: "",
+      credentialId: s.credentialId ?? "",
     });
   }
 
@@ -88,10 +97,7 @@ export function ServersPage() {
         gcpProject: form.gcpProject || null,
         gcpInstance: form.gcpInstance || null,
         notes: form.notes || null,
-        credential: {
-          username: form.credUsername,
-          ...(form.credPassword ? { password: form.credPassword } : {}),
-        },
+        credentialId: form.credentialId || null,
       };
       if (form.id) await api.patch(`/servers/${form.id}`, base);
       else await api.post("/servers", base);
@@ -128,7 +134,7 @@ export function ServersPage() {
             <th>{t("servers.host")}</th>
             <th>{t("servers.port")}</th>
             <th>{t("servers.environment")}</th>
-            <th>{t("servers.credUsername")}</th>
+            <th>{t("servers.credential")}</th>
             {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
           </tr>
         </thead>
@@ -140,7 +146,7 @@ export function ServersPage() {
               <td>{s.host}{s.useSsl ? " 🔒" : ""}</td>
               <td>{s.port}</td>
               <td>{s.environment ?? t("common.none")}</td>
-              <td>{s.credentialUsername ?? t("common.none")}</td>
+              <td>{s.credentialName ?? t("common.none")}</td>
               {(canWrite || canDelete) && (
                 <td className="row-actions">
                   {canWrite && <button onClick={() => startEdit(s)}>{t("common.edit")}</button>}
@@ -221,22 +227,21 @@ export function ServersPage() {
               </label>
             </>
           )}
-          <fieldset>
-            <legend>{t("servers.credentials")}</legend>
-            <label style={{ flex: 1 }}>
-              {t("servers.credUsername")}
-              <input value={form.credUsername} onChange={(e) => setForm({ ...form, credUsername: e.target.value })} />
-            </label>
-            <label style={{ flex: 1 }}>
-              {t("servers.credPassword")}
-              <input
-                type="password"
-                value={form.credPassword}
-                onChange={(e) => setForm({ ...form, credPassword: e.target.value })}
-              />
-              {form.id && <small>{t("servers.credPasswordHintEdit")}</small>}
-            </label>
-          </fieldset>
+          <label>
+            {t("servers.credential")}
+            <select
+              value={form.credentialId}
+              onChange={(e) => setForm({ ...form, credentialId: e.target.value })}
+            >
+              <option value="">{t("servers.credentialNone")}</option>
+              {credentials.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.username})
+                </option>
+              ))}
+            </select>
+            <small>{t("servers.credentialHint")}</small>
+          </label>
           <label>
             {t("servers.notes")}
             <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

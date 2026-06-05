@@ -7,6 +7,7 @@ import {
   Database,
   DatabaseBackup,
   HardDrive,
+  KeyRound,
   LayoutDashboard,
   type LucideIcon,
   ScrollText,
@@ -44,6 +45,7 @@ export function AppLayout() {
   const items: NavItem[] = [
     { to: "/", label: t("nav.dashboard"), icon: LayoutDashboard },
     { to: "/servers", label: t("nav.servers"), icon: Database, perm: "servers:read" },
+    { to: "/credentials", label: t("nav.credentials"), icon: KeyRound, perm: "servers:read" },
     { to: "/buckets", label: t("nav.buckets"), icon: HardDrive, perm: "servers:read" },
     { to: "/users", label: t("nav.users"), icon: Users, perm: "users:read" },
     { to: "/roles", label: t("nav.roles"), icon: ShieldCheck, perm: "roles:read" },

@@ -4,6 +4,7 @@ import { RequireAuth, RequirePermission } from "./auth/guards";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ServersPage } from "./pages/ServersPage";
+import { CredentialsPage } from "./pages/CredentialsPage";
 import { BucketsPage } from "./pages/BucketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
@@ -26,6 +27,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="servers:read">
             <ServersPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "credentials",
+        element: (
+          <RequirePermission perm="servers:read">
+            <CredentialsPage />
           </RequirePermission>
         ),
       },

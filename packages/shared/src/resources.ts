@@ -25,18 +25,37 @@ export interface ServerDto {
   gcpProject: string | null;
   gcpInstance: string | null;
   notes: string | null;
+  /** Credencial del catálogo asignada a la instancia (reutilizable). */
+  credentialId: string | null;
+  credentialName: string | null;
   credentialUsername: string | null;
-  hasCredential: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Credencial reutilizable del catálogo (`secrets.credentials`). Nunca expone la
+ * contraseña. Permite definir un "usuario de backups" una vez y asignarlo a
+ * varias instancias.
+ */
+export interface CredentialDto {
+  id: string;
+  name: string;
+  username: string;
+  description: string | null;
+  hasExtra: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CredentialInput {
+  name: string;
   username: string;
   /** En altas es obligatoria; en ediciones, vacía = mantener la actual. */
   password?: string;
   /** Datos extra (p. ej. clave de servicio GCP); se cifra. */
   extra?: Record<string, unknown> | null;
+  description?: string | null;
 }
 
 /** Destino de almacenamiento. Nunca expone la clave de servicio. */

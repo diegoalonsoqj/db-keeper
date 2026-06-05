@@ -1,0 +1,201 @@
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { CredentialDto } from "@dbkeeper/shared";
+import { api, ApiClientError } from "../lib/api";
+import { useAuth } from "../auth/AuthContext";
+import { Modal } from "../components/Modal";
+
+interface FormState {
+  id: string | null;
+  name: string;
+  username: string;
+  password: string;
+  description: string;
+  extra: string;
+  hasExtra: boolean;
+}
+
+const emptyForm: FormState = {
+  id: null,
+  name: "",
+  username: "",
+  password: "",
+  description: "",
+  extra: "",
+  hasExtra: false,
+};
+
+export function CredentialsPage() {
+  const { t } = useTranslation();
+  const { has } = useAuth();
+  const canWrite = has("servers:write");
+  const canDelete = has("servers:delete");
+
+  const [credentials, setCredentials] = useState<CredentialDto[]>([]);
+  const [form, setForm] = useState<FormState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reload() {
+    setCredentials(await api.get<CredentialDto[]>("/credentials"));
+  }
+  useEffect(() => {
+    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+  }, []);
+
+  function startEdit(c: CredentialDto) {
+    setError(null);
+    setForm({
+      id: c.id,
+      name: c.name,
+      username: c.username,
+      password: "",
+      description: c.description ?? "",
+      extra: "",
+      hasExtra: c.hasExtra,
+    });
+  }
+
+  async function submit() {
+    if (!form) return;
+    setError(null);
+
+    let extra: Record<string, unknown> | null | undefined;
+    if (form.extra.trim()) {
+      try {
+        extra = JSON.parse(form.extra) as Record<string, unknown>;
+      } catch {
+        setError(t("credentials.extraInvalid"));
+        return;
+      }
+    } else if (form.id) {
+      // En edición, vacío = no tocar el extra actual; en alta, vacío = sin extra.
+      extra = undefined;
+    } else {
+      extra = null;
+    }
+
+    try {
+      const body: Record<string, unknown> = {
+        name: form.name,
+        username: form.username,
+        description: form.description || null,
+      };
+      if (form.password) body.password = form.password;
+      if (extra !== undefined) body.extra = extra;
+
+      if (form.id) await api.patch(`/credentials/${form.id}`, body);
+      else await api.post("/credentials", body);
+      setForm(null);
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : String(e));
+    }
+  }
+
+  async function remove(c: CredentialDto) {
+    if (!confirm(t("common.confirm"))) return;
+    try {
+      await api.delete(`/credentials/${c.id}`);
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : String(e));
+    }
+  }
+
+  return (
+    <section>
+      <div className="page-head">
+        <h1>{t("credentials.title")}</h1>
+        {canWrite && (
+          <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("credentials.new")}</button>
+        )}
+      </div>
+      <p className="muted">{t("credentials.intro")}</p>
+      {error && <p className="error">{error}</p>}
+
+      <table className="grid">
+        <thead>
+          <tr>
+            <th>{t("credentials.name")}</th>
+            <th>{t("credentials.username")}</th>
+            <th>{t("credentials.description")}</th>
+            <th>{t("credentials.extra")}</th>
+            {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {credentials.map((c) => (
+            <tr key={c.id}>
+              <td>{c.name}</td>
+              <td>{c.username}</td>
+              <td>{c.description ?? t("common.none")}</td>
+              <td>{c.hasExtra ? t("common.yes") : t("common.no")}</td>
+              {(canWrite || canDelete) && (
+                <td className="row-actions">
+                  {canWrite && <button onClick={() => startEdit(c)}>{t("common.edit")}</button>}
+                  {canDelete && (
+                    <button className="danger" onClick={() => remove(c)}>
+                      {t("common.delete")}
+                    </button>
+                  )}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {form && (
+        <Modal
+          title={form.id ? t("common.edit") : t("credentials.new")}
+          onClose={() => setForm(null)}
+          footer={
+            <>
+              <button className="secondary" onClick={() => setForm(null)}>
+                {t("common.cancel")}
+              </button>
+              <button onClick={submit}>{t("common.save")}</button>
+            </>
+          }
+        >
+          <label>
+            {t("credentials.name")}
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </label>
+          <label>
+            {t("credentials.username")}
+            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+          </label>
+          <label>
+            {t("credentials.password")}
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+            {form.id && <small>{t("credentials.passwordHintEdit")}</small>}
+          </label>
+          <label>
+            {t("credentials.description")}
+            <input
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </label>
+          <label>
+            {t("credentials.extra")}
+            <textarea
+              rows={4}
+              value={form.extra}
+              placeholder={t("credentials.extraPlaceholder")}
+              onChange={(e) => setForm({ ...form, extra: e.target.value })}
+            />
+            <small>
+              {form.hasExtra && !form.extra ? t("credentials.extraHintKeep") : t("credentials.extraHint")}
+            </small>
+          </label>
+        </Modal>
+      )}
+    </section>
+  );
+}

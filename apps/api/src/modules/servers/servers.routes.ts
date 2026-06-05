@@ -9,12 +9,6 @@ import * as service from "./servers.service.js";
 export const serversRouter: Router = Router();
 serversRouter.use(authenticate);
 
-const credentialSchema = z.object({
-  username: z.string().min(1).max(255),
-  password: z.string().max(1024).optional(),
-  extra: z.record(z.unknown()).nullish().transform((v) => v ?? null),
-});
-
 const serverFields = {
   name: z.string().min(1).max(120),
   engine: z.enum(DB_ENGINES),
@@ -26,9 +20,11 @@ const serverFields = {
   gcpProject: z.string().max(255).nullish().transform((v) => v ?? null),
   gcpInstance: z.string().max(255).nullish().transform((v) => v ?? null),
   notes: z.string().max(1000).nullish().transform((v) => v ?? null),
+  // Credencial del catálogo (reutilizable). Puede asignarse luego.
+  credentialId: z.string().uuid().nullish().transform((v) => v ?? null),
 };
 
-const createSchema = z.object({ ...serverFields, credential: credentialSchema });
+const createSchema = z.object({ ...serverFields });
 
 const updateSchema = z.object({
   name: serverFields.name.optional(),
@@ -41,7 +37,7 @@ const updateSchema = z.object({
   gcpProject: serverFields.gcpProject,
   gcpInstance: serverFields.gcpInstance,
   notes: serverFields.notes,
-  credential: credentialSchema.optional(),
+  credentialId: serverFields.credentialId,
 });
 
 serversRouter.get("/", authorize("servers:read"), async (_req, res, next) => {
@@ -62,8 +58,8 @@ serversRouter.get("/:id", authorize("servers:read"), async (req, res, next) => {
 
 serversRouter.post("/", authorize("servers:write"), async (req, res, next) => {
   try {
-    const { credential, ...data } = createSchema.parse(req.body);
-    const server = await service.createServer(data, credential);
+    const data = createSchema.parse(req.body);
+    const server = await service.createServer(data);
     await recordAudit(req, { action: "servers.create", entityType: "server", entityId: server.id, detail: { name: server.name, engine: server.engine } });
     ok(res, server, 201);
   } catch (err) {
@@ -73,8 +69,8 @@ serversRouter.post("/", authorize("servers:write"), async (req, res, next) => {
 
 serversRouter.patch("/:id", authorize("servers:write"), async (req, res, next) => {
   try {
-    const { credential, ...data } = updateSchema.parse(req.body);
-    const server = await service.updateServer(String(req.params.id), data, credential);
+    const data = updateSchema.parse(req.body);
+    const server = await service.updateServer(String(req.params.id), data);
     await recordAudit(req, { action: "servers.update", entityType: "server", entityId: server.id });
     ok(res, server);
   } catch (err) {

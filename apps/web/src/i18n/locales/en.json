@@ -6,6 +6,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "servers": "Instances",
+    "credentials": "Credentials",
     "buckets": "Buckets",
     "users": "Users",
     "roles": "Roles & permissions",
@@ -107,11 +108,24 @@
     "gcpProject": "GCP project",
     "gcpInstance": "GCP instance",
     "notes": "Notes",
-    "credentials": "Credentials",
-    "credUsername": "Connection user",
-    "credPassword": "Password",
-    "credPasswordHintEdit": "Leave empty to keep current.",
-    "hasCredential": "Credential"
+    "credential": "Credential",
+    "credentialNone": "No credential",
+    "credentialHint": "Pick a credential from the catalog. You can assign it later."
+  },
+  "credentials": {
+    "title": "Credentials",
+    "new": "New credential",
+    "intro": "Reusable backup users. Define a credential once and assign it to multiple instances.",
+    "name": "Name",
+    "username": "Username",
+    "password": "Password",
+    "passwordHintEdit": "Leave empty to keep current.",
+    "description": "Description",
+    "extra": "Extra data (JSON)",
+    "extraPlaceholder": "{ \"type\": \"service_account\", ... }",
+    "extraHint": "Optional. Encrypted JSON (e.g. GCP service account key).",
+    "extraHintKeep": "Extra data is stored. Leave empty to keep it.",
+    "extraInvalid": "Extra data JSON is not valid."
   },
   "buckets": {
     "title": "Buckets",

@@ -1,5 +1,5 @@
 import type { DbEngine, ServerDto } from "@dbkeeper/shared";
-import { pool, query } from "../../db/pool.js";
+import { query } from "../../db/pool.js";
 
 interface ServerRow {
   id: string;
@@ -13,8 +13,10 @@ interface ServerRow {
   gcp_project: string | null;
   gcp_instance: string | null;
   notes: string | null;
+  credential_id: string | null;
   created_at: Date;
   updated_at: Date;
+  cred_name: string | null;
   cred_username: string | null;
 }
 
@@ -31,17 +33,18 @@ function toServer(row: ServerRow): ServerDto {
     gcpProject: row.gcp_project,
     gcpInstance: row.gcp_instance,
     notes: row.notes,
+    credentialId: row.credential_id,
+    credentialName: row.cred_name,
     credentialUsername: row.cred_username,
-    hasCredential: row.cred_username !== null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
 }
 
 const SELECT_SERVER = `
-  SELECT s.*, c.username AS cred_username
+  SELECT s.*, c.name AS cred_name, c.username AS cred_username
   FROM core.servers s
-  LEFT JOIN secrets.credentials c ON c.server_id = s.id
+  LEFT JOIN secrets.credentials c ON c.id = s.credential_id
 `;
 
 export async function listServers(): Promise<ServerDto[]> {
@@ -73,53 +76,29 @@ export interface ServerFields {
   gcpProject: string | null;
   gcpInstance: string | null;
   notes: string | null;
+  credentialId: string | null;
 }
 
-export interface CredentialFields {
-  username: string;
-  passwordEncrypted: string;
-  extraEncrypted: string | null;
-}
-
-/** Crea la instancia y su credencial en una transacción. */
-export async function insertServer(
-  fields: ServerFields,
-  credential: CredentialFields,
-): Promise<string> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query<{ id: string }>(
-      `INSERT INTO core.servers
-         (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-      [
-        fields.name,
-        fields.engine,
-        fields.host,
-        fields.port,
-        fields.environment,
-        fields.useSsl,
-        fields.isCloudSql,
-        fields.gcpProject,
-        fields.gcpInstance,
-        fields.notes,
-      ],
-    );
-    const id = rows[0]!.id;
-    await client.query(
-      `INSERT INTO secrets.credentials (server_id, username, password_encrypted, extra_encrypted)
-       VALUES ($1,$2,$3,$4)`,
-      [id, credential.username, credential.passwordEncrypted, credential.extraEncrypted],
-    );
-    await client.query("COMMIT");
-    return id;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+export async function insertServer(fields: ServerFields): Promise<string> {
+  const { rows } = await query<{ id: string }>(
+    `INSERT INTO core.servers
+       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+    [
+      fields.name,
+      fields.engine,
+      fields.host,
+      fields.port,
+      fields.environment,
+      fields.useSsl,
+      fields.isCloudSql,
+      fields.gcpProject,
+      fields.gcpInstance,
+      fields.notes,
+      fields.credentialId,
+    ],
+  );
+  return rows[0]!.id;
 }
 
 export async function updateServerFields(id: string, fields: Partial<ServerFields>): Promise<void> {
@@ -134,6 +113,7 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
     gcpProject: "gcp_project",
     gcpInstance: "gcp_instance",
     notes: "notes",
+    credentialId: "credential_id",
   };
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -145,31 +125,6 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
   if (sets.length === 0) return;
   params.push(id);
   await query(`UPDATE core.servers SET ${sets.join(", ")} WHERE id = $${i}`, params);
-}
-
-/** Contraseña/extra cifrados actuales (para conservarlos si no se cambian). */
-export async function getEncryptedCredential(
-  serverId: string,
-): Promise<{ passwordEncrypted: string; extraEncrypted: string | null } | null> {
-  const { rows } = await query<{ password_encrypted: string; extra_encrypted: string | null }>(
-    "SELECT password_encrypted, extra_encrypted FROM secrets.credentials WHERE server_id = $1",
-    [serverId],
-  );
-  return rows[0]
-    ? { passwordEncrypted: rows[0].password_encrypted, extraEncrypted: rows[0].extra_encrypted }
-    : null;
-}
-
-export async function upsertCredential(serverId: string, cred: CredentialFields): Promise<void> {
-  await query(
-    `INSERT INTO secrets.credentials (server_id, username, password_encrypted, extra_encrypted)
-     VALUES ($1,$2,$3,$4)
-     ON CONFLICT (server_id) DO UPDATE
-       SET username = EXCLUDED.username,
-           password_encrypted = EXCLUDED.password_encrypted,
-           extra_encrypted = EXCLUDED.extra_encrypted`,
-    [serverId, cred.username, cred.passwordEncrypted, cred.extraEncrypted],
-  );
 }
 
 export async function deleteServer(id: string): Promise<void> {
