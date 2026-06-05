@@ -3,6 +3,7 @@ import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
 import * as storageRepo from "../storage/storage.repository.js";
+import * as gcpRepo from "../gcp-accounts/gcp-accounts.repository.js";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { logger } from "../../config/logger.js";
@@ -168,7 +169,9 @@ export async function getItemDownload(executionId: string, itemId: string): Prom
     const parsed = parseGcsUri(item.fileName);
     if (!parsed) throw HttpError.badRequest("URI de backup inválida");
     const target = await storageRepo.findGcsByBucket(parsed.bucket);
-    const enc = target ? await storageRepo.getServiceAccountEncrypted(target.id) : null;
+    const enc = target?.gcpServiceAccountId
+      ? await gcpRepo.getKeyEncrypted(target.gcpServiceAccountId)
+      : null;
     return {
       kind: "gcs",
       bucket: parsed.bucket,

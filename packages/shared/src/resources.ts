@@ -180,7 +180,24 @@ export interface StorageTargetDto {
   prefix: string | null;
   isActive: boolean;
   isDefault: boolean;
-  hasServiceAccount: boolean;
+  /** Cuenta de servicio GCP del catálogo (solo `gcs`). */
+  gcpServiceAccountId: string | null;
+  gcpServiceAccountName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Cuenta de servicio GCP del catálogo (`secrets.gcp_service_accounts`). La clave JSON
+ * nunca se expone; `clientEmail`/`projectId` son metadatos para identificarla.
+ */
+export interface GcpServiceAccountDto {
+  id: string;
+  name: string;
+  clientEmail: string | null;
+  projectId: string | null;
+  isActive: boolean;
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }

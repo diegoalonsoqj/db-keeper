@@ -9,6 +9,7 @@ import { CredentialsPage } from "./pages/CredentialsPage";
 import { BackupsPage } from "./pages/BackupsPage";
 import { ExecutionsPage } from "./pages/ExecutionsPage";
 import { StoragePage } from "./pages/StoragePage";
+import { GcpAccountsPage } from "./pages/GcpAccountsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { AuditPage } from "./pages/AuditPage";
@@ -70,6 +71,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="servers:read">
             <StoragePage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "gcp-accounts",
+        element: (
+          <RequirePermission perm="servers:read">
+            <GcpAccountsPage />
           </RequirePermission>
         ),
       },

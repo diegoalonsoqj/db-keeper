@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   ChevronRight,
+  Cloud,
   Database,
   DatabaseBackup,
   HardDrive,
@@ -54,6 +55,7 @@ export function AppLayout() {
     { to: "/backups", label: t("nav.backups"), icon: Play, perm: "backups:read" },
     { to: "/executions", label: t("nav.executions"), icon: History, perm: "backups:read" },
     { to: "/storage", label: t("nav.storage"), icon: HardDrive, perm: "servers:read" },
+    { to: "/gcp-accounts", label: t("nav.gcp"), icon: Cloud, perm: "servers:read" },
     { to: "/users", label: t("nav.users"), icon: Users, perm: "users:read" },
     { to: "/roles", label: t("nav.roles"), icon: ShieldCheck, perm: "roles:read" },
     { to: "/audit", label: t("nav.audit"), icon: ScrollText, perm: "audit:read" },

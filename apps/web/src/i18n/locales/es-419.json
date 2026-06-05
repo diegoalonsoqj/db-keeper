@@ -11,6 +11,7 @@
     "backups": "Backups",
     "executions": "Ejecuciones",
     "storage": "Almacenamiento",
+    "gcp": "Cuentas GCP",
     "users": "Usuarios",
     "roles": "Roles y permisos",
     "audit": "Auditoría",
@@ -239,7 +240,25 @@
     "default": "Por defecto",
     "isDefault": "Destino por defecto de su tipo",
     "setDefault": "Marcar por defecto",
-    "empty": "Sin destinos de almacenamiento"
+    "empty": "Sin destinos de almacenamiento",
+    "account": "Cuenta de servicio (GCP)",
+    "accountNone": "Sin cuenta (usar ADC)",
+    "accountHint": "Cuenta del catálogo de Cuentas GCP usada para autenticarse contra el bucket."
+  },
+  "gcp": {
+    "intro": "Cuentas de servicio de GCP (clave JSON) reutilizables para autenticarse y subir a buckets.",
+    "new": "Nueva cuenta",
+    "name": "Nombre",
+    "clientEmail": "Email",
+    "projectId": "Proyecto",
+    "status": "Estado",
+    "default": "Por defecto",
+    "isDefault": "Cuenta por defecto",
+    "key": "Clave (JSON)",
+    "keyPlaceholder": "{ \"type\": \"service_account\", \"project_id\": \"...\", ... }",
+    "keyHint": "Pega el JSON de la cuenta de servicio que entrega GCP. Se guarda cifrado.",
+    "keyHintEdit": "Déjalo vacío para conservar la clave actual.",
+    "empty": "Sin cuentas de servicio"
   },
   "settings": {
     "title": "Configuración",
@@ -248,6 +267,7 @@
     "storageDefaultsHint": "Destino usado cuando un evento no especifica uno (local para dumps; bucket para la nube).",
     "defaultLocal": "Local por defecto",
     "defaultBucket": "Bucket por defecto",
+    "defaultGcp": "Cuenta GCP por defecto",
     "timezone": "Zona horaria",
     "defaultLanguage": "Idioma por defecto",
     "ldap": "Active Directory (LDAP)",

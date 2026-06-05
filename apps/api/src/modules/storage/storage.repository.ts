@@ -9,7 +9,8 @@ interface TargetRow {
   provider: StorageProvider | null;
   bucket: string | null;
   prefix: string | null;
-  service_account_encrypted: string | null;
+  gcp_service_account_id: string | null;
+  gcp_sa_name: string | null;
   is_active: boolean;
   is_default: boolean;
   created_at: Date;
@@ -27,11 +28,18 @@ function toDto(row: TargetRow): StorageTargetDto {
     prefix: row.prefix,
     isActive: row.is_active,
     isDefault: row.is_default,
-    hasServiceAccount: row.service_account_encrypted !== null,
+    gcpServiceAccountId: row.gcp_service_account_id,
+    gcpServiceAccountName: row.gcp_sa_name,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
 }
+
+const SELECT = `
+  SELECT t.*, sa.name AS gcp_sa_name
+  FROM core.storage_targets t
+  LEFT JOIN secrets.gcp_service_accounts sa ON sa.id = t.gcp_service_account_id
+`;
 
 export async function listTargets(p: {
   limit: number;
@@ -42,14 +50,14 @@ export async function listTargets(p: {
   );
   const total = Number(totalRes.rows[0]?.count ?? 0);
   const { rows } = await query<TargetRow>(
-    "SELECT * FROM core.storage_targets ORDER BY type, name LIMIT $1 OFFSET $2",
+    `${SELECT} ORDER BY t.type, t.name LIMIT $1 OFFSET $2`,
     [p.limit, p.offset],
   );
   return { items: rows.map(toDto), total };
 }
 
 export async function findById(id: string): Promise<StorageTargetDto | null> {
-  const { rows } = await query<TargetRow>("SELECT * FROM core.storage_targets WHERE id = $1", [id]);
+  const { rows } = await query<TargetRow>(`${SELECT} WHERE t.id = $1`, [id]);
   return rows[0] ? toDto(rows[0]) : null;
 }
 
@@ -68,16 +76,14 @@ export interface TargetFields {
   provider: StorageProvider | null;
   bucket: string | null;
   prefix: string | null;
+  gcpServiceAccountId: string | null;
   isActive: boolean;
 }
 
-export async function insertTarget(
-  fields: TargetFields,
-  serviceAccountEncrypted: string | null,
-): Promise<string> {
+export async function insertTarget(fields: TargetFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
     `INSERT INTO core.storage_targets
-       (type, name, path, provider, bucket, prefix, is_active, service_account_encrypted)
+       (type, name, path, provider, bucket, prefix, gcp_service_account_id, is_active)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
     [
       fields.type,
@@ -86,18 +92,14 @@ export async function insertTarget(
       fields.provider,
       fields.bucket,
       fields.prefix,
+      fields.gcpServiceAccountId,
       fields.isActive,
-      serviceAccountEncrypted,
     ],
   );
   return rows[0]!.id;
 }
 
-export async function updateTarget(
-  id: string,
-  fields: Partial<TargetFields>,
-  serviceAccountEncrypted?: string | null,
-): Promise<void> {
+export async function updateTarget(id: string, fields: Partial<TargetFields>): Promise<void> {
   const map: Record<string, string> = {
     type: "type",
     name: "name",
@@ -105,6 +107,7 @@ export async function updateTarget(
     provider: "provider",
     bucket: "bucket",
     prefix: "prefix",
+    gcpServiceAccountId: "gcp_service_account_id",
     isActive: "is_active",
   };
   const sets: string[] = [];
@@ -113,10 +116,6 @@ export async function updateTarget(
   for (const [k, col] of Object.entries(map)) {
     const v = (fields as Record<string, unknown>)[k];
     if (v !== undefined) (sets.push(`${col} = $${i++}`), params.push(v));
-  }
-  if (serviceAccountEncrypted !== undefined) {
-    sets.push(`service_account_encrypted = $${i++}`);
-    params.push(serviceAccountEncrypted);
   }
   if (sets.length === 0) return;
   params.push(id);
@@ -145,26 +144,14 @@ export async function setDefault(id: string, type: StorageType): Promise<void> {
 
 /** Devuelve el destino por defecto de un tipo (o null). */
 export async function findDefault(type: StorageType): Promise<StorageTargetDto | null> {
-  const { rows } = await query<TargetRow>(
-    "SELECT * FROM core.storage_targets WHERE type = $1 AND is_default = true",
-    [type],
-  );
+  const { rows } = await query<TargetRow>(`${SELECT} WHERE t.type = $1 AND t.is_default = true`, [type]);
   return rows[0] ? toDto(rows[0]) : null;
-}
-
-/** Clave de servicio cifrada de un destino (para autenticarse contra GCS). */
-export async function getServiceAccountEncrypted(id: string): Promise<string | null> {
-  const { rows } = await query<{ service_account_encrypted: string | null }>(
-    "SELECT service_account_encrypted FROM core.storage_targets WHERE id = $1",
-    [id],
-  );
-  return rows[0]?.service_account_encrypted ?? null;
 }
 
 /** Destino GCS activo cuyo bucket coincide (para resolver credenciales en descarga). */
 export async function findGcsByBucket(bucket: string): Promise<StorageTargetDto | null> {
   const { rows } = await query<TargetRow>(
-    "SELECT * FROM core.storage_targets WHERE type = 'gcs' AND bucket = $1 AND is_active = true ORDER BY is_default DESC LIMIT 1",
+    `${SELECT} WHERE t.type = 'gcs' AND t.bucket = $1 AND t.is_active = true ORDER BY t.is_default DESC LIMIT 1`,
     [bucket],
   );
   return rows[0] ? toDto(rows[0]) : null;

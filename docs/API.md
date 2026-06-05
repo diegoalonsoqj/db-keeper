@@ -198,6 +198,20 @@ Cuerpo de creación:
 En `PATCH`, **omitir un campo = no tocarlo**; enviar `null` lo borra (aplica a
 `extra`, `environment`, `description`). Omitir `password` conserva la actual.
 
+## Cuentas de servicio GCP — `/api/gcp-accounts`
+
+Cuentas de servicio (clave JSON) reutilizables para autenticarse contra GCP. La clave se
+guarda cifrada y nunca se expone; se muestran `clientEmail`/`projectId`. Reutiliza permisos
+de instancias.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `servers:read` | Lista cuentas (sin la clave). |
+| POST | `/` | `servers:write` | Crea (`{ name, key (JSON), isActive? }`). |
+| PATCH | `/:id` | `servers:write` | Actualiza; `key` vacía conserva la actual. |
+| POST | `/:id/default` | `servers:write` | Marca la cuenta como por defecto. |
+| DELETE | `/:id` | `servers:delete` | Elimina; `409` si está en uso por un destino. |
+
 ## Almacenamiento — `/api/storage`
 
 Destinos de backup: `type` **local** (con `path`) o **gcs** (`bucket`/`prefix` + clave de
@@ -207,7 +221,7 @@ servicio cifrada). Un destino por defecto por tipo (`isDefault`). El motor escri
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
 | GET | `/` | `servers:read` | Lista destinos (nunca expone la clave de servicio). |
-| POST | `/` | `servers:write` | Crea destino (`{ type, name, path? \| bucket?, prefix?, isActive?, serviceAccount? }`). |
+| POST | `/` | `servers:write` | Crea destino (`{ type, name, path? \| bucket?, prefix?, gcpServiceAccountId?, isActive? }`). |
 | PATCH | `/:id` | `servers:write` | Actualiza (mismos campos que crear). |
 | POST | `/:id/default` | `servers:write` | Marca el destino como por defecto de su tipo. |
 | DELETE | `/:id` | `servers:delete` | Elimina. |

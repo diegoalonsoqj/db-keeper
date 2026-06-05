@@ -1,6 +1,5 @@
 import type { StorageTargetDto, StorageType } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
-import { encryptSecret } from "../../lib/crypto.js";
 import * as repo from "./storage.repository.js";
 import type { TargetFields } from "./storage.repository.js";
 
@@ -20,6 +19,7 @@ export interface TargetInput {
   path?: string | null;
   bucket?: string | null;
   prefix?: string | null;
+  gcpServiceAccountId?: string | null;
   isActive: boolean;
 }
 
@@ -28,7 +28,16 @@ function fieldsFromInput(data: TargetInput): TargetFields {
   if (data.type === "local") {
     const path = data.path?.trim();
     if (!path) throw HttpError.badRequest("La ruta es obligatoria para un destino local");
-    return { type: "local", name: data.name, path, provider: null, bucket: null, prefix: null, isActive: data.isActive };
+    return {
+      type: "local",
+      name: data.name,
+      path,
+      provider: null,
+      bucket: null,
+      prefix: null,
+      gcpServiceAccountId: null,
+      isActive: data.isActive,
+    };
   }
   const bucket = data.bucket?.trim();
   if (!bucket) throw HttpError.badRequest("El nombre del bucket es obligatorio para un destino GCS");
@@ -39,43 +48,27 @@ function fieldsFromInput(data: TargetInput): TargetFields {
     provider: "gcs",
     bucket,
     prefix: data.prefix?.trim() || null,
+    gcpServiceAccountId: data.gcpServiceAccountId ?? null,
     isActive: data.isActive,
   };
 }
 
-export async function createTarget(
-  data: TargetInput,
-  serviceAccount?: string | null,
-): Promise<StorageTargetDto> {
+export async function createTarget(data: TargetInput): Promise<StorageTargetDto> {
   if (await repo.findByName(data.name)) {
     throw HttpError.conflict("Ya existe un destino con ese nombre");
   }
-  const fields = fieldsFromInput(data);
-  const enc = data.type === "gcs" && serviceAccount ? encryptSecret(serviceAccount) : null;
-  const id = await repo.insertTarget(fields, enc);
+  const id = await repo.insertTarget(fieldsFromInput(data));
   return getTarget(id);
 }
 
-export async function updateTarget(
-  id: string,
-  data: TargetInput,
-  serviceAccount?: string | null,
-): Promise<StorageTargetDto> {
+export async function updateTarget(id: string, data: TargetInput): Promise<StorageTargetDto> {
   const existing = await repo.findById(id);
   if (!existing) throw HttpError.notFound("Destino de almacenamiento no encontrado");
   if (data.name.toLowerCase() !== existing.name.toLowerCase()) {
     const dup = await repo.findByName(data.name);
     if (dup && dup.id !== id) throw HttpError.conflict("Ya existe un destino con ese nombre");
   }
-  const fields = fieldsFromInput(data);
-  // undefined = no tocar la clave; "" = borrarla; texto = cifrar (solo gcs).
-  let encArg: string | null | undefined;
-  if (data.type === "gcs" && serviceAccount !== undefined) {
-    encArg = serviceAccount ? encryptSecret(serviceAccount) : null;
-  } else if (data.type === "local") {
-    encArg = null; // un destino local nunca guarda clave de servicio
-  }
-  await repo.updateTarget(id, fields, encArg);
+  await repo.updateTarget(id, fieldsFromInput(data));
   return getTarget(id);
 }
 

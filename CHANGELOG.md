@@ -3,6 +3,20 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 10] — Catálogo de cuentas de servicio GCP · 2026-06-05
+
+### Añadido
+- **Módulo Cuentas GCP** (`secrets.gcp_service_accounts`, migración `0016`): clave JSON
+  **cifrada** reutilizable; se extraen y muestran `client_email` y `project_id` (no
+  secretos). CRUD en `/api/gcp-accounts`, cuenta **por defecto** (indicador en el módulo,
+  configurable en Settings).
+
+### Cambiado
+- El destino **GCS** deja de guardar el JSON incrustado y **referencia una cuenta** del
+  catálogo (`storage_targets.gcp_service_account_id`); el formulario usa un **selector**.
+  La migración mueve las claves inline existentes al catálogo y enlaza. El motor y la
+  descarga resuelven la credencial desde la cuenta referida.
+
 ## [Etapa 4 · parte 9] — Subida a GCS (método gcloud) · 2026-06-05
 
 ### Añadido

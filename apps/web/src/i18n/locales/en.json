@@ -11,6 +11,7 @@
     "backups": "Backups",
     "executions": "Executions",
     "storage": "Storage",
+    "gcp": "GCP accounts",
     "users": "Users",
     "roles": "Roles & permissions",
     "audit": "Audit",
@@ -239,7 +240,25 @@
     "default": "Default",
     "isDefault": "Default target for its type",
     "setDefault": "Set as default",
-    "empty": "No storage targets"
+    "empty": "No storage targets",
+    "account": "Service account (GCP)",
+    "accountNone": "None (use ADC)",
+    "accountHint": "Account from the GCP accounts catalog used to authenticate against the bucket."
+  },
+  "gcp": {
+    "intro": "Reusable GCP service accounts (JSON key) to authenticate and upload to buckets.",
+    "new": "New account",
+    "name": "Name",
+    "clientEmail": "Email",
+    "projectId": "Project",
+    "status": "Status",
+    "default": "Default",
+    "isDefault": "Default account",
+    "key": "Key (JSON)",
+    "keyPlaceholder": "{ \"type\": \"service_account\", \"project_id\": \"...\", ... }",
+    "keyHint": "Paste the service account JSON that GCP provides. Stored encrypted.",
+    "keyHintEdit": "Leave empty to keep the current key.",
+    "empty": "No service accounts"
   },
   "settings": {
     "title": "Settings",
@@ -248,6 +267,7 @@
     "storageDefaultsHint": "Target used when an event doesn't specify one (local for dumps; bucket for cloud).",
     "defaultLocal": "Default local",
     "defaultBucket": "Default bucket",
+    "defaultGcp": "Default GCP account",
     "timezone": "Timezone",
     "defaultLanguage": "Default language",
     "ldap": "Active Directory (LDAP)",

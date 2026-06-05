@@ -4,6 +4,7 @@ import { Pencil, Star, Trash2 } from "lucide-react";
 import {
   DEFAULT_PAGE_SIZE,
   STORAGE_TYPES,
+  type GcpServiceAccountDto,
   type Paginated,
   type StorageTargetDto,
   type StorageType,
@@ -21,7 +22,7 @@ interface FormState {
   bucket: string;
   prefix: string;
   isActive: boolean;
-  serviceAccount: string;
+  gcpServiceAccountId: string;
 }
 
 const emptyForm: FormState = {
@@ -32,7 +33,7 @@ const emptyForm: FormState = {
   bucket: "",
   prefix: "",
   isActive: true,
-  serviceAccount: "",
+  gcpServiceAccountId: "",
 };
 
 export function StoragePage() {
@@ -42,12 +43,18 @@ export function StoragePage() {
   const canDelete = has("servers:delete");
 
   const [data, setData] = useState<Paginated<StorageTargetDto>>({ items: [], total: 0 });
+  const [accounts, setAccounts] = useState<GcpServiceAccountDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    setData(await api.get<Paginated<StorageTargetDto>>(`/storage?limit=${page.limit}&offset=${page.offset}`));
+    const [tgts, accs] = await Promise.all([
+      api.get<Paginated<StorageTargetDto>>(`/storage?limit=${page.limit}&offset=${page.offset}`),
+      api.get<Paginated<GcpServiceAccountDto>>("/gcp-accounts?limit=100"),
+    ]);
+    setData(tgts);
+    setAccounts(accs.items);
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
@@ -64,7 +71,7 @@ export function StoragePage() {
       bucket: s.bucket ?? "",
       prefix: s.prefix ?? "",
       isActive: s.isActive,
-      serviceAccount: "",
+      gcpServiceAccountId: s.gcpServiceAccountId ?? "",
     });
   }
 
@@ -79,8 +86,8 @@ export function StoragePage() {
         path: form.type === "local" ? form.path : null,
         bucket: form.type === "gcs" ? form.bucket : null,
         prefix: form.type === "gcs" ? form.prefix || null : null,
+        gcpServiceAccountId: form.type === "gcs" ? form.gcpServiceAccountId || null : null,
       };
-      if (form.type === "gcs" && form.serviceAccount) payload.serviceAccount = form.serviceAccount;
       if (form.id) await api.patch(`/storage/${form.id}`, payload);
       else await api.post("/storage", payload);
       setForm(null);
@@ -217,13 +224,22 @@ export function StoragePage() {
                 <input value={form.prefix} onChange={(e) => setForm({ ...form, prefix: e.target.value })} />
               </label>
               <label>
-                {t("storage.serviceAccount")}
-                <textarea
-                  rows={4}
-                  value={form.serviceAccount}
-                  onChange={(e) => setForm({ ...form, serviceAccount: e.target.value })}
-                />
-                <small>{t("storage.serviceAccountHint")}</small>
+                {t("storage.account")}
+                <select
+                  value={form.gcpServiceAccountId}
+                  onChange={(e) => setForm({ ...form, gcpServiceAccountId: e.target.value })}
+                >
+                  <option value="">{t("storage.accountNone")}</option>
+                  {accounts
+                    .filter((a) => a.isActive || a.id === form.gcpServiceAccountId)
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                        {a.clientEmail ? ` (${a.clientEmail})` : ""}
+                      </option>
+                    ))}
+                </select>
+                <small>{t("storage.accountHint")}</small>
               </label>
             </>
           )}

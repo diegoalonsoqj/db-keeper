@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   APP_LOCALES,
   type AppLocale,
+  type GcpServiceAccountDto,
   type Paginated,
   type SettingsDto,
   type StorageTargetDto,
@@ -17,6 +18,7 @@ export function SettingsPage() {
 
   const [data, setData] = useState<SettingsDto | null>(null);
   const [targets, setTargets] = useState<StorageTargetDto[]>([]);
+  const [accounts, setAccounts] = useState<GcpServiceAccountDto[]>([]);
   const [bindPassword, setBindPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -30,6 +32,10 @@ export function SettingsPage() {
       .get<Paginated<StorageTargetDto>>("/storage?limit=100")
       .then((p) => setTargets(p.items))
       .catch(() => {});
+    api
+      .get<Paginated<GcpServiceAccountDto>>("/gcp-accounts?limit=100")
+      .then((p) => setAccounts(p.items))
+      .catch(() => {});
   }, []);
 
   async function setDefaultTarget(id: string) {
@@ -37,8 +43,14 @@ export function SettingsPage() {
     const p = await api.get<Paginated<StorageTargetDto>>("/storage?limit=100");
     setTargets(p.items);
   }
+  async function setDefaultAccount(id: string) {
+    await api.post(`/gcp-accounts/${id}/default`);
+    const p = await api.get<Paginated<GcpServiceAccountDto>>("/gcp-accounts?limit=100");
+    setAccounts(p.items);
+  }
   const defaultOf = (ty: StorageTargetDto["type"]) =>
     targets.find((s) => s.type === ty && s.isDefault)?.id ?? "";
+  const defaultAccount = accounts.find((a) => a.isDefault)?.id ?? "";
 
   function notify(fn: () => Promise<unknown>) {
     setError(null);
@@ -141,6 +153,23 @@ export function SettingsPage() {
                   {s.name}
                 </option>
               ))}
+          </select>
+        </label>
+        <label>
+          {t("settings.defaultGcp")}
+          <select
+            value={defaultAccount}
+            disabled={!canWrite}
+            onChange={(e) => e.target.value && notify(() => setDefaultAccount(e.target.value))}
+          >
+            <option value="" disabled>
+              {t("common.none")}
+            </option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
           </select>
         </label>
       </div>

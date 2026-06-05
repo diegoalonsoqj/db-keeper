@@ -15,6 +15,7 @@ import { environmentsRouter } from "./modules/environments/environments.routes.j
 import { credentialsRouter } from "./modules/credentials/credentials.routes.js";
 import { backupsRouter } from "./modules/backups/backups.routes.js";
 import { storageRouter } from "./modules/storage/storage.routes.js";
+import { gcpAccountsRouter } from "./modules/gcp-accounts/gcp-accounts.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 
@@ -61,6 +62,7 @@ export function createApp(): Express {
   app.use("/api/credentials", credentialsRouter);
   app.use("/api/backups", backupsRouter);
   app.use("/api/storage", storageRouter);
+  app.use("/api/gcp-accounts", gcpAccountsRouter);
   app.use("/api/settings", settingsRouter);
 
   app.use(notFoundHandler);

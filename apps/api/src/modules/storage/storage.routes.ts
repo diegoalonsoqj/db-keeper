@@ -16,18 +16,19 @@ const fields = {
   path: z.string().max(500).nullish().transform((v) => v ?? null),
   bucket: z.string().max(255).nullish().transform((v) => v ?? null),
   prefix: z.string().max(255).nullish().transform((v) => v ?? null),
+  gcpServiceAccountId: z.string().uuid().nullish().transform((v) => v ?? null),
   isActive: z.boolean().default(true),
 };
 
-const createSchema = z.object({ ...fields, serviceAccount: z.string().max(20000).optional() });
+const createSchema = z.object({ ...fields });
 const updateSchema = z.object({
   type: fields.type,
   name: fields.name,
   path: fields.path,
   bucket: fields.bucket,
   prefix: fields.prefix,
+  gcpServiceAccountId: fields.gcpServiceAccountId,
   isActive: z.boolean().default(true),
-  serviceAccount: z.string().max(20000).optional(),
 });
 
 storageRouter.get("/", authorize("servers:read"), async (req, res, next) => {
@@ -40,8 +41,7 @@ storageRouter.get("/", authorize("servers:read"), async (req, res, next) => {
 
 storageRouter.post("/", authorize("servers:write"), async (req, res, next) => {
   try {
-    const { serviceAccount, ...data } = createSchema.parse(req.body);
-    const tgt = await service.createTarget(data, serviceAccount);
+    const tgt = await service.createTarget(createSchema.parse(req.body));
     await recordAudit(req, { action: "storage.create", entityType: "storage_target", entityId: tgt.id, detail: { name: tgt.name, type: tgt.type } });
     ok(res, tgt, 201);
   } catch (err) {
@@ -51,8 +51,7 @@ storageRouter.post("/", authorize("servers:write"), async (req, res, next) => {
 
 storageRouter.patch("/:id", authorize("servers:write"), async (req, res, next) => {
   try {
-    const { serviceAccount, ...data } = updateSchema.parse(req.body);
-    const tgt = await service.updateTarget(String(req.params.id), data, serviceAccount);
+    const tgt = await service.updateTarget(String(req.params.id), updateSchema.parse(req.body));
     await recordAudit(req, { action: "storage.update", entityType: "storage_target", entityId: tgt.id });
     ok(res, tgt);
   } catch (err) {
