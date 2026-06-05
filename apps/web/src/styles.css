@@ -87,6 +87,15 @@ button.icon-btn.primary {
   color: #fff;
   border-color: transparent;
 }
+/* Indicador (no botón) de destino por defecto. */
+.star-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #f5b301;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 
 input,
 select,

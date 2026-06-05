@@ -9,9 +9,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - El módulo **Buckets** pasa a **Almacenamiento** (`core.storage_buckets → storage_targets`,
   migración `0015`). Un destino tiene `type` **local** (con `path`) o **gcs** (bucket +
   prefijo + clave de servicio). Endpoints en `/api/storage`.
-- **Destino por defecto por tipo** (`is_default`, único por tipo): se marca en el módulo
-  (badge + acción "Marcar por defecto") y se elige en **Settings** (selectores de local y
-  bucket por defecto).
+- **Destino por defecto por tipo** (`is_default`, único por tipo): el módulo lo **muestra**
+  con una estrella (indicador, ambos tipos) y se **configura en Settings** (selectores de
+  local y bucket por defecto) — un solo lugar para cambiarlo.
 - El **motor** escribe los dumps en el `path` del destino local **por defecto** (la
   variable `BACKUP_DIR` queda como *fallback* inicial/seed). La migración siembra un
   destino local por defecto con la ruta de `BACKUP_DIR`.

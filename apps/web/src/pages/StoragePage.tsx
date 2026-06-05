@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Pencil, Star, Trash2 } from "lucide-react";
+import { Pencil, Star, Trash2 } from "lucide-react";
 import {
   DEFAULT_PAGE_SIZE,
   STORAGE_TYPES,
@@ -90,15 +90,6 @@ export function StoragePage() {
     }
   }
 
-  async function setDefault(s: StorageTargetDto) {
-    try {
-      await api.post(`/storage/${s.id}/default`);
-      await reload();
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
-    }
-  }
-
   async function remove(s: StorageTargetDto) {
     if (!confirm(t("common.confirm"))) return;
     try {
@@ -146,19 +137,14 @@ export function StoragePage() {
                 </td>
                 <td>
                   {s.isDefault && (
-                    <span className="badge badge-success" title={t("storage.isDefault")}>
-                      <CheckCircle2 size={14} /> {t("storage.default")}
+                    <span className="star-default" title={t("storage.isDefault")} aria-label={t("storage.isDefault")}>
+                      <Star size={16} fill="currentColor" /> {t("storage.default")}
                     </span>
                   )}
                 </td>
                 <td>{s.isActive ? t("common.active") : t("common.inactive")}</td>
                 {(canWrite || canDelete) && (
                   <td className="row-actions">
-                    {canWrite && !s.isDefault && (
-                      <button className="icon-btn" title={t("storage.setDefault")} aria-label={t("storage.setDefault")} onClick={() => setDefault(s)}>
-                        <Star size={16} />
-                      </button>
-                    )}
                     {canWrite && (
                       <button className="icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => startEdit(s)}>
                         <Pencil size={16} />
