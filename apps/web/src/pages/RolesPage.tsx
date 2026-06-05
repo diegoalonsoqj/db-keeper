@@ -61,9 +61,6 @@ export function RolesPage() {
 
   return (
     <section>
-      <div className="page-head">
-        <h1>{t("roles.title")}</h1>
-      </div>
       {error && <p className="error">{error}</p>}
       {msg && <p className="success">{msg}</p>}
 

@@ -39,10 +39,6 @@ export function AuditPage() {
 
   return (
     <section>
-      <div className="page-head">
-        <h1>{t("audit.title")}</h1>
-        <span className="muted">{data.total}</span>
-      </div>
       {error && <p className="error">{error}</p>}
 
       <div className="filters">

@@ -273,6 +273,11 @@ a {
   color: var(--muted);
   font-size: 0.9rem;
 }
+.page-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
 .muted {
   color: var(--muted);
 }
@@ -283,11 +288,20 @@ a {
 }
 
 /* ---- Pages ---- */
+/* Fila de acción de la página: el título vive ahora en el header. El botón se
+   alinea a la derecha; la descripción (si la hay) ocupa la izquierda. */
 .page-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 1rem;
   margin-bottom: 1rem;
+}
+.page-head:empty {
+  display: none;
+}
+.page-desc {
+  margin-right: auto;
 }
 .error {
   color: var(--danger);

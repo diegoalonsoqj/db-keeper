@@ -126,8 +126,7 @@ export function ServersPage() {
   return (
     <section>
       <div className="page-head">
-        <h1>{t("servers.title")}</h1>
-        {canWrite && <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("servers.new")}</button>}
+        {canWrite &&<button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("servers.new")}</button>}
       </div>
       {error && <p className="error">{error}</p>}
 

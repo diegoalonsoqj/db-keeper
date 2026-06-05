@@ -74,7 +74,6 @@ export function BucketsPage() {
   return (
     <section>
       <div className="page-head">
-        <h1>{t("buckets.title")}</h1>
         {canWrite && <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("buckets.new")}</button>}
       </div>
       {error && <p className="error">{error}</p>}

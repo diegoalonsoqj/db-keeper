@@ -20,7 +20,6 @@ export function DashboardPage() {
 
   return (
     <section>
-      <h1>{t("nav.dashboard")}</h1>
       <p>
         API:{" "}
         {error ? (

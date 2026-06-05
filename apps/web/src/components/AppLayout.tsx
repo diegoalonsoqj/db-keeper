@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
@@ -32,6 +32,7 @@ const COLLAPSE_KEY = "dbkeeper.sidebarCollapsed";
 export function AppLayout() {
   const { t } = useTranslation();
   const { has } = useAuth();
+  const { pathname } = useLocation();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === "1");
 
   function toggleSidebar() {
@@ -52,6 +53,10 @@ export function AppLayout() {
     { to: "/audit", label: t("nav.audit"), icon: ScrollText, perm: "audit:read" },
     { to: "/settings", label: t("nav.settings"), icon: Settings, perm: "settings:read" },
   ];
+
+  // Título del módulo activo (mostrado en el header en vez del tagline fijo).
+  const active = items.find((i) => (i.to === "/" ? pathname === "/" : pathname.startsWith(i.to)));
+  const pageTitle = active?.label ?? t("app.name");
 
   return (
     <div className={`app-shell${collapsed ? " collapsed" : ""}`}>
@@ -92,7 +97,7 @@ export function AppLayout() {
       <div className="content">
         <header className="app-header">
           <div className="header-left">
-            <span className="tagline">{t("app.tagline")}</span>
+            <h1 className="page-title">{pageTitle}</h1>
           </div>
           <div className="header-right">
             <ThemeToggle />

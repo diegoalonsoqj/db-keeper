@@ -121,7 +121,6 @@ export function UsersPage() {
   return (
     <section>
       <div className="page-head">
-        <h1>{t("users.title")}</h1>
         {canWrite && <button onClick={startCreate}>{t("users.new")}</button>}
       </div>
       {error && <p className="error">{error}</p>}

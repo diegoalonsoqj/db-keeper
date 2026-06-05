@@ -108,12 +108,11 @@ export function CredentialsPage() {
   return (
     <section>
       <div className="page-head">
-        <h1>{t("credentials.title")}</h1>
+        <p className="page-desc muted">{t("credentials.intro")}</p>
         {canWrite && (
           <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("credentials.new")}</button>
         )}
       </div>
-      <p className="muted">{t("credentials.intro")}</p>
       {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
