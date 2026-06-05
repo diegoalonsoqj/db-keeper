@@ -4,6 +4,7 @@ import { RequireAuth, RequirePermission } from "./auth/guards";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ServersPage } from "./pages/ServersPage";
+import { EnvironmentsPage } from "./pages/EnvironmentsPage";
 import { CredentialsPage } from "./pages/CredentialsPage";
 import { BackupsPage } from "./pages/BackupsPage";
 import { ExecutionsPage } from "./pages/ExecutionsPage";
@@ -29,6 +30,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="servers:read">
             <ServersPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "environments",
+        element: (
+          <RequirePermission perm="servers:read">
+            <EnvironmentsPage />
           </RequirePermission>
         ),
       },

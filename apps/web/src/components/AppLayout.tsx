@@ -9,6 +9,7 @@ import {
   HardDrive,
   History,
   KeyRound,
+  Layers,
   LayoutDashboard,
   type LucideIcon,
   Play,
@@ -48,6 +49,7 @@ export function AppLayout() {
   const items: NavItem[] = [
     { to: "/", label: t("nav.dashboard"), icon: LayoutDashboard },
     { to: "/servers", label: t("nav.servers"), icon: Database, perm: "servers:read" },
+    { to: "/environments", label: t("nav.environments"), icon: Layers, perm: "servers:read" },
     { to: "/credentials", label: t("nav.credentials"), icon: KeyRound, perm: "servers:read" },
     { to: "/backups", label: t("nav.backups"), icon: Play, perm: "backups:read" },
     { to: "/executions", label: t("nav.executions"), icon: History, perm: "backups:read" },

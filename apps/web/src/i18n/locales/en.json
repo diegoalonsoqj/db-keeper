@@ -6,6 +6,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "servers": "Instances",
+    "environments": "Environments",
     "credentials": "Credentials",
     "backups": "Backups",
     "executions": "Executions",
@@ -177,7 +178,17 @@
     "notes": "Notes",
     "credential": "Credential",
     "credentialNone": "No credential",
-    "credentialHint": "Pick a credential from the catalog. You can assign it later."
+    "credentialHint": "Pick a credential from the catalog. You can assign it later.",
+    "environmentNone": "No environment",
+    "environmentHint": "Environments are managed in the Environments module."
+  },
+  "environments": {
+    "intro": "Catalog of environments to classify instances (used in the backup file name).",
+    "new": "New environment",
+    "name": "Name",
+    "description": "Description",
+    "active": "Active",
+    "empty": "No environments"
   },
   "databases": {
     "discover": "Discover",

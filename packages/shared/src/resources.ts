@@ -54,6 +54,16 @@ export interface ServerDto {
   updatedAt: string;
 }
 
+/** Ambiente del catálogo (`core.environments`). Alimenta el selector de la instancia. */
+export interface EnvironmentDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Credencial reutilizable del catálogo (`secrets.credentials`). Nunca expone la
  * contraseña. Permite definir un "usuario de backups" una vez y asignarlo a

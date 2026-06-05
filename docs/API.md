@@ -148,6 +148,18 @@ Cuerpo de creación:
 > integridad del `.gz` y registra peso/log por BD. El destino GCS (`gcloud`) y el resto
 > de motores llegan en fases siguientes.
 
+## Ambientes — `/api/environments`
+
+Catálogo de ambientes (prod, qa, …) que alimenta el selector de la instancia. La
+instancia guarda el nombre como texto (sin FK). Reutiliza permisos de instancias.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `servers:read` | Lista ambientes (paginado). |
+| POST | `/` | `servers:write` | Crea un ambiente (`name` único, ci). |
+| PATCH | `/:id` | `servers:write` | Edita un ambiente. |
+| DELETE | `/:id` | `servers:delete` | Elimina; falla si alguna instancia lo usa. |
+
 ## Credenciales — `/api/credentials`
 
 Catálogo de credenciales reutilizables (un "usuario de backups" se define una vez y se

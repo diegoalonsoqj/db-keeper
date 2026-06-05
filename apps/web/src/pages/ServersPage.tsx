@@ -6,6 +6,7 @@ import {
   DEFAULT_PORTS,
   type CredentialDto,
   type DbEngine,
+  type EnvironmentDto,
   type Paginated,
   type ServerDto,
 } from "@dbkeeper/shared";
@@ -52,17 +53,20 @@ export function ServersPage() {
 
   const [data, setData] = useState<Paginated<ServerDto>>({ items: [], total: 0 });
   const [credentials, setCredentials] = useState<CredentialDto[]>([]);
+  const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    const [srv, creds] = await Promise.all([
+    const [srv, creds, envs] = await Promise.all([
       api.get<Paginated<ServerDto>>(`/servers?limit=${page.limit}&offset=${page.offset}`),
       api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
+      api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
     ]);
     setData(srv);
     setCredentials(creds.items);
+    setEnvironments(envs.items);
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
@@ -212,7 +216,25 @@ export function ServersPage() {
           </label>
           <label>
             {t("servers.environment")}
-            <input value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} />
+            <select
+              value={form.environment}
+              onChange={(e) => setForm({ ...form, environment: e.target.value })}
+            >
+              <option value="">{t("servers.environmentNone")}</option>
+              {/* Conserva el valor actual aunque el ambiente esté inactivo o ya no exista. */}
+              {form.environment &&
+                !environments.some((env) => env.name === form.environment) && (
+                  <option value={form.environment}>{form.environment}</option>
+                )}
+              {environments
+                .filter((env) => env.isActive || env.name === form.environment)
+                .map((env) => (
+                  <option key={env.id} value={env.name}>
+                    {env.name}
+                  </option>
+                ))}
+            </select>
+            <small>{t("servers.environmentHint")}</small>
           </label>
           <label className="inline">
             <input type="checkbox" checked={form.useSsl} onChange={(e) => setForm({ ...form, useSsl: e.target.checked })} />

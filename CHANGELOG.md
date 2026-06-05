@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 4] — Catálogo de ambientes · 2026-06-05
+
+### Añadido
+- **Módulo Ambientes** (`core.environments`, migración `0010`): catálogo de ambientes
+  (`name` único sin distinguir mayúsculas, `description`, `is_active`) con CRUD en
+  `/api/environments` (reutiliza permisos `servers:*`, como buckets) y página propia.
+  La migración **siembra** los ambientes ya usados en instancias.
+- El modal de **instancia** usa ahora un **selector** alimentado por el catálogo en vez
+  de texto libre; `core.servers.environment` sigue guardando el nombre como texto (sin
+  FK), por lo que el nombre del backup (`{db}_{ambiente}_…`) no cambia. Borrar un
+  ambiente en uso queda bloqueado con aviso.
+
 ## [Etapa 4 · parte 3] — Log, descarga, reintento y dumps por motor · 2026-06-05
 
 ### Añadido

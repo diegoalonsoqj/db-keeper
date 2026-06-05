@@ -6,6 +6,7 @@
   "nav": {
     "dashboard": "Panel",
     "servers": "Instancias",
+    "environments": "Ambientes",
     "credentials": "Credenciales",
     "backups": "Backups",
     "executions": "Ejecuciones",
@@ -177,7 +178,17 @@
     "notes": "Notas",
     "credential": "Credencial",
     "credentialNone": "Sin credencial",
-    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde."
+    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde.",
+    "environmentNone": "Sin ambiente",
+    "environmentHint": "Los ambientes se gestionan en el módulo Ambientes."
+  },
+  "environments": {
+    "intro": "Catálogo de ambientes disponibles para clasificar instancias (se usa en el nombre del backup).",
+    "new": "Nuevo ambiente",
+    "name": "Nombre",
+    "description": "Descripción",
+    "active": "Activo",
+    "empty": "Sin ambientes"
   },
   "databases": {
     "discover": "Descubrir",
