@@ -120,7 +120,17 @@
     "notes": "Notes",
     "credential": "Credential",
     "credentialNone": "No credential",
-    "credentialHint": "Pick a credential from the catalog. You can assign it later."
+    "credentialHint": "Pick a credential from the catalog. You can assign it later.",
+    "databases": "Databases"
+  },
+  "databases": {
+    "title": "Databases — {{name}}",
+    "discover": "Discover",
+    "discovering": "Discovering…",
+    "save": "Save selection",
+    "saved": "Selection saved",
+    "empty": "No databases yet. Click “Discover” to list them.",
+    "selectedCount": "{{count}} selected"
   },
   "credentials": {
     "title": "Credentials",

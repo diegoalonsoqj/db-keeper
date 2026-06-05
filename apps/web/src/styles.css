@@ -337,6 +337,29 @@ table.grid th {
   gap: 0.4rem;
 }
 
+/* ---- Bases de datos (descubrimiento) ---- */
+.db-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.db-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.db-list li label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* ---- Pagination ---- */
 .pagination {
   display: flex;

@@ -120,7 +120,17 @@
     "notes": "Notas",
     "credential": "Credencial",
     "credentialNone": "Sin credencial",
-    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde."
+    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde.",
+    "databases": "Bases de datos"
+  },
+  "databases": {
+    "title": "Bases de datos — {{name}}",
+    "discover": "Descubrir",
+    "discovering": "Descubriendo…",
+    "save": "Guardar selección",
+    "saved": "Selección guardada",
+    "empty": "Aún no hay bases. Pulsa «Descubrir» para listarlas.",
+    "selectedCount": "{{count}} seleccionada(s)"
   },
   "credentials": {
     "title": "Credenciales",

@@ -99,6 +99,18 @@ La credencial ya no se embebe en la instancia: se gestiona en el **catálogo**
 (`/api/credentials`) y se referencia por `credentialId`. Si la credencial indicada no
 existe, la API responde `400`.
 
+### Bases de datos de una instancia — `/api/servers/:id/databases`
+
+Descubrimiento (en vivo) y selección de las bases a respaldar. El descubrimiento
+conecta a la instancia con su credencial del catálogo y lista las bases reales
+(excluye las del sistema). Motores: PostgreSQL, MySQL, SQL Server y Mongo.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `servers:read` | Selección guardada (`DatabaseDto[]`). |
+| POST | `/discover` | `servers:read` | Lista en vivo; cada ítem trae `selected` si ya está elegido. `400` si no hay credencial o falla la conexión. |
+| PUT | `/` | `servers:write` | Reemplaza la selección. Cuerpo: `{ "names": ["db1", "db2"] }`. |
+
 ## Credenciales — `/api/credentials`
 
 Catálogo de credenciales reutilizables (un "usuario de backups" se define una vez y se

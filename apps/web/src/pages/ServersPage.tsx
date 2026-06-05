@@ -13,6 +13,7 @@ import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+import { DatabasesModal } from "../components/DatabasesModal";
 
 interface FormState {
   id: string | null;
@@ -54,6 +55,7 @@ export function ServersPage() {
   const [credentials, setCredentials] = useState<CredentialDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
+  const [dbServer, setDbServer] = useState<ServerDto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
@@ -140,7 +142,7 @@ export function ServersPage() {
             <th>{t("servers.port")}</th>
             <th>{t("servers.environment")}</th>
             <th>{t("servers.credential")}</th>
-            {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
+            <th>{t("common.actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -152,18 +154,19 @@ export function ServersPage() {
               <td>{s.port}</td>
               <td>{s.environment ?? t("common.none")}</td>
               <td>{s.credentialName ?? t("common.none")}</td>
-              {(canWrite || canDelete) && (
-                <td className="row-actions">
-                  {canWrite && <button onClick={() => startEdit(s)}>{t("common.edit")}</button>}
-                  {canDelete && <button className="danger" onClick={() => remove(s)}>{t("common.delete")}</button>}
-                </td>
-              )}
+              <td className="row-actions">
+                <button className="secondary" onClick={() => setDbServer(s)}>{t("servers.databases")}</button>
+                {canWrite && <button onClick={() => startEdit(s)}>{t("common.edit")}</button>}
+                {canDelete && <button className="danger" onClick={() => remove(s)}>{t("common.delete")}</button>}
+              </td>
             </tr>
           ))}
         </tbody>
         </table>
       </div>
       <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+
+      {dbServer && <DatabasesModal server={dbServer} onClose={() => setDbServer(null)} />}
 
       {form && (
         <Modal

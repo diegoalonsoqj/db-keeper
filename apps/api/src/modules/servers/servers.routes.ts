@@ -5,6 +5,7 @@ import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { databasesRouter } from "../databases/databases.routes.js";
 import * as service from "./servers.service.js";
 
 export const serversRouter: Router = Router();
@@ -89,3 +90,6 @@ serversRouter.delete("/:id", authorize("servers:delete"), async (req, res, next)
     next(err);
   }
 });
+
+// Sub-recurso: bases de datos de una instancia (descubrimiento + selección).
+serversRouter.use("/:serverId/databases", databasesRouter);

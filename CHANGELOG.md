@@ -3,6 +3,25 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 3 · parte 2] — Descubrimiento de instancias → selección de BDs · 2026-06-04
+
+### Añadido
+- **`core.databases`** (migración `0007`): bases de datos seleccionadas para
+  respaldar por instancia (columna `schemas` reservada para una iteración futura).
+- **Descubrimiento en vivo por motor** (`modules/databases/discovery/`): conecta a
+  la instancia con su credencial del catálogo y lista sus bases reales, excluyendo
+  las del sistema. Soporta **PostgreSQL, MySQL, SQL Server y Mongo** (drivers `pg`,
+  `mysql2`, `mssql`, `mongodb`), con timeout de conexión y SSL según la instancia.
+- **API** `/api/servers/:id/databases`: `GET` (selección guardada),
+  `POST /discover` (lista en vivo marcando las ya elegidas) y `PUT` (guarda la
+  selección, auditado).
+- **Frontend**: acción *Bases de datos* por instancia que abre un modal con
+  *Descubrir*, lista con checkboxes (preselecciona las guardadas) y *Guardar selección*.
+
+### Seguridad
+- La credencial se descifra solo en memoria para conectar; el mensaje de error del
+  driver se sanea para no filtrar la contraseña.
+
 ## [Etapa 3 · parte 1] — Catálogo de credenciales reutilizables · 2026-06-04
 
 ### Añadido

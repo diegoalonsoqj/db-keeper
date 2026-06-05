@@ -58,6 +58,24 @@ export interface CredentialInput {
   description?: string | null;
 }
 
+/** Base de datos seleccionada para respaldar (`core.databases`). */
+export interface DatabaseDto {
+  id: string;
+  serverId: string;
+  name: string;
+  /** Esquemas a incluir (Postgres); null hasta una iteración posterior. */
+  schemas: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Base detectada al descubrir una instancia en vivo. */
+export interface DiscoveredDatabaseDto {
+  name: string;
+  /** Ya está marcada para respaldo (presente en `core.databases`). */
+  selected: boolean;
+}
+
 /** Destino de almacenamiento. Nunca expone la clave de servicio. */
 export interface BucketDto {
   id: string;

@@ -91,6 +91,19 @@ core.servers (id, name, engine, host, port, environment, use_ssl, is_cloud_sql, 
 La FK es `ON DELETE RESTRICT`: una credencial en uso no puede borrarse; el service lo
 verifica de antemano (409) y la BD lo garantiza ante condiciones de carrera.
 
+### Modelo de datos (Etapa 3 · parte 2)
+
+```
+core.databases (id, server_id → core.servers, name, schemas jsonb?, …)   -- BDs seleccionadas a respaldar
+```
+
+El **descubrimiento** lista las bases reales de una instancia conectándose en vivo con
+su credencial del catálogo. Hay un *discoverer* por motor en
+`modules/databases/discovery/` (PostgreSQL, MySQL, SQL Server, Mongo); cada uno abre
+una conexión con timeout, excluye las bases del sistema y devuelve los nombres. La
+credencial se descifra solo en memoria y el error del driver se sanea para no filtrar
+la contraseña. `core.databases` persiste únicamente la selección del usuario.
+
 ## Seguridad
 
 - **Contraseñas locales**: hash **scrypt** (`node:crypto`), sin dependencias nativas;
