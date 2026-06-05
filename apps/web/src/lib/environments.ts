@@ -7,7 +7,7 @@ export function useEnvironments(): EnvironmentDto[] {
   const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
   useEffect(() => {
     api
-      .get<Paginated<EnvironmentDto>>("/environments?limit=200")
+      .get<Paginated<EnvironmentDto>>("/environments?limit=100")
       .then((p) => setEnvironments(p.items))
       .catch(() => {});
   }, []);
