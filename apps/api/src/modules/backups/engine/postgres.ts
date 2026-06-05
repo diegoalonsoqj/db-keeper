@@ -7,16 +7,21 @@ import type { DumpInput, DumpResult } from "./types.js";
 const GZIP_LEVEL = 6;
 
 /**
- * Vuelca una BD PostgreSQL con `pg_dump` en formato SQL plano (`-Fp`), igual que
- * los scripts de referencia. Según `input.compress` el propio pg_dump comprime
- * con gzip (`.sql.gz`, restaurable con `gunzip -c … | psql`) o deja SQL plano
- * (`.sql`, restaurable con `psql -f`). La contraseña viaja por `PGPASSWORD`
- * (nunca en la línea de comandos ni en logs) y los argumentos van como array
- * (sin shell), por lo que no hay riesgo de inyección.
+ * Vuelca una BD PostgreSQL con `pg_dump` en formato SQL plano (`-Fp`), con los
+ * mismos parámetros que el script de referencia (`--no-owner --no-privileges
+ * --serializable-deferrable`, apto para restaurar en Cloud SQL). Según
+ * `input.compress` el propio pg_dump comprime con gzip (`.sql.gz`, restaurable
+ * con `gunzip -c … | psql`) o deja SQL plano (`.sql`, restaurable con `psql -f`).
+ * La contraseña viaja por `PGPASSWORD` (nunca en la línea de comandos ni en
+ * logs) y los argumentos van como array (sin shell), por lo que no hay riesgo de
+ * inyección.
  */
 export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
   const filePath = `${input.destPathNoExt}${input.compress ? ".sql.gz" : ".sql"}`;
   const args = [
+    "--no-owner", // no emite ALTER ... OWNER
+    "--no-privileges", // omite GRANT/REVOKE
+    "--serializable-deferrable", // snapshot consistente sin bloquear escrituras
     "-h",
     input.host,
     "-p",
@@ -28,6 +33,7 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     "-Fp", // formato SQL plano
     ...(input.compress ? ["-Z", String(GZIP_LEVEL)] : []), // gzip por el propio pg_dump
     "--no-password", // nunca prompt interactivo: si falta auth, falla rápido
+    ...input.excludeTables.flatMap((t) => ["--exclude-table", t]),
     "-f",
     filePath,
   ];

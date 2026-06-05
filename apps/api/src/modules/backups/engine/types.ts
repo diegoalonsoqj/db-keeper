@@ -8,6 +8,8 @@ export interface DumpInput {
   dbName: string;
   /** Comprimir con gzip (`.sql.gz`); si es false, SQL plano (`.sql`). */
   compress: boolean;
+  /** Tablas a excluir del dump (patrones de `--exclude-table`). */
+  excludeTables: string[];
   /** Ruta absoluta del archivo de salida (sin extensión; el dumper la añade). */
   destPathNoExt: string;
 }

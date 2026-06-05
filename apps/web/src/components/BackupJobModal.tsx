@@ -34,6 +34,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [bucketId, setBucketId] = useState(job?.bucketId ?? "");
   // Comprimir con gzip por defecto; solo se desactiva si options.compress === false.
   const [compress, setCompress] = useState(job?.options?.compress !== false);
+  // Tablas a excluir, editadas como texto separado por comas/saltos de línea.
+  const [excludeTables, setExcludeTables] = useState(
+    (job?.options?.excludeTables as string[] | undefined)?.join(", ") ?? "",
+  );
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
@@ -95,7 +99,14 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       credentialId: credentialId || null,
       method,
       bucketId: bucketId || null,
-      options: { ...(job?.options ?? {}), compress },
+      options: {
+        ...(job?.options ?? {}),
+        compress,
+        excludeTables: excludeTables
+          .split(/[,\n]/)
+          .map((t) => t.trim())
+          .filter(Boolean),
+      },
       isActive,
       databases: [...selected],
     };
@@ -196,6 +207,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           </ul>
         )}
       </fieldset>
+
+      <label>
+        {t("backups.excludeTables")}
+        <input
+          value={excludeTables}
+          onChange={(e) => setExcludeTables(e.target.value)}
+          placeholder={t("backups.excludeTablesPlaceholder")}
+        />
+        <small>{t("backups.excludeTablesHint")}</small>
+      </label>
 
       <label className="inline">
         <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />

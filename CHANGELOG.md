@@ -9,12 +9,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - **Motor de volcado** (`modules/backups/engine/`): al lanzar un evento, un runner
   en segundo plano vuelca cada BD del snapshot y va actualizando los estados
   (`pending`→`running`→`success`/`failed`) con archivo, peso y log por BD.
-  - **PostgreSQL** vía `pg_dump -Fp` (SQL plano). La compresión es **configurable**
-    por evento (`options.compress`, por defecto activada): con gzip genera `.sql.gz`
+  - **PostgreSQL** vía `pg_dump -Fp` con los mismos parámetros que el script de
+    referencia (`--no-owner --no-privileges --serializable-deferrable`, apto para
+    restaurar en Cloud SQL). La compresión es **configurable** por evento
+    (`options.compress`, por defecto activada): con gzip genera `.sql.gz`
     (`pg_dump -Z6`, restaurable con `gunzip -c … | psql`) y sin comprimir genera
-    `.sql` (restaurable con `psql -f`). La contraseña viaja por `PGPASSWORD` (nunca en
-    la línea de comandos ni en logs); los argumentos van como array (sin shell, sin
-    inyección).
+    `.sql` (restaurable con `psql -f`). Tablas a excluir configurables por evento
+    (`options.excludeTables` → `--exclude-table`). La contraseña viaja por
+    `PGPASSWORD` (nunca en la línea de comandos ni en logs); los argumentos van como
+    array (sin shell, sin inyección).
+  - **Scripts de referencia** (`docs/pg_backup.py`, `docs/mysql_backup.py`) que
+    definen los parámetros de dump esperados.
   - Registry de dumpers por motor; el resto (mysql/mongo/sqlserver) y el destino
     **gcloud/GCS** quedan para pasos siguientes (fallan con mensaje claro por ahora).
 - **Recuperación de huérfanas** al arrancar: como la ejecución es en-proceso, un
