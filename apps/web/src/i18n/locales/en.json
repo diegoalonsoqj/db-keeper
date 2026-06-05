@@ -186,6 +186,8 @@
     "intro": "Catalog of environments to classify instances (used in the backup file name).",
     "new": "New environment",
     "name": "Name",
+    "code": "Code",
+    "codeHint": "Short code (PRD, UAT, DEV…); used in the backup file name.",
     "description": "Description",
     "active": "Active",
     "empty": "No environments"

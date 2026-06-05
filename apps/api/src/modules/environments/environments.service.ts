@@ -14,9 +14,23 @@ async function ensureNameFree(name: string, exceptId?: string): Promise<void> {
   }
 }
 
+async function ensureCodeFree(code: string, exceptId?: string): Promise<void> {
+  const existing = await repo.findByCode(code);
+  if (existing && existing.id !== exceptId) {
+    throw HttpError.badRequest("Ya existe un ambiente con ese código");
+  }
+}
+
+/** Normaliza el código: sin espacios y en mayúsculas (se usa en nombres de archivo). */
+function normalizeCode(code: string): string {
+  return code.trim().toUpperCase();
+}
+
 export async function createEnvironment(data: EnvironmentFields): Promise<EnvironmentDto> {
+  const code = normalizeCode(data.code);
   await ensureNameFree(data.name);
-  const id = await repo.insertEnvironment(data);
+  await ensureCodeFree(code);
+  const id = await repo.insertEnvironment({ ...data, code });
   const created = await repo.findById(id);
   if (!created) throw HttpError.notFound("Ambiente no encontrado");
   return created;
@@ -27,7 +41,9 @@ export async function updateEnvironment(
   data: Partial<EnvironmentFields>,
 ): Promise<EnvironmentDto> {
   if (!(await repo.findById(id))) throw HttpError.notFound("Ambiente no encontrado");
+  if (data.code !== undefined) data.code = normalizeCode(data.code);
   if (data.name) await ensureNameFree(data.name, id);
+  if (data.code) await ensureCodeFree(data.code, id);
   await repo.updateEnvironment(id, data);
   const updated = await repo.findById(id);
   if (!updated) throw HttpError.notFound("Ambiente no encontrado");

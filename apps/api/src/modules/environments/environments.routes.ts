@@ -11,6 +11,7 @@ environmentsRouter.use(authenticate);
 
 const fields = {
   name: z.string().min(1).max(60),
+  code: z.string().min(1).max(12),
   description: z.string().max(255).nullish().transform((v) => v ?? null),
   isActive: z.boolean().default(true),
 };
@@ -18,6 +19,7 @@ const fields = {
 const createSchema = z.object({ ...fields });
 const updateSchema = z.object({
   name: fields.name.optional(),
+  code: fields.code.optional(),
   description: fields.description,
   isActive: z.boolean().optional(),
 });

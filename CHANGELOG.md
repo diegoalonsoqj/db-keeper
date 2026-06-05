@@ -6,13 +6,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 ## [Etapa 4 · parte 4] — Catálogo de ambientes · 2026-06-05
 
 ### Añadido
-- **Módulo Ambientes** (`core.environments`, migración `0010`): catálogo de ambientes
-  (`name` único sin distinguir mayúsculas, `description`, `is_active`) con CRUD en
-  `/api/environments` (reutiliza permisos `servers:*`, como buckets) y página propia.
-  La migración **siembra** los ambientes ya usados en instancias.
-- El modal de **instancia** usa ahora un **selector** alimentado por el catálogo en vez
-  de texto libre; `core.servers.environment` sigue guardando el nombre como texto (sin
-  FK), por lo que el nombre del backup (`{db}_{ambiente}_…`) no cambia. Borrar un
+- **Módulo Ambientes** (`core.environments`, migraciones `0010`/`0011`): catálogo con
+  **nombre** (etiqueta), **código** (PRD/UAT/DEV…, normalizado a mayúsculas y único ci),
+  descripción y estado activo/inactivo. CRUD en `/api/environments` (reutiliza permisos
+  `servers:*`, como buckets) y página propia. La migración **siembra** los ambientes ya
+  usados en instancias.
+- El modal de **instancia** usa ahora un **selector** que muestra `Nombre (CÓDIGO)` y
+  guarda el **código**; `core.servers.environment` sigue siendo texto (sin FK). El
+  nombre del backup usa ese código: `{db}_{código}_{timestamp}.sql[.gz]`. Borrar un
   ambiente en uso queda bloqueado con aviso.
 
 ## [Etapa 4 · parte 3] — Log, descarga, reintento y dumps por motor · 2026-06-05

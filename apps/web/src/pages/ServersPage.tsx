@@ -223,14 +223,14 @@ export function ServersPage() {
               <option value="">{t("servers.environmentNone")}</option>
               {/* Conserva el valor actual aunque el ambiente esté inactivo o ya no exista. */}
               {form.environment &&
-                !environments.some((env) => env.name === form.environment) && (
+                !environments.some((env) => env.code === form.environment) && (
                   <option value={form.environment}>{form.environment}</option>
                 )}
               {environments
-                .filter((env) => env.isActive || env.name === form.environment)
+                .filter((env) => env.isActive || env.code === form.environment)
                 .map((env) => (
-                  <option key={env.id} value={env.name}>
-                    {env.name}
+                  <option key={env.id} value={env.code}>
+                    {env.name} ({env.code})
                   </option>
                 ))}
             </select>

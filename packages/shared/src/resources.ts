@@ -58,6 +58,8 @@ export interface ServerDto {
 export interface EnvironmentDto {
   id: string;
   name: string;
+  /** Código corto (PRD, UAT, DEV…) usado en el nombre del backup. */
+  code: string;
   description: string | null;
   isActive: boolean;
   createdAt: string;

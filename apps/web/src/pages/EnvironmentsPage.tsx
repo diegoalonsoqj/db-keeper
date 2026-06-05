@@ -9,11 +9,12 @@ import { Pagination } from "../components/Pagination";
 interface FormState {
   id: string | null;
   name: string;
+  code: string;
   description: string;
   isActive: boolean;
 }
 
-const emptyForm: FormState = { id: null, name: "", description: "", isActive: true };
+const emptyForm: FormState = { id: null, name: "", code: "", description: "", isActive: true };
 
 export function EnvironmentsPage() {
   const { t } = useTranslation();
@@ -44,6 +45,7 @@ export function EnvironmentsPage() {
     try {
       const body = {
         name: form.name.trim(),
+        code: form.code.trim().toUpperCase(),
         description: form.description.trim() || null,
         isActive: form.isActive,
       };
@@ -82,6 +84,7 @@ export function EnvironmentsPage() {
         <table className="grid">
           <thead>
             <tr>
+              <th>{t("environments.code")}</th>
               <th>{t("environments.name")}</th>
               <th>{t("environments.description")}</th>
               <th>{t("environments.active")}</th>
@@ -91,13 +94,16 @@ export function EnvironmentsPage() {
           <tbody>
             {data.items.length === 0 && (
               <tr>
-                <td colSpan={4} className="muted">
+                <td colSpan={5} className="muted">
                   {t("environments.empty")}
                 </td>
               </tr>
             )}
             {data.items.map((env) => (
               <tr key={env.id}>
+                <td>
+                  <code>{env.code}</code>
+                </td>
                 <td>{env.name}</td>
                 <td>{env.description ?? t("common.none")}</td>
                 <td>{env.isActive ? t("common.active") : t("common.inactive")}</td>
@@ -109,6 +115,7 @@ export function EnvironmentsPage() {
                           setForm({
                             id: env.id,
                             name: env.name,
+                            code: env.code,
                             description: env.description ?? "",
                             isActive: env.isActive,
                           })
@@ -147,6 +154,15 @@ export function EnvironmentsPage() {
           <label>
             {t("environments.name")}
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </label>
+          <label>
+            {t("environments.code")}
+            <input
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              placeholder="PRD"
+            />
+            <small>{t("environments.codeHint")}</small>
           </label>
           <label>
             {t("environments.description")}

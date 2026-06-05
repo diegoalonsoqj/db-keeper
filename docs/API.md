@@ -150,13 +150,16 @@ Cuerpo de creación:
 
 ## Ambientes — `/api/environments`
 
-Catálogo de ambientes (prod, qa, …) que alimenta el selector de la instancia. La
-instancia guarda el nombre como texto (sin FK). Reutiliza permisos de instancias.
+Catálogo de ambientes que alimenta el selector de la instancia. Cada ambiente tiene
+**nombre** (etiqueta), **código** (PRD/UAT/…, mayúsculas, único ci), descripción y
+estado. El selector muestra `Nombre (CÓDIGO)` y la instancia guarda el **código** como
+texto (sin FK); ese código se usa en el nombre del backup. Reutiliza permisos de
+instancias.
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
 | GET | `/` | `servers:read` | Lista ambientes (paginado). |
-| POST | `/` | `servers:write` | Crea un ambiente (`name` único, ci). |
+| POST | `/` | `servers:write` | Crea un ambiente (`name` y `code` únicos, ci). |
 | PATCH | `/:id` | `servers:write` | Edita un ambiente. |
 | DELETE | `/:id` | `servers:delete` | Elimina; falla si alguna instancia lo usa. |
 

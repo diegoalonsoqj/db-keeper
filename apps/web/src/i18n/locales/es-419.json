@@ -186,6 +186,8 @@
     "intro": "Catálogo de ambientes disponibles para clasificar instancias (se usa en el nombre del backup).",
     "new": "Nuevo ambiente",
     "name": "Nombre",
+    "code": "Código",
+    "codeHint": "Código corto (PRD, UAT, DEV…); se usa en el nombre del backup.",
     "description": "Descripción",
     "active": "Activo",
     "empty": "Sin ambientes"

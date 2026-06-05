@@ -4,6 +4,7 @@ import { query } from "../../db/pool.js";
 interface EnvironmentRow {
   id: string;
   name: string;
+  code: string;
   description: string | null;
   is_active: boolean;
   created_at: Date;
@@ -14,6 +15,7 @@ function toDto(row: EnvironmentRow): EnvironmentDto {
   return {
     id: row.id,
     name: row.name,
+    code: row.code,
     description: row.description,
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
@@ -49,16 +51,25 @@ export async function findByName(name: string): Promise<{ id: string } | null> {
   return rows[0] ?? null;
 }
 
+export async function findByCode(code: string): Promise<{ id: string } | null> {
+  const { rows } = await query<{ id: string }>(
+    "SELECT id FROM core.environments WHERE lower(code) = lower($1)",
+    [code],
+  );
+  return rows[0] ?? null;
+}
+
 export interface EnvironmentFields {
   name: string;
+  code: string;
   description: string | null;
   isActive: boolean;
 }
 
 export async function insertEnvironment(fields: EnvironmentFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
-    "INSERT INTO core.environments (name, description, is_active) VALUES ($1,$2,$3) RETURNING id",
-    [fields.name, fields.description, fields.isActive],
+    "INSERT INTO core.environments (name, code, description, is_active) VALUES ($1,$2,$3,$4) RETURNING id",
+    [fields.name, fields.code, fields.description, fields.isActive],
   );
   return rows[0]!.id;
 }
@@ -66,6 +77,7 @@ export async function insertEnvironment(fields: EnvironmentFields): Promise<stri
 export async function updateEnvironment(id: string, fields: Partial<EnvironmentFields>): Promise<void> {
   const map: Record<string, string> = {
     name: "name",
+    code: "code",
     description: "description",
     isActive: "is_active",
   };
