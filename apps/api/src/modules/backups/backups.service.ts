@@ -6,9 +6,11 @@ import * as storageRepo from "../storage/storage.repository.js";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { logger } from "../../config/logger.js";
+import { decryptSecret } from "../../lib/crypto.js";
 import * as repo from "./backups.repository.js";
 import type { JobFields } from "./backups.repository.js";
 import { runExecution, resolveBackupFile } from "./engine/runner.js";
+import { parseGcsUri } from "./engine/gcs.js";
 
 export interface JobData {
   name: string;
@@ -150,19 +152,37 @@ export async function retryExecution(executionId: string): Promise<ExecutionDto>
   return created;
 }
 
+/** Origen del archivo a descargar: disco local o un objeto en GCS. */
+export type DownloadSource =
+  | { kind: "local"; filePath: string; fileName: string }
+  | { kind: "gcs"; bucket: string; object: string; serviceAccountJson: string | null; fileName: string };
+
 /** Resuelve el archivo descargable de un ítem (valida pertenencia y existencia). */
-export async function getItemDownload(
-  executionId: string,
-  itemId: string,
-): Promise<{ filePath: string; fileName: string }> {
+export async function getItemDownload(executionId: string, itemId: string): Promise<DownloadSource> {
   const item = await repo.findItemFile(executionId, itemId);
   if (!item) throw HttpError.notFound("Ítem de ejecución no encontrado");
   if (!item.fileName) throw HttpError.badRequest("Esta base de datos no generó un archivo");
+
+  // Objeto en GCS: resolver credenciales por el bucket y servir por streaming.
+  if (item.fileName.startsWith("gs://")) {
+    const parsed = parseGcsUri(item.fileName);
+    if (!parsed) throw HttpError.badRequest("URI de backup inválida");
+    const target = await storageRepo.findGcsByBucket(parsed.bucket);
+    const enc = target ? await storageRepo.getServiceAccountEncrypted(target.id) : null;
+    return {
+      kind: "gcs",
+      bucket: parsed.bucket,
+      object: parsed.object,
+      serviceAccountJson: enc ? decryptSecret(enc) : null,
+      fileName: path.basename(parsed.object),
+    };
+  }
+
   const filePath = resolveBackupFile(item.fileName);
   try {
     await access(filePath);
   } catch {
     throw HttpError.notFound("El archivo de backup ya no está disponible");
   }
-  return { filePath, fileName: path.basename(item.fileName) };
+  return { kind: "local", filePath, fileName: path.basename(item.fileName) };
 }

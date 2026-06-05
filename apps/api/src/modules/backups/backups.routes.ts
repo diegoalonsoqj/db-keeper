@@ -6,6 +6,7 @@ import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./backups.service.js";
+import { gcsReadStream } from "./engine/gcs.js";
 
 export const backupsRouter: Router = Router();
 backupsRouter.use(authenticate);
@@ -53,10 +54,21 @@ backupsRouter.get(
     try {
       const execId = z.string().uuid().parse(req.params.execId);
       const itemId = z.string().uuid().parse(req.params.itemId);
-      const { filePath, fileName } = await service.getItemDownload(execId, itemId);
-      res.download(filePath, fileName, (err) => {
-        if (err && !res.headersSent) next(err);
+      const src = await service.getItemDownload(execId, itemId);
+      if (src.kind === "local") {
+        res.download(src.filePath, src.fileName, (err) => {
+          if (err && !res.headersSent) next(err);
+        });
+        return;
+      }
+      // GCS: servir por streaming desde el bucket.
+      res.setHeader("Content-Disposition", `attachment; filename="${src.fileName}"`);
+      const stream = gcsReadStream({ bucket: src.bucket, serviceAccountJson: src.serviceAccountJson }, src.object);
+      stream.on("error", (err) => {
+        if (!res.headersSent) next(err);
+        else res.destroy(err);
       });
+      stream.pipe(res);
     } catch (err) {
       next(err);
     }

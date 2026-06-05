@@ -151,3 +151,21 @@ export async function findDefault(type: StorageType): Promise<StorageTargetDto |
   );
   return rows[0] ? toDto(rows[0]) : null;
 }
+
+/** Clave de servicio cifrada de un destino (para autenticarse contra GCS). */
+export async function getServiceAccountEncrypted(id: string): Promise<string | null> {
+  const { rows } = await query<{ service_account_encrypted: string | null }>(
+    "SELECT service_account_encrypted FROM core.storage_targets WHERE id = $1",
+    [id],
+  );
+  return rows[0]?.service_account_encrypted ?? null;
+}
+
+/** Destino GCS activo cuyo bucket coincide (para resolver credenciales en descarga). */
+export async function findGcsByBucket(bucket: string): Promise<StorageTargetDto | null> {
+  const { rows } = await query<TargetRow>(
+    "SELECT * FROM core.storage_targets WHERE type = 'gcs' AND bucket = $1 AND is_active = true ORDER BY is_default DESC LIMIT 1",
+    [bucket],
+  );
+  return rows[0] ? toDto(rows[0]) : null;
+}

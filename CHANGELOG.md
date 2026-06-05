@@ -3,6 +3,17 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 9] — Subida a GCS (método gcloud) · 2026-06-05
+
+### Añadido
+- **Método `gcloud`** ahora implementado: se genera el dump local (staging) y se **sube
+  al bucket** con el SDK `@google-cloud/storage`, usando la **service account del destino
+  en memoria** (nunca se escribe a disco). Tras subir, borra la copia local. El ítem
+  guarda la URI `gs://bucket/[prefijo/]<motor>/<archivo>`.
+- **Descarga desde GCS**: el endpoint de descarga sirve por *streaming* desde el bucket
+  cuando el archivo es `gs://…` (resolviendo credenciales por el bucket); los locales se
+  sirven igual que antes.
+
 ## [Etapa 4 · parte 8] — Módulo Almacenamiento (local + buckets) · 2026-06-05
 
 ### Cambiado
