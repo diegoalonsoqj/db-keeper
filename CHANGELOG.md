@@ -3,6 +3,15 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 7] — UX: ambiente con nombre e iconos de acción · 2026-06-05
+
+### Cambiado
+- Las tablas muestran el ambiente como **`Nombre (CÓDIGO)`** (helper compartido
+  `environmentLabel`/`useEnvironments`); cae al código si no está en el catálogo.
+- Los **botones de acción** de todas las tablas (Instancias, Credenciales, Ambientes,
+  Buckets, Backups, Ejecuciones, Usuarios) pasan a **iconos** (lucide) con **tooltip**
+  (`title`) y `aria-label`, en vez de texto.
+
 ## [Etapa 4 · parte 6] — Ambiente consolidado en el evento de backup · 2026-06-05
 
 ### Añadido

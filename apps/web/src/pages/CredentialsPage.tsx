@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   DEFAULT_PAGE_SIZE,
   type CredentialDto,
@@ -153,10 +154,14 @@ export function CredentialsPage() {
               <td>{c.hasExtra ? t("common.yes") : t("common.no")}</td>
               {(canWrite || canDelete) && (
                 <td className="row-actions">
-                  {canWrite && <button onClick={() => startEdit(c)}>{t("common.edit")}</button>}
+                  {canWrite && (
+                    <button className="icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => startEdit(c)}>
+                      <Pencil size={16} />
+                    </button>
+                  )}
                   {canDelete && (
-                    <button className="danger" onClick={() => remove(c)}>
-                      {t("common.delete")}
+                    <button className="icon-btn danger" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => remove(c)}>
+                      <Trash2 size={16} />
                     </button>
                   )}
                 </td>

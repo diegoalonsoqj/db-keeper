@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil, Play, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type BackupJobDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
@@ -84,12 +85,36 @@ export function BackupsPage() {
                 <td>{j.isActive ? t("common.active") : t("common.inactive")}</td>
                 <td className="row-actions">
                   {canRun && (
-                    <button onClick={() => run(j)} disabled={!j.isActive}>
-                      {t("backups.run")}
+                    <button
+                      className="icon-btn primary"
+                      title={t("backups.run")}
+                      aria-label={t("backups.run")}
+                      onClick={() => run(j)}
+                      disabled={!j.isActive}
+                    >
+                      <Play size={16} />
                     </button>
                   )}
-                  {canManage && <button className="secondary" onClick={() => setModal({ job: j })}>{t("common.edit")}</button>}
-                  {canManage && <button className="danger" onClick={() => remove(j)}>{t("common.delete")}</button>}
+                  {canManage && (
+                    <button
+                      className="icon-btn"
+                      title={t("common.edit")}
+                      aria-label={t("common.edit")}
+                      onClick={() => setModal({ job: j })}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                  {canManage && (
+                    <button
+                      className="icon-btn danger"
+                      title={t("common.delete")}
+                      aria-label={t("common.delete")}
+                      onClick={() => remove(j)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

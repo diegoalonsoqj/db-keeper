@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type Paginated, type RoleDto, type UserDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -147,10 +148,14 @@ export function UsersPage() {
               <td>{u.isActive ? t("common.active") : t("common.inactive")}</td>
               {(canWrite || canDelete) && (
                 <td className="row-actions">
-                  {canWrite && <button onClick={() => startEdit(u)}>{t("common.edit")}</button>}
+                  {canWrite && (
+                    <button className="icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => startEdit(u)}>
+                      <Pencil size={16} />
+                    </button>
+                  )}
                   {canDelete && (
-                    <button className="danger" onClick={() => remove(u)}>
-                      {t("common.delete")}
+                    <button className="icon-btn danger" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => remove(u)}>
+                      <Trash2 size={16} />
                     </button>
                   )}
                 </td>

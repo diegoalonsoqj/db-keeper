@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronRight, Download, RotateCcw } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
@@ -145,11 +146,23 @@ export function ExecutionsPage() {
                   <td>{fmtDuration(e.startedAt, e.finishedAt)}</td>
                   <td>{fmtBytes(totalBytes(e))}</td>
                   <td className="row-actions">
-                    <button className="secondary" onClick={() => toggle(e.id)}>
-                      {expanded.has(e.id) ? t("executions.hideDetail") : t("executions.detail")}
+                    <button
+                      className="icon-btn"
+                      title={expanded.has(e.id) ? t("executions.hideDetail") : t("executions.detail")}
+                      aria-label={expanded.has(e.id) ? t("executions.hideDetail") : t("executions.detail")}
+                      onClick={() => toggle(e.id)}
+                    >
+                      {expanded.has(e.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
                     {canRun && e.status === "failed" && (
-                      <button onClick={() => retry(e)}>{t("executions.retry")}</button>
+                      <button
+                        className="icon-btn primary"
+                        title={t("executions.retry")}
+                        aria-label={t("executions.retry")}
+                        onClick={() => retry(e)}
+                      >
+                        <RotateCcw size={16} />
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -181,10 +194,12 @@ export function ExecutionsPage() {
                                 <td className="row-actions">
                                   {it.fileName && (
                                     <button
-                                      className="secondary"
+                                      className="icon-btn"
+                                      title={t("executions.download")}
+                                      aria-label={t("executions.download")}
                                       onClick={() => download(e.id, it.id, it.dbName)}
                                     >
-                                      {t("executions.download")}
+                                      <Download size={16} />
                                     </button>
                                   )}
                                 </td>

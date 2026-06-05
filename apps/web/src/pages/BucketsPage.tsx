@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type BucketDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -102,8 +103,16 @@ export function BucketsPage() {
               <td>{b.isActive ? t("common.active") : t("common.inactive")}</td>
               {(canWrite || canDelete) && (
                 <td className="row-actions">
-                  {canWrite && <button onClick={() => startEdit(b)}>{t("common.edit")}</button>}
-                  {canDelete && <button className="danger" onClick={() => remove(b)}>{t("common.delete")}</button>}
+                  {canWrite && (
+                    <button className="icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => startEdit(b)}>
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button className="icon-btn danger" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => remove(b)}>
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </td>
               )}
             </tr>

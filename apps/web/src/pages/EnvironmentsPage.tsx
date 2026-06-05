@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type EnvironmentDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -111,6 +112,9 @@ export function EnvironmentsPage() {
                   <td className="row-actions">
                     {canWrite && (
                       <button
+                        className="icon-btn"
+                        title={t("common.edit")}
+                        aria-label={t("common.edit")}
                         onClick={() =>
                           setForm({
                             id: env.id,
@@ -121,12 +125,17 @@ export function EnvironmentsPage() {
                           })
                         }
                       >
-                        {t("common.edit")}
+                        <Pencil size={16} />
                       </button>
                     )}
                     {canDelete && (
-                      <button className="danger" onClick={() => remove(env)}>
-                        {t("common.delete")}
+                      <button
+                        className="icon-btn danger"
+                        title={t("common.delete")}
+                        aria-label={t("common.delete")}
+                        onClick={() => remove(env)}
+                      >
+                        <Trash2 size={16} />
                       </button>
                     )}
                   </td>

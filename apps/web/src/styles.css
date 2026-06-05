@@ -60,6 +60,33 @@ button:disabled {
   opacity: 0.6;
   cursor: default;
 }
+/* Botón de solo icono para acciones de tabla (con tooltip nativo vía title). */
+button.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button.icon-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+button.icon-btn.danger {
+  background: var(--panel-2);
+  color: var(--danger);
+}
+button.icon-btn.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+button.icon-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
 
 input,
 select,
