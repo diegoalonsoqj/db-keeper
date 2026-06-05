@@ -7,6 +7,8 @@
     "dashboard": "Panel",
     "servers": "Instancias",
     "credentials": "Credenciales",
+    "backups": "Backups",
+    "executions": "Ejecuciones",
     "buckets": "Buckets",
     "users": "Usuarios",
     "roles": "Roles y permisos",
@@ -105,6 +107,46 @@
     "prev": "Anterior",
     "next": "Siguiente"
   },
+  "status": {
+    "pending": "Pendiente",
+    "running": "En ejecución",
+    "success": "Éxito",
+    "failed": "Fallo"
+  },
+  "backups": {
+    "new": "Nuevo evento",
+    "intro": "Eventos de backup: elige instancia, credencial y las bases a respaldar; lánzalo ahora o (próximamente) prográmalo.",
+    "name": "Nombre",
+    "server": "Instancia",
+    "pickServer": "Selecciona una instancia",
+    "pickServerFirst": "Primero selecciona una instancia.",
+    "credential": "Credencial",
+    "credentialInherit": "Usar la de la instancia",
+    "credentialHint": "Déjalo en «Usar la de la instancia» salvo que quieras un usuario distinto para este evento.",
+    "method": "Método",
+    "bucket": "Destino (bucket)",
+    "bucketNone": "Sin bucket",
+    "databases": "Bases de datos",
+    "noDatabases": "Pulsa «Descubrir» para listar las bases de la instancia.",
+    "active": "Activo",
+    "run": "Ejecutar",
+    "runQueued": "Ejecución creada para «{{name}}». Revísala en Ejecuciones.",
+    "nameRequired": "El nombre es obligatorio.",
+    "serverRequired": "Selecciona una instancia.",
+    "dbRequired": "Selecciona al menos una base de datos.",
+    "bucketRequired": "El método gcloud requiere un bucket de destino."
+  },
+  "executions": {
+    "intro": "Historial de ejecuciones de los eventos de backup.",
+    "event": "Evento",
+    "status": "Estado",
+    "origin": "Origen",
+    "origin_manual": "Manual",
+    "origin_scheduled": "Programado",
+    "databases": "Bases de datos",
+    "created": "Creada",
+    "empty": "Sin ejecuciones"
+  },
   "servers": {
     "title": "Instancias",
     "new": "Nueva instancia",
@@ -120,16 +162,11 @@
     "notes": "Notas",
     "credential": "Credencial",
     "credentialNone": "Sin credencial",
-    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde.",
-    "databases": "Bases de datos"
+    "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde."
   },
   "databases": {
-    "title": "Bases de datos — {{name}}",
     "discover": "Descubrir",
     "discovering": "Descubriendo…",
-    "save": "Guardar selección",
-    "saved": "Selección guardada",
-    "empty": "Aún no hay bases. Pulsa «Descubrir» para listarlas.",
     "selectedCount": "{{count}} seleccionada(s)"
   },
   "credentials": {

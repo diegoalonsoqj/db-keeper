@@ -99,17 +99,43 @@ La credencial ya no se embebe en la instancia: se gestiona en el **catálogo**
 (`/api/credentials`) y se referencia por `credentialId`. Si la credencial indicada no
 existe, la API responde `400`.
 
-### Bases de datos de una instancia — `/api/servers/:id/databases`
-
-Descubrimiento (en vivo) y selección de las bases a respaldar. El descubrimiento
-conecta a la instancia con su credencial del catálogo y lista las bases reales
-(excluye las del sistema). Motores: PostgreSQL, MySQL, SQL Server y Mongo.
+### Descubrimiento de BDs de una instancia — `/api/servers/:id/databases`
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/` | `servers:read` | Selección guardada (`DatabaseDto[]`). |
-| POST | `/discover` | `servers:read` | Lista en vivo; cada ítem trae `selected` si ya está elegido. `400` si no hay credencial o falla la conexión. |
-| PUT | `/` | `servers:write` | Reemplaza la selección. Cuerpo: `{ "names": ["db1", "db2"] }`. |
+| POST | `/discover` | `servers:read` | Conecta en vivo y devuelve los nombres de las bases reales (`string[]`, sin las del sistema). `400` si no hay credencial o falla la conexión. Motores: PostgreSQL, MySQL, SQL Server y Mongo. |
+
+> La selección efectiva de BDs vive en el **evento de backup** (`/api/backups`), no en
+> la instancia.
+
+## Eventos de backup — `/api/backups`
+
+Un evento define qué respaldar (instancia + credencial + BDs + método + destino). Cada
+corrida genera una **ejecución** con su identificador, estado y un detalle por BD.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `backups:read` | Lista eventos (paginado). |
+| GET | `/executions` | `backups:read` | Historial de ejecuciones (paginado; `?jobId` opcional). |
+| GET | `/:id` | `backups:read` | Detalle de un evento. |
+| POST | `/` | `backups:schedule` | Crea un evento. |
+| PATCH | `/:id` | `backups:schedule` | Edita un evento. |
+| DELETE | `/:id` | `backups:schedule` | Elimina un evento. |
+| POST | `/:id/run` | `backups:run` | Lo lanza ahora: crea la ejecución (`pending`) con un ítem por BD. |
+
+Cuerpo de creación:
+
+```jsonc
+{
+  "name": "Backup nocturno PG Prod",
+  "serverId": "uuid",
+  "credentialId": "uuid | null",   // null = usar la credencial de la instancia
+  "method": "dump",                 // dump | gcloud (gcloud exige bucketId)
+  "bucketId": "uuid | null",
+  "databases": ["app", "reporting"],
+  "isActive": true
+}
+```
 
 ## Credenciales — `/api/credentials`
 

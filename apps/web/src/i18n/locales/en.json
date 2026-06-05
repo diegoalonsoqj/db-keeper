@@ -7,6 +7,8 @@
     "dashboard": "Dashboard",
     "servers": "Instances",
     "credentials": "Credentials",
+    "backups": "Backups",
+    "executions": "Executions",
     "buckets": "Buckets",
     "users": "Users",
     "roles": "Roles & permissions",
@@ -105,6 +107,46 @@
     "prev": "Previous",
     "next": "Next"
   },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "success": "Success",
+    "failed": "Failed"
+  },
+  "backups": {
+    "new": "New event",
+    "intro": "Backup events: pick an instance, credential and the databases to back up; run now or (soon) schedule it.",
+    "name": "Name",
+    "server": "Instance",
+    "pickServer": "Select an instance",
+    "pickServerFirst": "Select an instance first.",
+    "credential": "Credential",
+    "credentialInherit": "Use the instance's",
+    "credentialHint": "Leave on “Use the instance's” unless you want a different user for this event.",
+    "method": "Method",
+    "bucket": "Destination (bucket)",
+    "bucketNone": "No bucket",
+    "databases": "Databases",
+    "noDatabases": "Click “Discover” to list the instance's databases.",
+    "active": "Active",
+    "run": "Run",
+    "runQueued": "Execution created for “{{name}}”. Check it under Executions.",
+    "nameRequired": "Name is required.",
+    "serverRequired": "Select an instance.",
+    "dbRequired": "Select at least one database.",
+    "bucketRequired": "The gcloud method requires a destination bucket."
+  },
+  "executions": {
+    "intro": "Run history of backup events.",
+    "event": "Event",
+    "status": "Status",
+    "origin": "Origin",
+    "origin_manual": "Manual",
+    "origin_scheduled": "Scheduled",
+    "databases": "Databases",
+    "created": "Created",
+    "empty": "No executions"
+  },
   "servers": {
     "title": "Instances",
     "new": "New instance",
@@ -120,16 +162,11 @@
     "notes": "Notes",
     "credential": "Credential",
     "credentialNone": "No credential",
-    "credentialHint": "Pick a credential from the catalog. You can assign it later.",
-    "databases": "Databases"
+    "credentialHint": "Pick a credential from the catalog. You can assign it later."
   },
   "databases": {
-    "title": "Databases — {{name}}",
     "discover": "Discover",
     "discovering": "Discovering…",
-    "save": "Save selection",
-    "saved": "Selection saved",
-    "empty": "No databases yet. Click “Discover” to list them.",
     "selectedCount": "{{count}} selected"
   },
   "credentials": {

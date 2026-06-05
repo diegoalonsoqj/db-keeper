@@ -28,6 +28,10 @@ export type BackupMethod = (typeof BACKUP_METHODS)[number];
 export const EXECUTION_STATES = ["pending", "running", "success", "failed"] as const;
 export type ExecutionState = (typeof EXECUTION_STATES)[number];
 
+/** Origen de una ejecución: lanzada a mano o disparada por el programador. */
+export const EXECUTION_ORIGINS = ["manual", "scheduled"] as const;
+export type ExecutionOrigin = (typeof EXECUTION_ORIGINS)[number];
+
 /** Sobre de respuesta uniforme de la API. */
 export interface ApiOk<T> {
   ok: true;

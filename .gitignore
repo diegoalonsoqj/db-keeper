@@ -23,8 +23,9 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Backups generados localmente (nunca versionar dumps)
-backups/
+# Backups generados localmente (nunca versionar dumps).
+# Anclado a la raíz para no ignorar el módulo apps/api/src/modules/backups/.
+/backups/
 *.sql.gz
 *.bak
 *.archive

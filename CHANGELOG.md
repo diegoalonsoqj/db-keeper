@@ -3,6 +3,34 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 1] — Eventos de backup multi-BD y registro de ejecuciones · 2026-06-04
+
+### Añadido
+- **Evento de backup** (`core.backup_jobs`, migración `0008`): definición reutilizable
+  con instancia, credencial (heredada de la instancia u **override**), método
+  (dump/gcloud), destino (bucket) y opciones. Las BDs a respaldar viven en
+  `core.backup_job_databases` (**multi-BD**).
+- **Ejecuciones**: cada corrida crea una `core.executions` (cabecera con su
+  identificador, estado y origen manual/programado) con un `core.execution_items` por
+  BD. `POST /api/backups/:id/run` lanza el evento (crea la ejecución en `pending`).
+- **API** `/api/backups`: CRUD de eventos, `:id/run` y `GET /executions` (historial).
+  Permisos: `backups:read` (ver), `backups:schedule` (gestionar), `backups:run` (ejecutar).
+- **Frontend**: módulos *Backups* (tabla + asistente con descubrimiento de BDs) y
+  *Ejecuciones* (historial con estado por evento y por BD).
+
+### Cambiado
+- El **descubrimiento** de BDs se integra en el asistente del evento; el endpoint en
+  vivo queda como `POST /api/servers/:id/databases/discover` (devuelve nombres).
+
+### Eliminado
+- La selección de BDs **por instancia** (`core.databases` y su UI), superada por el
+  evento de backup (migración `0009` la dropea).
+
+### Nota
+- *Fase 1*: `run` deja el registro de ejecución en `pending`; el **motor real** de
+  volcado (pg_dump/mysqldump/…, cola y progreso) y el **scheduler** llegan en fases
+  siguientes.
+
 ## [Etapa 3 · parte 2] — Descubrimiento de instancias → selección de BDs · 2026-06-04
 
 ### Añadido

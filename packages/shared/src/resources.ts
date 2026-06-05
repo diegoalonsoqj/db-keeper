@@ -1,4 +1,10 @@
-import type { AppLocale, DbEngine } from "./index.js";
+import type {
+  AppLocale,
+  BackupMethod,
+  DbEngine,
+  ExecutionOrigin,
+  ExecutionState,
+} from "./index.js";
 
 /** Proveedores de almacenamiento soportados. */
 export const STORAGE_PROVIDERS = ["gcs"] as const;
@@ -58,22 +64,63 @@ export interface CredentialInput {
   description?: string | null;
 }
 
-/** Base de datos seleccionada para respaldar (`core.databases`). */
-export interface DatabaseDto {
+/**
+ * Evento de backup (`core.backup_jobs`): definición reutilizable de qué respaldar
+ * (instancia + credencial + BDs + método + destino). Cada corrida genera una
+ * ejecución con su propio identificador.
+ */
+export interface BackupJobDto {
   id: string;
-  serverId: string;
   name: string;
-  /** Esquemas a incluir (Postgres); null hasta una iteración posterior. */
-  schemas: string[] | null;
+  serverId: string;
+  serverName: string;
+  /** Credencial override; null = usar la de la instancia. */
+  credentialId: string | null;
+  credentialName: string | null;
+  method: BackupMethod;
+  bucketId: string | null;
+  bucketName: string | null;
+  options: Record<string, unknown>;
+  isActive: boolean;
+  /** Nombres de las BDs seleccionadas. */
+  databases: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-/** Base detectada al descubrir una instancia en vivo. */
-export interface DiscoveredDatabaseDto {
+export interface BackupJobInput {
   name: string;
-  /** Ya está marcada para respaldo (presente en `core.databases`). */
-  selected: boolean;
+  serverId: string;
+  credentialId?: string | null;
+  method: BackupMethod;
+  bucketId?: string | null;
+  options?: Record<string, unknown>;
+  isActive?: boolean;
+  databases: string[];
+}
+
+/** Resultado de una BD dentro de una ejecución (`core.execution_items`). */
+export interface ExecutionItemDto {
+  id: string;
+  dbName: string;
+  status: ExecutionState;
+  fileName: string | null;
+  fileBytes: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+/** Cabecera de una corrida de un evento de backup (`core.executions`). */
+export interface ExecutionDto {
+  id: string;
+  jobId: string | null;
+  label: string;
+  status: ExecutionState;
+  origin: ExecutionOrigin;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  items: ExecutionItemDto[];
 }
 
 /** Destino de almacenamiento. Nunca expone la clave de servicio. */

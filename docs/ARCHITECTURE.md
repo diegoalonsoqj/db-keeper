@@ -91,18 +91,30 @@ core.servers (id, name, engine, host, port, environment, use_ssl, is_cloud_sql, 
 La FK es `ON DELETE RESTRICT`: una credencial en uso no puede borrarse; el service lo
 verifica de antemano (409) y la BD lo garantiza ante condiciones de carrera.
 
-### Modelo de datos (Etapa 3 · parte 2)
-
-```
-core.databases (id, server_id → core.servers, name, schemas jsonb?, …)   -- BDs seleccionadas a respaldar
-```
-
 El **descubrimiento** lista las bases reales de una instancia conectándose en vivo con
 su credencial del catálogo. Hay un *discoverer* por motor en
 `modules/databases/discovery/` (PostgreSQL, MySQL, SQL Server, Mongo); cada uno abre
 una conexión con timeout, excluye las bases del sistema y devuelve los nombres. La
 credencial se descifra solo en memoria y el error del driver se sanea para no filtrar
-la contraseña. `core.databases` persiste únicamente la selección del usuario.
+la contraseña. El descubrimiento alimenta el asistente del evento de backup; la
+selección efectiva se guarda en el evento, no por instancia.
+
+### Modelo de datos (Etapa 4 · parte 1)
+
+```
+core.backup_jobs (id, name, server_id → core.servers, credential_id? → secrets.credentials,
+                  method[dump|gcloud], bucket_id? → core.storage_buckets, options jsonb, is_active, …)
+   └─< core.backup_job_databases (job_id, db_name) >   -- BDs del evento (multi-BD)
+
+core.executions (id, job_id? → core.backup_jobs, label, status, origin[manual|scheduled],
+                 started_at, finished_at, created_at)
+   └─< core.execution_items (id, execution_id, db_name, status, file_name, file_bytes, log, …) >
+```
+
+Un **evento de backup** (`backup_jobs`) es la definición reutilizable; cada corrida
+crea una **ejecución** (con su identificador propio) y un **ítem por BD**. La credencial
+del evento puede heredarse de la instancia o ser un override. El motor de ejecución
+real (volcado, cola, progreso) y el scheduler son fases siguientes.
 
 ## Seguridad
 

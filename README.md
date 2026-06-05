@@ -108,7 +108,8 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 - [x] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
 - [x] **Etapa 3** — Catálogo de credenciales reutilizables ✅; descubrimiento de
   instancias → selección de BDs ✅.
-- [ ] **Etapa 4** — Motor de ejecución (método `dump`) + cola + evento de backup multi-BD.
+- [~] **Etapa 4** — Evento de backup multi-BD + ejecutar ahora (registro) ✅; motor de
+  ejecución real (`dump`) + cola (pendiente).
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo).
 - [ ] **Etapa 6** — Programación (scheduler).
 - [ ] **Etapa 7** — Notificaciones (Email + Telegram).

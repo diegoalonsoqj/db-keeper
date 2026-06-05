@@ -5,6 +5,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ServersPage } from "./pages/ServersPage";
 import { CredentialsPage } from "./pages/CredentialsPage";
+import { BackupsPage } from "./pages/BackupsPage";
+import { ExecutionsPage } from "./pages/ExecutionsPage";
 import { BucketsPage } from "./pages/BucketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
@@ -35,6 +37,22 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="servers:read">
             <CredentialsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "backups",
+        element: (
+          <RequirePermission perm="backups:read">
+            <BackupsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "executions",
+        element: (
+          <RequirePermission perm="backups:read">
+            <ExecutionsPage />
           </RequirePermission>
         ),
       },

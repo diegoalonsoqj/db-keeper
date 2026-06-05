@@ -337,6 +337,31 @@ table.grid th {
   gap: 0.4rem;
 }
 
+/* ---- Badges de estado ---- */
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.badge-pending {
+  color: var(--muted);
+}
+.badge-running {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.badge-success {
+  color: var(--success);
+  border-color: var(--success);
+}
+.badge-failed {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 /* ---- Bases de datos (descubrimiento) ---- */
 .db-toolbar {
   display: flex;
