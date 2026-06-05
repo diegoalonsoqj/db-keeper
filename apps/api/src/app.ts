@@ -34,7 +34,20 @@ export function createApp(): Express {
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
-  app.use(pinoHttp({ logger }));
+  app.use(
+    pinoHttp({
+      logger,
+      // No ensuciar el log con los chequeos de salud.
+      autoLogging: { ignore: (req) => req.url === "/api/health" || req.url === "/api/ready" },
+      // Peticiones normales en `debug` (ocultas con LOG_LEVEL=info); errores sí visibles.
+      // El polling de Ejecuciones y los GET de listados dejan de inundar la consola.
+      customLogLevel: (_req, res, err) => {
+        if (err || res.statusCode >= 500) return "error";
+        if (res.statusCode >= 400) return "warn";
+        return "debug";
+      },
+    }),
+  );
 
   // Routers por módulo.
   app.use("/api", healthRouter);
