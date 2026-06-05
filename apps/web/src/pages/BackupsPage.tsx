@@ -62,6 +62,7 @@ export function BackupsPage() {
             <tr>
               <th>{t("backups.name")}</th>
               <th>{t("backups.server")}</th>
+              <th>{t("backups.environment")}</th>
               <th>{t("backups.method")}</th>
               <th>{t("backups.databases")}</th>
               <th>{t("backups.bucket")}</th>
@@ -74,6 +75,7 @@ export function BackupsPage() {
               <tr key={j.id}>
                 <td>{j.name}</td>
                 <td>{j.serverName}</td>
+                <td>{j.environment ? <code>{j.environment}</code> : t("common.none")}</td>
                 <td>{j.method}</td>
                 <td>{j.databases.length}</td>
                 <td>{j.bucketName ?? t("common.none")}</td>

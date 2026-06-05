@@ -178,6 +178,7 @@ interface ExecutionRow {
   id: string;
   job_id: string | null;
   label: string;
+  environment: string | null;
   status: ExecutionDto["status"];
   origin: ExecutionDto["origin"];
   started_at: Date | null;
@@ -191,6 +192,7 @@ function toExecutionDto(row: ExecutionRow): ExecutionDto {
     id: row.id,
     jobId: row.job_id,
     label: row.label,
+    environment: row.environment,
     status: row.status,
     origin: row.origin,
     startedAt: row.started_at?.toISOString() ?? null,
@@ -218,14 +220,15 @@ const SELECT_EXECUTION = `
 export async function createExecution(
   jobId: string,
   label: string,
+  environment: string | null,
   databases: string[],
 ): Promise<string> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const { rows } = await client.query<{ id: string }>(
-      "INSERT INTO core.executions (job_id, label) VALUES ($1,$2) RETURNING id",
-      [jobId, label],
+      "INSERT INTO core.executions (job_id, label, environment) VALUES ($1,$2,$3) RETURNING id",
+      [jobId, label, environment],
     );
     const id = rows[0]!.id;
     if (databases.length > 0) {

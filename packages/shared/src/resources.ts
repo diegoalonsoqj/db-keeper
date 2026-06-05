@@ -149,6 +149,8 @@ export interface ExecutionDto {
   id: string;
   jobId: string | null;
   label: string;
+  /** Ambiente (código) del evento al momento de la corrida (snapshot). */
+  environment: string | null;
   status: ExecutionState;
   origin: ExecutionOrigin;
   startedAt: string | null;

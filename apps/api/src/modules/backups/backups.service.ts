@@ -119,7 +119,7 @@ export async function deleteJob(id: string): Promise<void> {
  */
 export async function runNow(jobId: string): Promise<ExecutionDto> {
   const job = await getJob(jobId);
-  const execId = await repo.createExecution(jobId, job.name, job.databases);
+  const execId = await repo.createExecution(jobId, job.name, job.environment, job.databases);
   const exec = await repo.findExecutionById(execId);
   if (!exec) throw HttpError.notFound("Ejecución no encontrada");
   // Fire-and-forget: el motor actualiza los estados en la BD; los errores se
@@ -140,11 +140,10 @@ export async function retryExecution(executionId: string): Promise<ExecutionDto>
   const exec = await repo.findExecutionById(executionId);
   if (!exec) throw HttpError.notFound("Ejecución no encontrada");
   if (!exec.jobId) throw HttpError.badRequest("El evento ya no existe; no se puede reintentar");
-  if (!(await repo.findJobById(exec.jobId))) {
-    throw HttpError.badRequest("El evento ya no existe; no se puede reintentar");
-  }
+  const job = await repo.findJobById(exec.jobId);
+  if (!job) throw HttpError.badRequest("El evento ya no existe; no se puede reintentar");
   const databases = exec.items.map((it) => it.dbName);
-  const newId = await repo.createExecution(exec.jobId, exec.label, databases);
+  const newId = await repo.createExecution(exec.jobId, exec.label, job.environment, databases);
   const created = await repo.findExecutionById(newId);
   if (!created) throw HttpError.notFound("Ejecución no encontrada");
   void runExecution(newId).catch((err) => logger.error({ err, newId }, "Error al disparar el motor"));

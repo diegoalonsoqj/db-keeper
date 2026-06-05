@@ -153,6 +153,7 @@
     "origin": "Origin",
     "origin_manual": "Manual",
     "origin_scheduled": "Scheduled",
+    "environment": "Environment",
     "databases": "Databases",
     "created": "Created",
     "finished": "Finished",

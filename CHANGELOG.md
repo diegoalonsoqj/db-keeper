@@ -12,6 +12,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
   coincidan**: si difieren lanza `400` con mensaje claro. El modal muestra el ambiente
   resultante (solo lectura) y alerta/bloquea el guardado ante la inconsistencia.
 - El nombre del backup usa el ambiente del evento (`{db}_{código}_{timestamp}`).
+- **Columna Ambiente** en las tablas de *Backups* y *Ejecuciones*. La ejecución
+  **snapshotea** el ambiente del evento al correr (`core.executions.environment`,
+  migración `0014`, con backfill), para conservarlo en el historial.
 
 ## [Etapa 4 · parte 5] — Ambiente en credenciales · 2026-06-05
 

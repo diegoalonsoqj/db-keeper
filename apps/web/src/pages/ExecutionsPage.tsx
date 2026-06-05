@@ -7,7 +7,7 @@ import { Pagination } from "../components/Pagination";
 
 /** Refresco mientras haya corridas en curso, para ver el avance del motor (ms). */
 const POLL_MS = 3000;
-const COLS = 9;
+const COLS = 10;
 
 export function ExecutionsPage() {
   const { t, i18n } = useTranslation();
@@ -111,6 +111,7 @@ export function ExecutionsPage() {
               <th>{t("executions.event")}</th>
               <th>{t("executions.status")}</th>
               <th>{t("executions.origin")}</th>
+              <th>{t("executions.environment")}</th>
               <th>{t("executions.databases")}</th>
               <th>{t("executions.created")}</th>
               <th>{t("executions.finished")}</th>
@@ -135,6 +136,7 @@ export function ExecutionsPage() {
                     <span className={`badge badge-${e.status}`}>{t(`status.${e.status}`)}</span>
                   </td>
                   <td>{t(`executions.origin_${e.origin}`)}</td>
+                  <td>{e.environment ? <code>{e.environment}</code> : "—"}</td>
                   <td>{e.items.length}</td>
                   <td>{fmt(e.createdAt)}</td>
                   <td>{fmt(e.finishedAt)}</td>
