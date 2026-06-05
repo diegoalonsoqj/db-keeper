@@ -110,6 +110,8 @@ export interface BackupJobDto {
   method: BackupMethod;
   bucketId: string | null;
   bucketName: string | null;
+  /** Ambiente (código) consolidado del evento; validado contra instancia y credencial. */
+  environment: string | null;
   options: Record<string, unknown>;
   isActive: boolean;
   /** Nombres de las BDs seleccionadas. */

@@ -37,6 +37,30 @@ async function validateRefs(data: Partial<JobData>): Promise<void> {
   }
 }
 
+/**
+ * Consolida el ambiente del evento a partir de la instancia y la credencial
+ * efectiva (override o la heredada de la instancia). Si ambos tienen ambiente y
+ * **no coinciden**, lanza error: respaldar una instancia de un ambiente con una
+ * credencial de otro es casi siempre un descuido peligroso.
+ */
+async function resolveEnvironment(
+  serverId: string,
+  credentialIdOverride: string | null,
+): Promise<string | null> {
+  const server = await serversRepo.findById(serverId);
+  if (!server) return null; // validateRefs ya lo verificó; guarda defensiva
+  const credId = credentialIdOverride ?? server.credentialId;
+  const cred = credId ? await credsRepo.findById(credId) : null;
+  const envServer = server.environment?.trim() || null;
+  const envCred = cred?.environment?.trim() || null;
+  if (envServer && envCred && envServer.toLowerCase() !== envCred.toLowerCase()) {
+    throw HttpError.badRequest(
+      `El ambiente de la instancia (${envServer}) no coincide con el de la credencial (${envCred})`,
+    );
+  }
+  return envServer ?? envCred;
+}
+
 /** Quita duplicados (ignorando mayúsculas) y vacíos de la lista de BDs. */
 function cleanDatabases(names: string[]): string[] {
   const seen = new Set<string>();
@@ -59,21 +83,27 @@ export async function createJob(data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
   const databases = cleanDatabases(data.databases);
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
+  const environment = await resolveEnvironment(data.serverId, data.credentialId);
   const { databases: _omit, ...fields } = data;
-  const id = await repo.insertJob(fields as JobFields, databases);
+  const id = await repo.insertJob({ ...fields, environment }, databases);
   return getJob(id);
 }
 
 export async function updateJob(id: string, data: Partial<JobData>): Promise<BackupJobDto> {
-  if (!(await repo.findJobById(id))) throw HttpError.notFound("Evento de backup no encontrado");
+  const current = await repo.findJobById(id);
+  if (!current) throw HttpError.notFound("Evento de backup no encontrado");
   await validateRefs(data);
   let databases: string[] | undefined;
   if (data.databases) {
     databases = cleanDatabases(data.databases);
     if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   }
+  // Recalcula el ambiente con la instancia/credencial resultantes y revalida.
+  const serverId = data.serverId ?? current.serverId;
+  const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
+  const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
-  await repo.updateJob(id, fields as Partial<JobFields>, databases);
+  await repo.updateJob(id, { ...fields, environment }, databases);
   return getJob(id);
 }
 

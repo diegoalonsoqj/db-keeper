@@ -46,10 +46,21 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [discovering, setDiscovering] = useState(false);
 
   // Opciones de dump aplicables según el motor de la instancia elegida.
-  const engine = servers.find((s) => s.id === serverId)?.engine;
+  const selectedServer = servers.find((s) => s.id === serverId);
+  const engine = selectedServer?.engine;
   const dumpOpts = method === "dump" && engine ? ENGINE_BACKUP_OPTIONS[engine] : [];
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
+
+  // Ambiente consolidado del evento: el de la instancia y el de la credencial
+  // efectiva (override, o la heredada de la instancia) deben coincidir.
+  const effectiveCred = credentials.find(
+    (c) => c.id === (credentialId || selectedServer?.credentialId),
+  );
+  const envServer = selectedServer?.environment?.trim() || null;
+  const envCred = effectiveCred?.environment?.trim() || null;
+  const envMismatch = !!(envServer && envCred && envServer.toLowerCase() !== envCred.toLowerCase());
+  const derivedEnv = envServer ?? envCred ?? null;
 
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +110,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     if (!serverId) return setError(t("backups.serverRequired"));
     if (selected.size === 0) return setError(t("backups.dbRequired"));
     if (method === "gcloud" && !bucketId) return setError(t("backups.bucketRequired"));
+    if (envMismatch) return setError(t("backups.environmentMismatch", { server: envServer, cred: envCred }));
 
     // Conserva opciones existentes y fija/limpia solo las aplicables al motor.
     const options: Record<string, unknown> = { ...(job?.options ?? {}) };
@@ -172,6 +184,17 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           ))}
         </select>
         <small>{t("backups.credentialHint")}</small>
+      </label>
+      <label>
+        {t("backups.environment")}
+        <input value={derivedEnv ?? ""} readOnly placeholder={t("backups.environmentNone")} />
+        {envMismatch ? (
+          <small className="error">
+            {t("backups.environmentMismatch", { server: envServer, cred: envCred })}
+          </small>
+        ) : (
+          <small>{t("backups.environmentHint")}</small>
+        )}
       </label>
       <label>
         {t("backups.method")}

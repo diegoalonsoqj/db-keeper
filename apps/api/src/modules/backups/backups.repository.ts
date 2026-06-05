@@ -11,6 +11,7 @@ interface JobRow {
   method: BackupMethod;
   bucket_id: string | null;
   bucket_name: string | null;
+  environment: string | null;
   options: Record<string, unknown>;
   is_active: boolean;
   databases: string[];
@@ -29,6 +30,7 @@ function toJobDto(row: JobRow): BackupJobDto {
     method: row.method,
     bucketId: row.bucket_id,
     bucketName: row.bucket_name,
+    environment: row.environment,
     options: row.options,
     isActive: row.is_active,
     databases: row.databases,
@@ -77,6 +79,7 @@ export interface JobFields {
   credentialId: string | null;
   method: BackupMethod;
   bucketId: string | null;
+  environment: string | null;
   options: Record<string, unknown>;
   isActive: boolean;
 }
@@ -101,14 +104,15 @@ export async function insertJob(fields: JobFields, databases: string[]): Promise
   try {
     await client.query("BEGIN");
     const { rows } = await client.query<{ id: string }>(
-      `INSERT INTO core.backup_jobs (name, server_id, credential_id, method, bucket_id, options, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      `INSERT INTO core.backup_jobs (name, server_id, credential_id, method, bucket_id, environment, options, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [
         fields.name,
         fields.serverId,
         fields.credentialId,
         fields.method,
         fields.bucketId,
+        fields.environment,
         fields.options,
         fields.isActive,
       ],
@@ -136,6 +140,7 @@ export async function updateJob(
     credentialId: "credential_id",
     method: "method",
     bucketId: "bucket_id",
+    environment: "environment",
     options: "options",
     isActive: "is_active",
   };

@@ -143,6 +143,10 @@ Cuerpo de creación:
 }
 ```
 
+> **Ambiente**: el evento **consolida** el ambiente desde la instancia y la credencial
+> efectiva. La API valida que coincidan (`400` si difieren) y guarda el código en
+> `environment` (no se envía desde el cliente); ese código se usa en el nombre del dump.
+
 > **Motor (método `dump`)**: hoy solo **PostgreSQL** (`pg_dump`). Genera
 > `{db}_{ambiente}_{timestamp}.sql[.gz]` en disco local (`BACKUP_DIR`), valida la
 > integridad del `.gz` y registra peso/log por BD. El destino GCS (`gcloud`) y el resto

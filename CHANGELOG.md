@@ -3,6 +3,16 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 6] — Ambiente consolidado en el evento de backup · 2026-06-05
+
+### Añadido
+- El **evento de backup** guarda su **ambiente** (`core.backup_jobs.environment`,
+  migración `0013`, con backfill desde la instancia). La API lo **consolida**
+  (lado servidor) a partir de la instancia y la credencial efectiva y **valida que
+  coincidan**: si difieren lanza `400` con mensaje claro. El modal muestra el ambiente
+  resultante (solo lectura) y alerta/bloquea el guardado ante la inconsistencia.
+- El nombre del backup usa el ambiente del evento (`{db}_{código}_{timestamp}`).
+
 ## [Etapa 4 · parte 5] — Ambiente en credenciales · 2026-06-05
 
 ### Añadido
