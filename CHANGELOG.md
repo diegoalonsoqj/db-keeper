@@ -20,6 +20,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
   (`backups/<motor>/<archivo>`) en vez de una carpeta por id de ejecución. El nombre
   ya identifica la corrida (`{db}_{ambiente}_{timestamp}`) y el id de ejecución queda
   como registro en `core.executions`.
+- **Opciones del modal por motor**: el asistente muestra solo las opciones de dump
+  aplicables al motor de la instancia (`ENGINE_BACKUP_OPTIONS` en shared). Hoy
+  `compress` (postgres/mysql/mongo) y `excludeTables` (postgres/mysql); preparado para
+  sumar motores sin reescribir el modal.
 
 ## [Etapa 4 · parte 2] — Motor real de backup (PostgreSQL) · 2026-06-05
 

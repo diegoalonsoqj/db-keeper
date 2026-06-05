@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BACKUP_METHODS,
+  ENGINE_BACKUP_OPTIONS,
   type BackupJobDto,
   type BackupMethod,
   type BucketDto,
@@ -43,6 +44,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
   const [selected, setSelected] = useState<Set<string>>(new Set(job?.databases ?? []));
   const [discovering, setDiscovering] = useState(false);
+
+  // Opciones de dump aplicables según el motor de la instancia elegida.
+  const engine = servers.find((s) => s.id === serverId)?.engine;
+  const dumpOpts = method === "dump" && engine ? ENGINE_BACKUP_OPTIONS[engine] : [];
+  const showCompress = dumpOpts.includes("compress");
+  const showExclude = dumpOpts.includes("excludeTables");
 
   const [error, setError] = useState<string | null>(null);
 
@@ -93,20 +100,24 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     if (selected.size === 0) return setError(t("backups.dbRequired"));
     if (method === "gcloud" && !bucketId) return setError(t("backups.bucketRequired"));
 
+    // Conserva opciones existentes y fija/limpia solo las aplicables al motor.
+    const options: Record<string, unknown> = { ...(job?.options ?? {}) };
+    if (showCompress) options.compress = compress;
+    else delete options.compress;
+    if (showExclude)
+      options.excludeTables = excludeTables
+        .split(/[,\n]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+    else delete options.excludeTables;
+
     const payload = {
       name: name.trim(),
       serverId,
       credentialId: credentialId || null,
       method,
       bucketId: bucketId || null,
-      options: {
-        ...(job?.options ?? {}),
-        compress,
-        excludeTables: excludeTables
-          .split(/[,\n]/)
-          .map((t) => t.trim())
-          .filter(Boolean),
-      },
+      options,
       isActive,
       databases: [...selected],
     };
@@ -208,21 +219,27 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         )}
       </fieldset>
 
-      <label>
-        {t("backups.excludeTables")}
-        <input
-          value={excludeTables}
-          onChange={(e) => setExcludeTables(e.target.value)}
-          placeholder={t("backups.excludeTablesPlaceholder")}
-        />
-        <small>{t("backups.excludeTablesHint")}</small>
-      </label>
+      {showExclude && (
+        <label>
+          {t("backups.excludeTables")}
+          <input
+            value={excludeTables}
+            onChange={(e) => setExcludeTables(e.target.value)}
+            placeholder={t("backups.excludeTablesPlaceholder")}
+          />
+          <small>{t("backups.excludeTablesHint")}</small>
+        </label>
+      )}
 
-      <label className="inline">
-        <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />
-        {t("backups.compress")}
-      </label>
-      <small>{t("backups.compressHint")}</small>
+      {showCompress && (
+        <>
+          <label className="inline">
+            <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />
+            {t("backups.compress")}
+          </label>
+          <small>{t("backups.compressHint")}</small>
+        </>
+      )}
 
       <label className="inline">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
