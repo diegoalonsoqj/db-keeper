@@ -3,8 +3,10 @@ import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
 import * as bucketsRepo from "../buckets/buckets.repository.js";
+import { logger } from "../../config/logger.js";
 import * as repo from "./backups.repository.js";
 import type { JobFields } from "./backups.repository.js";
+import { runExecution } from "./engine/runner.js";
 
 export interface JobData {
   name: string;
@@ -80,13 +82,17 @@ export async function deleteJob(id: string): Promise<void> {
 
 /**
  * Lanza el evento ahora: crea la ejecución (origen manual) con un ítem por BD en
- * estado `pending`. El worker que realmente ejecuta el dump llega en la fase 2.
+ * estado `pending` y dispara el motor en segundo plano. Devuelve la ejecución
+ * recién creada (aún `pending`); el front refresca para ver el progreso.
  */
 export async function runNow(jobId: string): Promise<ExecutionDto> {
   const job = await getJob(jobId);
   const execId = await repo.createExecution(jobId, job.name, job.databases);
   const exec = await repo.findExecutionById(execId);
   if (!exec) throw HttpError.notFound("Ejecución no encontrada");
+  // Fire-and-forget: el motor actualiza los estados en la BD; los errores se
+  // reflejan en la propia ejecución y se loguean dentro del runner.
+  void runExecution(execId).catch((err) => logger.error({ err, execId }, "Error al disparar el motor"));
   return exec;
 }
 

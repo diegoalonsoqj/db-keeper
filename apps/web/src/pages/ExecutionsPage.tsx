@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { Pagination } from "../components/Pagination";
+
+/** Refresco mientras haya corridas en curso, para ver el avance del motor (ms). */
+const POLL_MS = 3000;
 
 export function ExecutionsPage() {
   const { t, i18n } = useTranslation();
@@ -10,12 +13,24 @@ export function ExecutionsPage() {
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api
+  const load = useCallback(() => {
+    return api
       .get<Paginated<ExecutionDto>>(`/backups/executions?limit=${page.limit}&offset=${page.offset}`)
       .then(setData)
       .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
   }, [page]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Mientras alguna ejecución esté pendiente/en curso, refresca en intervalo.
+  const isActive = data.items.some((e) => e.status === "pending" || e.status === "running");
+  useEffect(() => {
+    if (!isActive) return;
+    const id = setInterval(() => void load(), POLL_MS);
+    return () => clearInterval(id);
+  }, [isActive, load]);
 
   const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString(i18n.language) : "—");
 

@@ -128,6 +128,8 @@
     "bucketNone": "Sin bucket",
     "databases": "Bases de datos",
     "noDatabases": "Pulsa «Descubrir» para listar las bases de la instancia.",
+    "compress": "Comprimir con gzip (.sql.gz)",
+    "compressHint": "Si lo desactivas, el dump se guarda como .sql sin comprimir.",
     "active": "Activo",
     "run": "Ejecutar",
     "runQueued": "Ejecución creada para «{{name}}». Revísala en Ejecuciones.",

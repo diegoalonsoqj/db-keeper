@@ -19,6 +19,16 @@ const envSchema = z.object({
   // Broker de tareas / tiempo real (se usará desde la Etapa 4).
   REDIS_URL: z.string().url().optional(),
 
+  // --- Motor de backups (Etapa 4, fase 2) ---
+  // Carpeta destino de los dumps locales. Se resuelve contra el cwd del proceso
+  // (que en dev/start es apps/api); por defecto apunta a /backups en la raíz del
+  // repo, ya ignorada por git.
+  BACKUP_DIR: z.string().default("../../backups"),
+  // Ruta al binario pg_dump (si no está en el PATH).
+  PG_DUMP_PATH: z.string().default("pg_dump"),
+  // Timeout por base de datos para el volcado (ms). Por defecto 30 min.
+  BACKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(1_800_000),
+
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   // --- AD / LDAP (temporal en env; migra al módulo Settings en la Etapa 2) ---

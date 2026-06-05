@@ -3,6 +3,33 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 2] — Motor real de backup (PostgreSQL) · 2026-06-05
+
+### Añadido
+- **Motor de volcado** (`modules/backups/engine/`): al lanzar un evento, un runner
+  en segundo plano vuelca cada BD del snapshot y va actualizando los estados
+  (`pending`→`running`→`success`/`failed`) con archivo, peso y log por BD.
+  - **PostgreSQL** vía `pg_dump -Fp` (SQL plano). La compresión es **configurable**
+    por evento (`options.compress`, por defecto activada): con gzip genera `.sql.gz`
+    (`pg_dump -Z6`, restaurable con `gunzip -c … | psql`) y sin comprimir genera
+    `.sql` (restaurable con `psql -f`). La contraseña viaja por `PGPASSWORD` (nunca en
+    la línea de comandos ni en logs); los argumentos van como array (sin shell, sin
+    inyección).
+  - Registry de dumpers por motor; el resto (mysql/mongo/sqlserver) y el destino
+    **gcloud/GCS** quedan para pasos siguientes (fallan con mensaje claro por ahora).
+- **Recuperación de huérfanas** al arrancar: como la ejecución es en-proceso, un
+  reinicio marca como `failed` las corridas que quedaron en `pending`/`running`.
+- **Frontend**: la página *Ejecuciones* refresca cada 3 s mientras haya corridas
+  activas, para ver el avance del motor en vivo.
+
+### Configuración
+- Nuevas env: `BACKUP_DIR` (destino local, por defecto `/backups` en la raíz,
+  ignorada por git), `PG_DUMP_PATH` (binario), `BACKUP_TIMEOUT_MS` (timeout por BD).
+
+### Nota
+- Destino soportado: **disco local**. La subida a bucket GCS (método `gcloud`) y los
+  demás motores llegan después; el **scheduler** (agendar/recurrente) es la fase 3.
+
 ## [Etapa 4 · parte 1] — Eventos de backup multi-BD y registro de ejecuciones · 2026-06-04
 
 ### Añadido

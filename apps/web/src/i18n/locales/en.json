@@ -128,6 +128,8 @@
     "bucketNone": "No bucket",
     "databases": "Databases",
     "noDatabases": "Click “Discover” to list the instance's databases.",
+    "compress": "Compress with gzip (.sql.gz)",
+    "compressHint": "If disabled, the dump is saved as plain .sql.",
     "active": "Active",
     "run": "Run",
     "runQueued": "Execution created for “{{name}}”. Check it under Executions.",

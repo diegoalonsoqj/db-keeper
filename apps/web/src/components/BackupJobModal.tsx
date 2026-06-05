@@ -32,6 +32,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [credentialId, setCredentialId] = useState(job?.credentialId ?? "");
   const [method, setMethod] = useState<BackupMethod>(job?.method ?? "dump");
   const [bucketId, setBucketId] = useState(job?.bucketId ?? "");
+  // Comprimir con gzip por defecto; solo se desactiva si options.compress === false.
+  const [compress, setCompress] = useState(job?.options?.compress !== false);
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
@@ -93,6 +95,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       credentialId: credentialId || null,
       method,
       bucketId: bucketId || null,
+      options: { ...(job?.options ?? {}), compress },
       isActive,
       databases: [...selected],
     };
@@ -193,6 +196,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           </ul>
         )}
       </fieldset>
+
+      <label className="inline">
+        <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />
+        {t("backups.compress")}
+      </label>
+      <small>{t("backups.compressHint")}</small>
 
       <label className="inline">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

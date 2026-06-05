@@ -245,6 +245,59 @@ export async function findExecutionById(id: string): Promise<ExecutionDto | null
   return rows[0] ? toExecutionDto(rows[0]) : null;
 }
 
+// ---- Transiciones de estado (motor, fase 2) ----
+
+/** Marca la ejecución como `running` y fija started_at si aún no estaba. */
+export async function markExecutionRunning(id: string): Promise<void> {
+  await query(
+    "UPDATE core.executions SET status = 'running', started_at = COALESCE(started_at, now()) WHERE id = $1",
+    [id],
+  );
+}
+
+/** Cierra la ejecución con su estado final (`success`/`failed`) y finished_at. */
+export async function finishExecution(id: string, status: "success" | "failed"): Promise<void> {
+  await query("UPDATE core.executions SET status = $2, finished_at = now() WHERE id = $1", [id, status]);
+}
+
+/** Marca un ítem (BD) como `running` con started_at. */
+export async function markItemRunning(itemId: string): Promise<void> {
+  await query(
+    "UPDATE core.execution_items SET status = 'running', started_at = now() WHERE id = $1",
+    [itemId],
+  );
+}
+
+/** Cierra un ítem con su resultado: estado final, archivo/peso y log. */
+export async function finishItem(
+  itemId: string,
+  result: { status: "success" | "failed"; fileName?: string | null; fileBytes?: number | null; log?: string | null },
+): Promise<void> {
+  await query(
+    `UPDATE core.execution_items
+     SET status = $2, file_name = $3, file_bytes = $4, log = $5, finished_at = now()
+     WHERE id = $1`,
+    [itemId, result.status, result.fileName ?? null, result.fileBytes ?? null, result.log ?? null],
+  );
+}
+
+/**
+ * Recupera ejecuciones huérfanas: en el modelo en-proceso, un reinicio mata
+ * cualquier corrida en curso. Marca como `failed` toda ejecución/ítem que haya
+ * quedado en `pending`/`running`. Devuelve cuántas ejecuciones se cerraron.
+ */
+export async function recoverStaleExecutions(): Promise<number> {
+  await query(
+    "UPDATE core.execution_items SET status = 'failed', finished_at = now(), " +
+      "log = COALESCE(log, 'Interrumpida por reinicio del servicio') " +
+      "WHERE status IN ('pending', 'running')",
+  );
+  const { rowCount } = await query(
+    "UPDATE core.executions SET status = 'failed', finished_at = now() WHERE status IN ('pending', 'running')",
+  );
+  return rowCount ?? 0;
+}
+
 export async function listExecutions(p: {
   limit: number;
   offset: number;
