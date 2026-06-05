@@ -3,6 +3,21 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 8] — Módulo Almacenamiento (local + buckets) · 2026-06-05
+
+### Cambiado
+- El módulo **Buckets** pasa a **Almacenamiento** (`core.storage_buckets → storage_targets`,
+  migración `0015`). Un destino tiene `type` **local** (con `path`) o **gcs** (bucket +
+  prefijo + clave de servicio). Endpoints en `/api/storage`.
+- **Destino por defecto por tipo** (`is_default`, único por tipo): se marca en el módulo
+  (badge + acción "Marcar por defecto") y se elige en **Settings** (selectores de local y
+  bucket por defecto).
+- El **motor** escribe los dumps en el `path` del destino local **por defecto** (la
+  variable `BACKUP_DIR` queda como *fallback* inicial/seed). La migración siembra un
+  destino local por defecto con la ruta de `BACKUP_DIR`.
+- Las ejecuciones guardan la **ruta absoluta** del dump (robusto si cambia el destino
+  local); las descargas siguen funcionando para registros antiguos (ruta relativa).
+
 ## [Etapa 4 · parte 7] — UX: ambiente con nombre e iconos de acción · 2026-06-05
 
 ### Cambiado

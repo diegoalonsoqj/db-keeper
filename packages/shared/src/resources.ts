@@ -6,9 +6,13 @@ import type {
   ExecutionState,
 } from "./index.js";
 
-/** Proveedores de almacenamiento soportados. */
+/** Proveedores de almacenamiento en la nube soportados. */
 export const STORAGE_PROVIDERS = ["gcs"] as const;
 export type StorageProvider = (typeof STORAGE_PROVIDERS)[number];
+
+/** Tipo de destino de almacenamiento: carpeta local o bucket en la nube. */
+export const STORAGE_TYPES = ["local", "gcs"] as const;
+export type StorageType = (typeof STORAGE_TYPES)[number];
 
 /** Puerto por defecto sugerido por motor (para la UI). */
 export const DEFAULT_PORTS: Record<DbEngine, number> = {
@@ -159,14 +163,23 @@ export interface ExecutionDto {
   items: ExecutionItemDto[];
 }
 
-/** Destino de almacenamiento. Nunca expone la clave de servicio. */
-export interface BucketDto {
+/**
+ * Destino de almacenamiento (`core.storage_targets`): carpeta local (con `path`)
+ * o bucket en la nube (`provider`/`bucket`/`prefix` + clave de servicio cifrada).
+ * Nunca expone la clave de servicio. `isDefault` marca el destino por tipo.
+ */
+export interface StorageTargetDto {
   id: string;
+  type: StorageType;
   name: string;
-  provider: StorageProvider;
-  bucket: string;
+  /** Solo `local`: ruta del directorio destino. */
+  path: string | null;
+  /** Solo `gcs`. */
+  provider: StorageProvider | null;
+  bucket: string | null;
   prefix: string | null;
   isActive: boolean;
+  isDefault: boolean;
   hasServiceAccount: boolean;
   createdAt: string;
   updatedAt: string;

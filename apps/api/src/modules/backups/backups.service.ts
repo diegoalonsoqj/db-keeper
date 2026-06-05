@@ -2,7 +2,7 @@ import type { BackupJobDto, ExecutionDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
-import * as bucketsRepo from "../buckets/buckets.repository.js";
+import * as storageRepo from "../storage/storage.repository.js";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { logger } from "../../config/logger.js";
@@ -29,7 +29,7 @@ async function validateRefs(data: Partial<JobData>): Promise<void> {
   if (data.credentialId && !(await credsRepo.findById(data.credentialId))) {
     throw HttpError.badRequest("La credencial seleccionada no existe");
   }
-  if (data.bucketId && !(await bucketsRepo.findById(data.bucketId))) {
+  if (data.bucketId && !(await storageRepo.findById(data.bucketId))) {
     throw HttpError.badRequest("El bucket seleccionado no existe");
   }
   if (data.method === "gcloud" && !data.bucketId) {

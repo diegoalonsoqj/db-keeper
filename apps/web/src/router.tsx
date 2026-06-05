@@ -8,7 +8,7 @@ import { EnvironmentsPage } from "./pages/EnvironmentsPage";
 import { CredentialsPage } from "./pages/CredentialsPage";
 import { BackupsPage } from "./pages/BackupsPage";
 import { ExecutionsPage } from "./pages/ExecutionsPage";
-import { BucketsPage } from "./pages/BucketsPage";
+import { StoragePage } from "./pages/StoragePage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { AuditPage } from "./pages/AuditPage";
@@ -66,10 +66,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "buckets",
+        path: "storage",
         element: (
           <RequirePermission perm="servers:read">
-            <BucketsPage />
+            <StoragePage />
           </RequirePermission>
         ),
       },

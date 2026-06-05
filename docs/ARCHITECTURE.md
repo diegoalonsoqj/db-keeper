@@ -49,7 +49,7 @@ Separación por responsabilidad (permite políticas de acceso más estrictas):
 
 - **`auth`** — `users`, `roles`, `permissions`, `role_permissions`, `user_roles`.
 - **`audit`** — `activity_log` (quién, qué, cuándo, IP, user-agent, detalle).
-- **`core`** — `servers` (instancias), `storage_buckets`, `app_settings`; y más
+- **`core`** — `servers` (instancias), `environments`, `storage_targets`, `app_settings`; y más
   adelante bases, trabajos y ejecuciones.
 - **`secrets`** — `credentials`: **catálogo** de credenciales reutilizables, con
   contraseña/`extra` cifrados (una credencial puede usarse en varias instancias).
@@ -72,7 +72,7 @@ audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip
 ### Modelo de datos (Etapa 2)
 
 ```
-core.storage_buckets (id, name, provider, bucket, prefix, service_account_encrypted, is_active, …)
+core.storage_targets (id, type[local|gcs], name, path?, provider?, bucket?, prefix?, service_account_encrypted?, is_active, is_default, …)
 core.app_settings (key, value jsonb)   -- 'general' (timezone, idioma) · 'ldap' (config AD)
 ```
 
@@ -103,7 +103,7 @@ selección efectiva se guarda en el evento, no por instancia.
 
 ```
 core.backup_jobs (id, name, server_id → core.servers, credential_id? → secrets.credentials,
-                  method[dump|gcloud], bucket_id? → core.storage_buckets, options jsonb, is_active, …)
+                  method[dump|gcloud], bucket_id? → core.storage_targets, options jsonb, is_active, …)
    └─< core.backup_job_databases (job_id, db_name) >   -- BDs del evento (multi-BD)
 
 core.executions (id, job_id? → core.backup_jobs, label, status, origin[manual|scheduled],

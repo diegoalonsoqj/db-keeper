@@ -46,7 +46,7 @@ const SELECT_JOB = `
   FROM core.backup_jobs j
   JOIN core.servers s ON s.id = j.server_id
   LEFT JOIN secrets.credentials c ON c.id = j.credential_id
-  LEFT JOIN core.storage_buckets b ON b.id = j.bucket_id
+  LEFT JOIN core.storage_targets b ON b.id = j.bucket_id
   LEFT JOIN core.backup_job_databases jd ON jd.job_id = j.id
 `;
 

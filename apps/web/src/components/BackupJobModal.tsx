@@ -5,7 +5,7 @@ import {
   ENGINE_BACKUP_OPTIONS,
   type BackupJobDto,
   type BackupMethod,
-  type BucketDto,
+  type StorageTargetDto,
   type CredentialDto,
   type Paginated,
   type ServerDto,
@@ -26,7 +26,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
 
   const [servers, setServers] = useState<ServerDto[]>([]);
   const [credentials, setCredentials] = useState<CredentialDto[]>([]);
-  const [buckets, setBuckets] = useState<BucketDto[]>([]);
+  const [buckets, setBuckets] = useState<StorageTargetDto[]>([]);
 
   const [name, setName] = useState(job?.name ?? "");
   const [serverId, setServerId] = useState(job?.serverId ?? "");
@@ -68,7 +68,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     Promise.all([
       api.get<Paginated<ServerDto>>("/servers?limit=100"),
       api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
-      api.get<Paginated<BucketDto>>("/buckets?limit=100"),
+      api.get<Paginated<StorageTargetDto>>("/storage?limit=100"),
     ])
       .then(([s, c, b]) => {
         setServers(s.items);
@@ -210,11 +210,13 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         {t("backups.bucket")}
         <select value={bucketId} onChange={(e) => setBucketId(e.target.value)}>
           <option value="">{t("backups.bucketNone")}</option>
-          {buckets.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
+          {buckets
+            .filter((b) => b.type === "gcs")
+            .map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
         </select>
       </label>
 

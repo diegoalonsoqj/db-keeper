@@ -196,13 +196,18 @@ Cuerpo de creación:
 En `PATCH`, **omitir un campo = no tocarlo**; enviar `null` lo borra (aplica a
 `extra`, `environment`, `description`). Omitir `password` conserva la actual.
 
-## Buckets — `/api/buckets`
+## Almacenamiento — `/api/storage`
+
+Destinos de backup: `type` **local** (con `path`) o **gcs** (`bucket`/`prefix` + clave de
+servicio cifrada). Un destino por defecto por tipo (`isDefault`). El motor escribe en el
+`path` del destino local por defecto (`BACKUP_DIR` es solo fallback).
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/` | `servers:read` | Lista buckets (nunca expone la clave de servicio). |
-| POST | `/` | `servers:write` | Crea bucket (`{ name, bucket, prefix?, isActive?, serviceAccount? }`). |
-| PATCH | `/:id` | `servers:write` | Actualiza; `serviceAccount` vacío borra la clave. |
+| GET | `/` | `servers:read` | Lista destinos (nunca expone la clave de servicio). |
+| POST | `/` | `servers:write` | Crea destino (`{ type, name, path? \| bucket?, prefix?, isActive?, serviceAccount? }`). |
+| PATCH | `/:id` | `servers:write` | Actualiza (mismos campos que crear). |
+| POST | `/:id/default` | `servers:write` | Marca el destino como por defecto de su tipo. |
 | DELETE | `/:id` | `servers:delete` | Elimina. |
 
 ## Configuración — `/api/settings`

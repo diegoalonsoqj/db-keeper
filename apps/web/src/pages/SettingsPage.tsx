@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { APP_LOCALES, type AppLocale, type SettingsDto } from "@dbkeeper/shared";
+import {
+  APP_LOCALES,
+  type AppLocale,
+  type Paginated,
+  type SettingsDto,
+  type StorageTargetDto,
+} from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 
@@ -10,6 +16,7 @@ export function SettingsPage() {
   const canWrite = has("settings:write");
 
   const [data, setData] = useState<SettingsDto | null>(null);
+  const [targets, setTargets] = useState<StorageTargetDto[]>([]);
   const [bindPassword, setBindPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -19,7 +26,19 @@ export function SettingsPage() {
       .get<SettingsDto>("/settings")
       .then(setData)
       .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    api
+      .get<Paginated<StorageTargetDto>>("/storage?limit=100")
+      .then((p) => setTargets(p.items))
+      .catch(() => {});
   }, []);
+
+  async function setDefaultTarget(id: string) {
+    await api.post(`/storage/${id}/default`);
+    const p = await api.get<Paginated<StorageTargetDto>>("/storage?limit=100");
+    setTargets(p.items);
+  }
+  const defaultOf = (ty: StorageTargetDto["type"]) =>
+    targets.find((s) => s.type === ty && s.isDefault)?.id ?? "";
 
   function notify(fn: () => Promise<unknown>) {
     setError(null);
@@ -81,6 +100,49 @@ export function SettingsPage() {
             <button onClick={() => notify(saveGeneral)}>{t("common.save")}</button>
           </div>
         )}
+      </div>
+
+      <div className="card form-card" style={{ marginTop: "1rem" }}>
+        <h2>{t("settings.storageDefaults")}</h2>
+        <p className="muted">{t("settings.storageDefaultsHint")}</p>
+        <label>
+          {t("settings.defaultLocal")}
+          <select
+            value={defaultOf("local")}
+            disabled={!canWrite}
+            onChange={(e) => e.target.value && notify(() => setDefaultTarget(e.target.value))}
+          >
+            <option value="" disabled>
+              {t("common.none")}
+            </option>
+            {targets
+              .filter((s) => s.type === "local")
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          {t("settings.defaultBucket")}
+          <select
+            value={defaultOf("gcs")}
+            disabled={!canWrite}
+            onChange={(e) => e.target.value && notify(() => setDefaultTarget(e.target.value))}
+          >
+            <option value="" disabled>
+              {t("common.none")}
+            </option>
+            {targets
+              .filter((s) => s.type === "gcs")
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </select>
+        </label>
       </div>
 
       <div className="card form-card" style={{ marginTop: "1rem" }}>

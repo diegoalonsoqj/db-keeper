@@ -14,7 +14,7 @@ import { serversRouter } from "./modules/servers/servers.routes.js";
 import { environmentsRouter } from "./modules/environments/environments.routes.js";
 import { credentialsRouter } from "./modules/credentials/credentials.routes.js";
 import { backupsRouter } from "./modules/backups/backups.routes.js";
-import { bucketsRouter } from "./modules/buckets/buckets.routes.js";
+import { storageRouter } from "./modules/storage/storage.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 
@@ -60,7 +60,7 @@ export function createApp(): Express {
   app.use("/api/environments", environmentsRouter);
   app.use("/api/credentials", credentialsRouter);
   app.use("/api/backups", backupsRouter);
-  app.use("/api/buckets", bucketsRouter);
+  app.use("/api/storage", storageRouter);
   app.use("/api/settings", settingsRouter);
 
   app.use(notFoundHandler);

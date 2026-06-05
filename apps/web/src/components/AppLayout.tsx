@@ -53,7 +53,7 @@ export function AppLayout() {
     { to: "/credentials", label: t("nav.credentials"), icon: KeyRound, perm: "servers:read" },
     { to: "/backups", label: t("nav.backups"), icon: Play, perm: "backups:read" },
     { to: "/executions", label: t("nav.executions"), icon: History, perm: "backups:read" },
-    { to: "/buckets", label: t("nav.buckets"), icon: HardDrive, perm: "servers:read" },
+    { to: "/storage", label: t("nav.storage"), icon: HardDrive, perm: "servers:read" },
     { to: "/users", label: t("nav.users"), icon: Users, perm: "users:read" },
     { to: "/roles", label: t("nav.roles"), icon: ShieldCheck, perm: "roles:read" },
     { to: "/audit", label: t("nav.audit"), icon: ScrollText, perm: "audit:read" },
