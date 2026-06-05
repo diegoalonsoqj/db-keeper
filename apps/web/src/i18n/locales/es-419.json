@@ -130,6 +130,8 @@
     "environmentMismatch": "Inconsistencia: la instancia es «{{server}}» y la credencial «{{cred}}». Deben ser el mismo ambiente.",
     "method": "Método",
     "bucket": "Destino (bucket)",
+    "destination": "Destino",
+    "destinationLocalHint": "El método 'dump' guarda en el almacenamiento local por defecto (configurable en Settings).",
     "bucketNone": "Sin bucket",
     "databases": "Bases de datos",
     "noDatabases": "Pulsa «Descubrir» para listar las bases de la instancia.",

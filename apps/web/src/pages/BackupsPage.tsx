@@ -4,6 +4,7 @@ import { Pencil, Play, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type BackupJobDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
+import { useStorageTargets, defaultLocalTarget } from "../lib/storage";
 import { useAuth } from "../auth/AuthContext";
 import { Pagination } from "../components/Pagination";
 import { BackupJobModal } from "../components/BackupJobModal";
@@ -14,6 +15,8 @@ export function BackupsPage() {
   const canManage = has("backups:schedule");
   const canRun = has("backups:run");
   const environments = useEnvironments();
+  const targets = useStorageTargets();
+  const localDefault = defaultLocalTarget(targets);
 
   const [data, setData] = useState<Paginated<BackupJobDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
@@ -68,7 +71,7 @@ export function BackupsPage() {
               <th>{t("backups.environment")}</th>
               <th>{t("backups.method")}</th>
               <th>{t("backups.databases")}</th>
-              <th>{t("backups.bucket")}</th>
+              <th>{t("backups.destination")}</th>
               <th>{t("backups.active")}</th>
               <th>{t("common.actions")}</th>
             </tr>
@@ -81,7 +84,11 @@ export function BackupsPage() {
                 <td>{environmentLabel(environments, j.environment) ?? t("common.none")}</td>
                 <td>{j.method}</td>
                 <td>{j.databases.length}</td>
-                <td>{j.bucketName ?? t("common.none")}</td>
+                <td>
+                  {j.method === "gcloud"
+                    ? (j.bucketName ?? t("backups.bucketNone"))
+                    : (localDefault?.name ?? t("storage.type_local"))}
+                </td>
                 <td>{j.isActive ? t("common.active") : t("common.inactive")}</td>
                 <td className="row-actions">
                   {canRun && (

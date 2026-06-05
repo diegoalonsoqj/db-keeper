@@ -130,6 +130,8 @@
     "environmentMismatch": "Mismatch: the instance is “{{server}}” and the credential “{{cred}}”. They must be the same environment.",
     "method": "Method",
     "bucket": "Destination (bucket)",
+    "destination": "Destination",
+    "destinationLocalHint": "The 'dump' method stores to the default local storage (configurable in Settings).",
     "bucketNone": "No bucket",
     "databases": "Databases",
     "noDatabases": "Click “Discover” to list the instance's databases.",

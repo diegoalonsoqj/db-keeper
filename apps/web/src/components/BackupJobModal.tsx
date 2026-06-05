@@ -62,6 +62,9 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const envMismatch = !!(envServer && envCred && envServer.toLowerCase() !== envCred.toLowerCase());
   const derivedEnv = envServer ?? envCred ?? null;
 
+  // Destino local por defecto (se usa cuando el evento no va a un bucket).
+  const defaultLocal = buckets.find((b) => b.type === "local" && b.isDefault);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -206,19 +209,34 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           ))}
         </select>
       </label>
-      <label>
-        {t("backups.bucket")}
-        <select value={bucketId} onChange={(e) => setBucketId(e.target.value)}>
-          <option value="">{t("backups.bucketNone")}</option>
-          {buckets
-            .filter((b) => b.type === "gcs")
-            .map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-        </select>
-      </label>
+      {method === "gcloud" ? (
+        <label>
+          {t("backups.destination")}
+          <select value={bucketId} onChange={(e) => setBucketId(e.target.value)}>
+            <option value="">{t("backups.bucketNone")}</option>
+            {buckets
+              .filter((b) => b.type === "gcs")
+              .map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+          </select>
+        </label>
+      ) : (
+        <label>
+          {t("backups.destination")}
+          <input
+            readOnly
+            value={
+              defaultLocal
+                ? `${defaultLocal.name}${defaultLocal.path ? ` — ${defaultLocal.path}` : ""}`
+                : t("storage.type_local")
+            }
+          />
+          <small>{t("backups.destinationLocalHint")}</small>
+        </label>
+      )}
 
       <fieldset>
         <legend>{t("backups.databases")}</legend>
