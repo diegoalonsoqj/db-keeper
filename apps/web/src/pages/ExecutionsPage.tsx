@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { Pagination } from "../components/Pagination";
 
@@ -13,6 +14,7 @@ export function ExecutionsPage() {
   const { t, i18n } = useTranslation();
   const { has } = useAuth();
   const canRun = has("backups:run");
+  const environments = useEnvironments();
   const [data, setData] = useState<Paginated<ExecutionDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -136,7 +138,7 @@ export function ExecutionsPage() {
                     <span className={`badge badge-${e.status}`}>{t(`status.${e.status}`)}</span>
                   </td>
                   <td>{t(`executions.origin_${e.origin}`)}</td>
-                  <td>{e.environment ? <code>{e.environment}</code> : "—"}</td>
+                  <td>{environmentLabel(environments, e.environment) ?? "—"}</td>
                   <td>{e.items.length}</td>
                   <td>{fmt(e.createdAt)}</td>
                   <td>{fmt(e.finishedAt)}</td>

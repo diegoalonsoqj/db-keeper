@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DEFAULT_PAGE_SIZE, type BackupJobDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { Pagination } from "../components/Pagination";
 import { BackupJobModal } from "../components/BackupJobModal";
@@ -11,6 +12,7 @@ export function BackupsPage() {
   const { has } = useAuth();
   const canManage = has("backups:schedule");
   const canRun = has("backups:run");
+  const environments = useEnvironments();
 
   const [data, setData] = useState<Paginated<BackupJobDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
@@ -75,7 +77,7 @@ export function BackupsPage() {
               <tr key={j.id}>
                 <td>{j.name}</td>
                 <td>{j.serverName}</td>
-                <td>{j.environment ? <code>{j.environment}</code> : t("common.none")}</td>
+                <td>{environmentLabel(environments, j.environment) ?? t("common.none")}</td>
                 <td>{j.method}</td>
                 <td>{j.databases.length}</td>
                 <td>{j.bucketName ?? t("common.none")}</td>

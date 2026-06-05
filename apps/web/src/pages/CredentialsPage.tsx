@@ -7,6 +7,7 @@ import {
   type Paginated,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
@@ -147,7 +148,7 @@ export function CredentialsPage() {
             <tr key={c.id}>
               <td>{c.name}</td>
               <td>{c.username}</td>
-              <td>{c.environment ? <code>{c.environment}</code> : t("common.none")}</td>
+              <td>{environmentLabel(environments, c.environment) ?? t("common.none")}</td>
               <td>{c.description ?? t("common.none")}</td>
               <td>{c.hasExtra ? t("common.yes") : t("common.no")}</td>
               {(canWrite || canDelete) && (

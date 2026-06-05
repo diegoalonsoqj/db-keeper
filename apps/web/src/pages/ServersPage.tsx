@@ -11,6 +11,7 @@ import {
   type ServerDto,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
@@ -154,7 +155,7 @@ export function ServersPage() {
               <td>{s.engine}{s.isCloudSql ? " · Cloud SQL" : ""}</td>
               <td>{s.host}{s.useSsl ? " 🔒" : ""}</td>
               <td>{s.port}</td>
-              <td>{s.environment ?? t("common.none")}</td>
+              <td>{environmentLabel(environments, s.environment) ?? t("common.none")}</td>
               <td>{s.credentialName ?? t("common.none")}</td>
               {(canWrite || canDelete) && (
                 <td className="row-actions">
