@@ -27,9 +27,19 @@ function toBucket(row: BucketRow): BucketDto {
   };
 }
 
-export async function listBuckets(): Promise<BucketDto[]> {
-  const { rows } = await query<BucketRow>("SELECT * FROM core.storage_buckets ORDER BY name");
-  return rows.map(toBucket);
+export async function listBuckets(p: {
+  limit: number;
+  offset: number;
+}): Promise<{ items: BucketDto[]; total: number }> {
+  const totalRes = await query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM core.storage_buckets",
+  );
+  const total = Number(totalRes.rows[0]?.count ?? 0);
+  const { rows } = await query<BucketRow>(
+    "SELECT * FROM core.storage_buckets ORDER BY name LIMIT $1 OFFSET $2",
+    [p.limit, p.offset],
+  );
+  return { items: rows.map(toBucket), total };
 }
 
 export async function findById(id: string): Promise<BucketDto | null> {

@@ -45,8 +45,11 @@ export async function insertAudit(input: AuditWriteInput): Promise<void> {
 export interface AuditQuery {
   limit: number;
   offset: number;
-  userId?: string;
   action?: string;
+  entityType?: string;
+  username?: string;
+  from?: Date;
+  to?: Date;
 }
 
 export async function listAudit(
@@ -55,8 +58,12 @@ export async function listAudit(
   const where: string[] = [];
   const params: unknown[] = [];
   let i = 1;
-  if (q.userId) (where.push(`user_id = $${i++}`), params.push(q.userId));
   if (q.action) (where.push(`action = $${i++}`), params.push(q.action));
+  if (q.entityType) (where.push(`entity_type = $${i++}`), params.push(q.entityType));
+  if (q.username) (where.push(`username ILIKE $${i++}`), params.push(`%${q.username}%`));
+  if (q.from) (where.push(`created_at >= $${i++}`), params.push(q.from));
+  // `to` se interpreta como día inclusivo: hasta el final de esa fecha.
+  if (q.to) (where.push(`created_at < $${i++}::timestamptz + interval '1 day'`), params.push(q.to));
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
   const totalRes = await query<{ count: string }>(

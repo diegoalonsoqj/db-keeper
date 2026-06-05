@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { BucketDto } from "@dbkeeper/shared";
+import { DEFAULT_PAGE_SIZE, type BucketDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
+import { Pagination } from "../components/Pagination";
 
 interface FormState {
   id: string | null;
@@ -22,16 +23,18 @@ export function BucketsPage() {
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
 
-  const [buckets, setBuckets] = useState<BucketDto[]>([]);
+  const [data, setData] = useState<Paginated<BucketDto>>({ items: [], total: 0 });
+  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    setBuckets(await api.get<BucketDto[]>("/buckets"));
+    setData(await api.get<Paginated<BucketDto>>(`/buckets?limit=${page.limit}&offset=${page.offset}`));
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   function startEdit(b: BucketDto) {
     setError(null);
@@ -76,7 +79,8 @@ export function BucketsPage() {
       </div>
       {error && <p className="error">{error}</p>}
 
-      <table className="grid">
+      <div className="table-wrap">
+        <table className="grid">
         <thead>
           <tr>
             <th>{t("buckets.name")}</th>
@@ -89,7 +93,7 @@ export function BucketsPage() {
           </tr>
         </thead>
         <tbody>
-          {buckets.map((b) => (
+          {data.items.map((b) => (
             <tr key={b.id}>
               <td>{b.name}</td>
               <td>{b.provider.toUpperCase()}</td>
@@ -106,7 +110,9 @@ export function BucketsPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
 
       {form && (
         <Modal

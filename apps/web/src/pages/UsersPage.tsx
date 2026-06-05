@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { RoleDto, UserDto } from "@dbkeeper/shared";
+import { DEFAULT_PAGE_SIZE, type Paginated, type RoleDto, type UserDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
+import { Pagination } from "../components/Pagination";
 
 interface FormState {
   id: string | null;
@@ -33,20 +34,25 @@ export function UsersPage() {
   const canWrite = has("users:write");
   const canDelete = has("users:delete");
 
-  const [users, setUsers] = useState<UserDto[]>([]);
+  const [data, setData] = useState<Paginated<UserDto>>({ items: [], total: 0 });
   const [roles, setRoles] = useState<RoleDto[]>([]);
+  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    const [u, r] = await Promise.all([api.get<UserDto[]>("/users"), api.get<RoleDto[]>("/roles")]);
-    setUsers(u);
+    const [u, r] = await Promise.all([
+      api.get<Paginated<UserDto>>(`/users?limit=${page.limit}&offset=${page.offset}`),
+      api.get<RoleDto[]>("/roles"),
+    ]);
+    setData(u);
     setRoles(r);
   }
 
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   function startCreate() {
     setError(null);
@@ -120,7 +126,8 @@ export function UsersPage() {
       </div>
       {error && <p className="error">{error}</p>}
 
-      <table className="grid">
+      <div className="table-wrap">
+        <table className="grid">
         <thead>
           <tr>
             <th>{t("users.username")}</th>
@@ -132,7 +139,7 @@ export function UsersPage() {
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
+          {data.items.map((u) => (
             <tr key={u.id}>
               <td>{u.username}</td>
               <td>{u.fullName ?? "—"}</td>
@@ -152,7 +159,9 @@ export function UsersPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
 
       {form && (
         <Modal

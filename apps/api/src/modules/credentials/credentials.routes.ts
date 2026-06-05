@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
+import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./credentials.service.js";
 
@@ -24,9 +25,9 @@ const updateSchema = z.object({
   description: z.string().max(500).nullish().transform((v) => v ?? null),
 });
 
-credentialsRouter.get("/", authorize("servers:read"), async (_req, res, next) => {
+credentialsRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listCredentials());
+    ok(res, await service.listCredentials(paginationSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

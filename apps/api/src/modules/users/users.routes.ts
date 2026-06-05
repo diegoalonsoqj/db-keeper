@@ -3,6 +3,7 @@ import { z } from "zod";
 import { HttpError } from "../../lib/http-error.js";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
+import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./users.service.js";
 
@@ -27,9 +28,9 @@ const updateSchema = z.object({
   roleKeys: z.array(z.string()).optional(),
 });
 
-usersRouter.get("/", authorize("users:read"), async (_req, res, next) => {
+usersRouter.get("/", authorize("users:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listUsers());
+    ok(res, await service.listUsers(paginationSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

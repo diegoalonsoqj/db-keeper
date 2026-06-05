@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DB_ENGINES } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
+import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./servers.service.js";
 
@@ -40,9 +41,9 @@ const updateSchema = z.object({
   credentialId: serverFields.credentialId,
 });
 
-serversRouter.get("/", authorize("servers:read"), async (_req, res, next) => {
+serversRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listServers());
+    ok(res, await service.listServers(paginationSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

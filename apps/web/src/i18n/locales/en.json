@@ -93,7 +93,17 @@
     "action": "Action",
     "entity": "Entity",
     "ip": "IP",
-    "empty": "No records"
+    "empty": "No records",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "clear": "Clear"
+  },
+  "pagination": {
+    "perPage": "Per page",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "prev": "Previous",
+    "next": "Next"
   },
   "servers": {
     "title": "Instances",

@@ -24,9 +24,19 @@ function toDto(row: CredentialRow): CredentialDto {
   };
 }
 
-export async function listCredentials(): Promise<CredentialDto[]> {
-  const { rows } = await query<CredentialRow>("SELECT * FROM secrets.credentials ORDER BY name");
-  return rows.map(toDto);
+export async function listCredentials(p: {
+  limit: number;
+  offset: number;
+}): Promise<{ items: CredentialDto[]; total: number }> {
+  const totalRes = await query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM secrets.credentials",
+  );
+  const total = Number(totalRes.rows[0]?.count ?? 0);
+  const { rows } = await query<CredentialRow>(
+    "SELECT * FROM secrets.credentials ORDER BY name LIMIT $1 OFFSET $2",
+    [p.limit, p.offset],
+  );
+  return { items: rows.map(toDto), total };
 }
 
 export async function findById(id: string): Promise<CredentialDto | null> {

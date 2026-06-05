@@ -1,4 +1,4 @@
-import type { AuthType, UserDto } from "@dbkeeper/shared";
+import type { AuthType, Paginated, UserDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { hashPassword } from "../../lib/password.js";
 import * as repo from "./users.repository.js";
@@ -8,8 +8,9 @@ function toDto(u: repo.UserWithSecret): UserDto {
   return dto;
 }
 
-export async function listUsers(): Promise<UserDto[]> {
-  return (await repo.listUsers()).map(toDto);
+export async function listUsers(p: { limit: number; offset: number }): Promise<Paginated<UserDto>> {
+  const { items, total } = await repo.listUsers(p);
+  return { items: items.map(toDto), total };
 }
 
 export async function getUser(id: string): Promise<UserDto> {

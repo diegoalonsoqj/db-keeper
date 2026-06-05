@@ -4,8 +4,8 @@ import { encryptSecret } from "../../lib/crypto.js";
 import { isForeignKeyViolation } from "../../lib/pg-error.js";
 import * as repo from "./credentials.repository.js";
 
-export async function listCredentials(): Promise<CredentialDto[]> {
-  return repo.listCredentials();
+export async function listCredentials(p: { limit: number; offset: number }) {
+  return repo.listCredentials(p);
 }
 
 export async function getCredential(id: string): Promise<CredentialDto> {

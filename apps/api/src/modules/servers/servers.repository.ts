@@ -47,9 +47,19 @@ const SELECT_SERVER = `
   LEFT JOIN secrets.credentials c ON c.id = s.credential_id
 `;
 
-export async function listServers(): Promise<ServerDto[]> {
-  const { rows } = await query<ServerRow>(`${SELECT_SERVER} ORDER BY s.name`);
-  return rows.map(toServer);
+export async function listServers(p: {
+  limit: number;
+  offset: number;
+}): Promise<{ items: ServerDto[]; total: number }> {
+  const totalRes = await query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM core.servers",
+  );
+  const total = Number(totalRes.rows[0]?.count ?? 0);
+  const { rows } = await query<ServerRow>(
+    `${SELECT_SERVER} ORDER BY s.name LIMIT $1 OFFSET $2`,
+    [p.limit, p.offset],
+  );
+  return { items: rows.map(toServer), total };
 }
 
 export async function findById(id: string): Promise<ServerDto | null> {

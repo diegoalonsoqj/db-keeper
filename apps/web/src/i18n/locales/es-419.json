@@ -93,7 +93,17 @@
     "action": "Acción",
     "entity": "Entidad",
     "ip": "IP",
-    "empty": "Sin registros"
+    "empty": "Sin registros",
+    "from": "Desde",
+    "to": "Hasta",
+    "apply": "Aplicar",
+    "clear": "Limpiar"
+  },
+  "pagination": {
+    "perPage": "Por página",
+    "range": "{{from}}–{{to}} de {{total}}",
+    "prev": "Anterior",
+    "next": "Siguiente"
   },
   "servers": {
     "title": "Instancias",

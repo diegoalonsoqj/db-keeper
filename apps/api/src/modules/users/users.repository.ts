@@ -63,9 +63,16 @@ export async function findById(id: string): Promise<UserWithSecret | null> {
   return rows[0] ? toUser(rows[0]) : null;
 }
 
-export async function listUsers(): Promise<UserWithSecret[]> {
-  const { rows } = await query<UserRow>(`${SELECT_USER} GROUP BY u.id ORDER BY u.username`);
-  return rows.map(toUser);
+export async function listUsers(p: {
+  limit: number;
+  offset: number;
+}): Promise<{ items: UserWithSecret[]; total: number }> {
+  const total = await countUsers();
+  const { rows } = await query<UserRow>(
+    `${SELECT_USER} GROUP BY u.id ORDER BY u.username LIMIT $1 OFFSET $2`,
+    [p.limit, p.offset],
+  );
+  return { items: rows.map(toUser), total };
 }
 
 export async function countUsers(): Promise<number> {

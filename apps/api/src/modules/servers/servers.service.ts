@@ -4,8 +4,8 @@ import * as credsRepo from "../credentials/credentials.repository.js";
 import * as repo from "./servers.repository.js";
 import type { ServerFields } from "./servers.repository.js";
 
-export async function listServers(): Promise<ServerDto[]> {
-  return repo.listServers();
+export async function listServers(p: { limit: number; offset: number }) {
+  return repo.listServers(p);
 }
 
 export async function getServer(id: string): Promise<ServerDto> {

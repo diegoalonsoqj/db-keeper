@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { CredentialDto } from "@dbkeeper/shared";
+import { DEFAULT_PAGE_SIZE, type CredentialDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
+import { Pagination } from "../components/Pagination";
 
 interface FormState {
   id: string | null;
@@ -31,16 +32,18 @@ export function CredentialsPage() {
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
 
-  const [credentials, setCredentials] = useState<CredentialDto[]>([]);
+  const [data, setData] = useState<Paginated<CredentialDto>>({ items: [], total: 0 });
+  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    setCredentials(await api.get<CredentialDto[]>("/credentials"));
+    setData(await api.get<Paginated<CredentialDto>>(`/credentials?limit=${page.limit}&offset=${page.offset}`));
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   function startEdit(c: CredentialDto) {
     setError(null);
@@ -113,7 +116,8 @@ export function CredentialsPage() {
       <p className="muted">{t("credentials.intro")}</p>
       {error && <p className="error">{error}</p>}
 
-      <table className="grid">
+      <div className="table-wrap">
+        <table className="grid">
         <thead>
           <tr>
             <th>{t("credentials.name")}</th>
@@ -124,7 +128,7 @@ export function CredentialsPage() {
           </tr>
         </thead>
         <tbody>
-          {credentials.map((c) => (
+          {data.items.map((c) => (
             <tr key={c.id}>
               <td>{c.name}</td>
               <td>{c.username}</td>
@@ -143,7 +147,9 @@ export function CredentialsPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
 
       {form && (
         <Modal

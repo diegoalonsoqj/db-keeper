@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DB_ENGINES,
+  DEFAULT_PAGE_SIZE,
   DEFAULT_PORTS,
   type CredentialDto,
   type DbEngine,
+  type Paginated,
   type ServerDto,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
+import { Pagination } from "../components/Pagination";
 
 interface FormState {
   id: string | null;
@@ -47,22 +50,24 @@ export function ServersPage() {
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
 
-  const [servers, setServers] = useState<ServerDto[]>([]);
+  const [data, setData] = useState<Paginated<ServerDto>>({ items: [], total: 0 });
   const [credentials, setCredentials] = useState<CredentialDto[]>([]);
+  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     const [srv, creds] = await Promise.all([
-      api.get<ServerDto[]>("/servers"),
-      api.get<CredentialDto[]>("/credentials"),
+      api.get<Paginated<ServerDto>>(`/servers?limit=${page.limit}&offset=${page.offset}`),
+      api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
     ]);
-    setServers(srv);
-    setCredentials(creds);
+    setData(srv);
+    setCredentials(creds.items);
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   function startEdit(s: ServerDto) {
     setError(null);
@@ -126,7 +131,8 @@ export function ServersPage() {
       </div>
       {error && <p className="error">{error}</p>}
 
-      <table className="grid">
+      <div className="table-wrap">
+        <table className="grid">
         <thead>
           <tr>
             <th>{t("servers.name")}</th>
@@ -139,7 +145,7 @@ export function ServersPage() {
           </tr>
         </thead>
         <tbody>
-          {servers.map((s) => (
+          {data.items.map((s) => (
             <tr key={s.id}>
               <td>{s.name}</td>
               <td>{s.engine}{s.isCloudSql ? " · Cloud SQL" : ""}</td>
@@ -156,7 +162,9 @@ export function ServersPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
 
       {form && (
         <Modal

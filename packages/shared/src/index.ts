@@ -45,5 +45,15 @@ export interface ApiError {
 
 export type ApiResponse<T> = ApiOk<T> | ApiError;
 
+/** Resultado paginado uniforme para listados. */
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+}
+
+/** Tamaños de página ofrecidos en las tablas; el primero es el de por defecto. */
+export const PAGE_SIZES = [10, 20, 50, 100] as const;
+export const DEFAULT_PAGE_SIZE: number = PAGE_SIZES[0];
+
 export * from "./auth.js";
 export * from "./resources.js";

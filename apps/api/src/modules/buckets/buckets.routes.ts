@@ -3,6 +3,7 @@ import { z } from "zod";
 import { STORAGE_PROVIDERS } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
+import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./buckets.service.js";
 
@@ -28,9 +29,9 @@ const updateSchema = z.object({
   serviceAccount: z.string().max(20000).optional(),
 });
 
-bucketsRouter.get("/", authorize("servers:read"), async (_req, res, next) => {
+bucketsRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listBuckets());
+    ok(res, await service.listBuckets(paginationSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

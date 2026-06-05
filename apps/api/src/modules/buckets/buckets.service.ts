@@ -3,8 +3,8 @@ import { HttpError } from "../../lib/http-error.js";
 import { encryptSecret } from "../../lib/crypto.js";
 import * as repo from "./buckets.repository.js";
 
-export async function listBuckets(): Promise<BucketDto[]> {
-  return repo.listBuckets();
+export async function listBuckets(p: { limit: number; offset: number }) {
+  return repo.listBuckets(p);
 }
 
 export async function getBucket(id: string): Promise<BucketDto> {

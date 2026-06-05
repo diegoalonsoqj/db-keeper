@@ -85,7 +85,8 @@ a {
 .app-shell {
   display: grid;
   grid-template-columns: 220px 1fr;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   transition: grid-template-columns 0.18s ease;
 }
 .app-shell.collapsed {
@@ -201,6 +202,8 @@ a {
 .content {
   display: flex;
   flex-direction: column;
+  min-height: 0; /* permite que .app-main contenga su propio scroll */
+  overflow: hidden;
 }
 .app-header {
   display: flex;
@@ -208,6 +211,8 @@ a {
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0; /* el header queda fijo arriba, no scrollea */
 }
 .header-right {
   display: flex;
@@ -221,7 +226,48 @@ a {
   font-size: 0.85rem;
 }
 .app-main {
-  padding: 1.25rem;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* scroll para páginas sin tabla (p. ej. Settings) */
+  padding: 0 1.25rem 1.25rem;
+}
+.app-main > * {
+  padding-top: 1.25rem; /* respiro superior */
+}
+
+/* Páginas con tabla: el área de contenido NO scrollea; solo la tabla lo hace
+   (scroll interno). Así el encabezado de página (título/botón) queda fijo,
+   igual que el sidebar y el header global. */
+.app-main:has(.table-wrap),
+.app-main:has(.matrix-wrap) {
+  overflow: hidden;
+}
+.app-main > section:has(.table-wrap),
+.app-main > section:has(.matrix-wrap) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Encabezado y avisos de la página: fijos (no scrollean). */
+.app-main > section:has(.table-wrap) > .page-head,
+.app-main > section:has(.table-wrap) > .muted,
+.app-main > section:has(.table-wrap) > .error,
+.app-main > section:has(.table-wrap) > .pagination,
+.app-main > section:has(.table-wrap) > .filters,
+.app-main > section:has(.matrix-wrap) > .page-head,
+.app-main > section:has(.matrix-wrap) > .muted,
+.app-main > section:has(.matrix-wrap) > .error {
+  flex-shrink: 0;
+}
+/* Caja con scroll interno de la tabla (vertical y horizontal). */
+.table-wrap,
+.matrix-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .tagline {
   color: var(--muted);
@@ -265,10 +311,62 @@ table.grid td {
 table.grid th {
   color: var(--muted);
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg); /* tapa las filas que pasan por detrás al scrollear */
+  /* border-collapse pierde el borde inferior al fijar la celda: lo reponemos. */
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 .row-actions {
   display: flex;
   gap: 0.4rem;
+}
+
+/* ---- Pagination ---- */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pagination-size select {
+  padding: 0.25rem 0.4rem;
+}
+.pagination-range {
+  margin-left: auto;
+}
+.pagination-nav {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* ---- Filtros (barra sobre tablas) ---- */
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.75rem;
+}
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.filters input,
+.filters select {
+  font-size: 0.85rem;
 }
 .center {
   text-align: center;
