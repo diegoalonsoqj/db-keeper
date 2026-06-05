@@ -183,13 +183,14 @@ Cuerpo de creación:
   "name": "Backups Prod",
   "username": "backup_user",
   "password": "…",
+  "environment": "PRD",                    // opcional; código del catálogo de ambientes
   "description": "Usuario de solo lectura para backups",
   "extra": { "type": "service_account" }   // opcional; JSON cifrado (p. ej. clave GCP)
 }
 ```
 
-En `PATCH`, omitir `password` conserva la actual; omitir `extra` conserva el actual
-(enviar `null` lo borra).
+En `PATCH`, **omitir un campo = no tocarlo**; enviar `null` lo borra (aplica a
+`extra`, `environment`, `description`). Omitir `password` conserva la actual.
 
 ## Buckets — `/api/buckets`
 

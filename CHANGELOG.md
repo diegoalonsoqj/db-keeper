@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 5] — Ambiente en credenciales · 2026-06-05
+
+### Añadido
+- **Credenciales** ganan campo **ambiente** (`secrets.credentials.environment`, migración
+  `0012`): mismo selector `Nombre (CÓDIGO)` del catálogo, guarda el código como texto.
+
+### Corregido
+- **Edición de credenciales borraba el `extra` (y `description`)**: el `updateSchema`
+  convertía los campos omitidos a `null`, de modo que un PATCH parcial —incluida la
+  edición normal sin reescribir el `extra` guardado— limpiaba el secreto. Ahora en
+  update **omitir = no tocar**, `null` explícito = limpiar.
+
 ## [Etapa 4 · parte 4] — Catálogo de ambientes · 2026-06-05
 
 ### Añadido

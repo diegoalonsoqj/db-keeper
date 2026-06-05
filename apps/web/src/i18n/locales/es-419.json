@@ -205,6 +205,8 @@
     "username": "Usuario",
     "password": "Contraseña",
     "passwordHintEdit": "Déjala vacía para conservar la actual.",
+    "environment": "Ambiente",
+    "environmentNone": "Sin ambiente",
     "description": "Descripción",
     "extra": "Datos extra (JSON)",
     "extraPlaceholder": "{ \"type\": \"service_account\", ... }",

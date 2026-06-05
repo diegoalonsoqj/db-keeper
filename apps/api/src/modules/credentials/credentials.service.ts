@@ -24,6 +24,7 @@ export async function createCredential(data: CredentialInput): Promise<Credentia
     username: data.username,
     passwordEncrypted: encryptSecret(data.password),
     extraEncrypted: data.extra ? encryptSecret(JSON.stringify(data.extra)) : null,
+    environment: data.environment ?? null,
     description: data.description ?? null,
   });
   return getCredential(id);
@@ -44,6 +45,7 @@ export async function updateCredential(
   const fields: Partial<repo.CredentialFields> = {
     name: data.name,
     username: data.username,
+    environment: data.environment,
     description: data.description,
   };
   if (data.password) fields.passwordEncrypted = encryptSecret(data.password);

@@ -7,6 +7,7 @@ interface CredentialRow {
   username: string;
   password_encrypted: string;
   extra_encrypted: string | null;
+  environment: string | null;
   description: string | null;
   created_at: Date;
   updated_at: Date;
@@ -17,6 +18,7 @@ function toDto(row: CredentialRow): CredentialDto {
     id: row.id,
     name: row.name,
     username: row.username,
+    environment: row.environment,
     description: row.description,
     hasExtra: row.extra_encrypted !== null,
     createdAt: row.created_at.toISOString(),
@@ -70,14 +72,22 @@ export interface CredentialFields {
   username: string;
   passwordEncrypted: string;
   extraEncrypted: string | null;
+  environment: string | null;
   description: string | null;
 }
 
 export async function insertCredential(fields: CredentialFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
-    `INSERT INTO secrets.credentials (name, username, password_encrypted, extra_encrypted, description)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-    [fields.name, fields.username, fields.passwordEncrypted, fields.extraEncrypted, fields.description],
+    `INSERT INTO secrets.credentials (name, username, password_encrypted, extra_encrypted, environment, description)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    [
+      fields.name,
+      fields.username,
+      fields.passwordEncrypted,
+      fields.extraEncrypted,
+      fields.environment,
+      fields.description,
+    ],
   );
   return rows[0]!.id;
 }
@@ -88,6 +98,7 @@ export async function updateCredential(id: string, fields: Partial<CredentialFie
     username: "username",
     passwordEncrypted: "password_encrypted",
     extraEncrypted: "extra_encrypted",
+    environment: "environment",
     description: "description",
   };
   const sets: string[] = [];

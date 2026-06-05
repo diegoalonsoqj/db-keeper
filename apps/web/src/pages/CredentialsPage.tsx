@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DEFAULT_PAGE_SIZE, type CredentialDto, type Paginated } from "@dbkeeper/shared";
+import {
+  DEFAULT_PAGE_SIZE,
+  type CredentialDto,
+  type EnvironmentDto,
+  type Paginated,
+} from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
@@ -11,6 +16,7 @@ interface FormState {
   name: string;
   username: string;
   password: string;
+  environment: string;
   description: string;
   extra: string;
   hasExtra: boolean;
@@ -21,6 +27,7 @@ const emptyForm: FormState = {
   name: "",
   username: "",
   password: "",
+  environment: "",
   description: "",
   extra: "",
   hasExtra: false,
@@ -33,12 +40,18 @@ export function CredentialsPage() {
   const canDelete = has("servers:delete");
 
   const [data, setData] = useState<Paginated<CredentialDto>>({ items: [], total: 0 });
+  const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    setData(await api.get<Paginated<CredentialDto>>(`/credentials?limit=${page.limit}&offset=${page.offset}`));
+    const [creds, envs] = await Promise.all([
+      api.get<Paginated<CredentialDto>>(`/credentials?limit=${page.limit}&offset=${page.offset}`),
+      api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
+    ]);
+    setData(creds);
+    setEnvironments(envs.items);
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
@@ -52,6 +65,7 @@ export function CredentialsPage() {
       name: c.name,
       username: c.username,
       password: "",
+      environment: c.environment ?? "",
       description: c.description ?? "",
       extra: "",
       hasExtra: c.hasExtra,
@@ -81,6 +95,7 @@ export function CredentialsPage() {
       const body: Record<string, unknown> = {
         name: form.name,
         username: form.username,
+        environment: form.environment || null,
         description: form.description || null,
       };
       if (form.password) body.password = form.password;
@@ -121,6 +136,7 @@ export function CredentialsPage() {
           <tr>
             <th>{t("credentials.name")}</th>
             <th>{t("credentials.username")}</th>
+            <th>{t("credentials.environment")}</th>
             <th>{t("credentials.description")}</th>
             <th>{t("credentials.extra")}</th>
             {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
@@ -131,6 +147,7 @@ export function CredentialsPage() {
             <tr key={c.id}>
               <td>{c.name}</td>
               <td>{c.username}</td>
+              <td>{c.environment ? <code>{c.environment}</code> : t("common.none")}</td>
               <td>{c.description ?? t("common.none")}</td>
               <td>{c.hasExtra ? t("common.yes") : t("common.no")}</td>
               {(canWrite || canDelete) && (
@@ -179,6 +196,26 @@ export function CredentialsPage() {
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
             {form.id && <small>{t("credentials.passwordHintEdit")}</small>}
+          </label>
+          <label>
+            {t("credentials.environment")}
+            <select
+              value={form.environment}
+              onChange={(e) => setForm({ ...form, environment: e.target.value })}
+            >
+              <option value="">{t("credentials.environmentNone")}</option>
+              {form.environment &&
+                !environments.some((env) => env.code === form.environment) && (
+                  <option value={form.environment}>{form.environment}</option>
+                )}
+              {environments
+                .filter((env) => env.isActive || env.code === form.environment)
+                .map((env) => (
+                  <option key={env.id} value={env.code}>
+                    {env.name} ({env.code})
+                  </option>
+                ))}
+            </select>
           </label>
           <label>
             {t("credentials.description")}

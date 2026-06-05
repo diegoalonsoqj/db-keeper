@@ -205,6 +205,8 @@
     "username": "Username",
     "password": "Password",
     "passwordHintEdit": "Leave empty to keep current.",
+    "environment": "Environment",
+    "environmentNone": "No environment",
     "description": "Description",
     "extra": "Extra data (JSON)",
     "extraPlaceholder": "{ \"type\": \"service_account\", ... }",

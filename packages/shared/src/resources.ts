@@ -75,6 +75,8 @@ export interface CredentialDto {
   id: string;
   name: string;
   username: string;
+  /** Código del ambiente del catálogo (PRD/UAT/…) o null. */
+  environment: string | null;
   description: string | null;
   hasExtra: boolean;
   createdAt: string;
@@ -88,6 +90,7 @@ export interface CredentialInput {
   password?: string;
   /** Datos extra (p. ej. clave de servicio GCP); se cifra. */
   extra?: Record<string, unknown> | null;
+  environment?: string | null;
   description?: string | null;
 }
 
