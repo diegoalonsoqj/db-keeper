@@ -18,8 +18,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
     (`options.excludeTables` → `--exclude-table`). La contraseña viaja por
     `PGPASSWORD` (nunca en la línea de comandos ni en logs); los argumentos van como
     array (sin shell, sin inyección).
-  - **Nombre de archivo** `backup_{db}_{ambiente}_{timestamp}.sql[.gz]` (el ambiente
-    sale de `server.environment`), igual que el script de referencia.
+  - **Nombre de archivo** `{db}_{ambiente}_{timestamp}.sql[.gz]` (el ambiente sale de
+    `server.environment`; la carpeta de la ejecución y la extensión ya indican que es
+    un backup, así que se omite el prefijo `backup_`).
   - **Validación de integridad**: el `.sql.gz` se verifica descomprimiéndolo entero
     (equivalente a `gunzip -t`) y se rechaza el dump vacío; si pg_dump o la
     validación fallan, se borra el archivo parcial para no dejar dumps inválidos.
