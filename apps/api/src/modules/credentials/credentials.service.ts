@@ -1,6 +1,7 @@
 import type { CredentialDto, CredentialInput } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { encryptSecret } from "../../lib/crypto.js";
+import { isForeignKeyViolation } from "../../lib/pg-error.js";
 import * as repo from "./credentials.repository.js";
 
 export async function listCredentials(): Promise<CredentialDto[]> {
@@ -60,5 +61,14 @@ export async function deleteCredential(id: string): Promise<void> {
   if (used > 0) {
     throw HttpError.conflict(`La credencial está en uso por ${used} instancia(s)`);
   }
-  await repo.deleteCredential(id);
+  try {
+    await repo.deleteCredential(id);
+  } catch (err) {
+    // Red de seguridad ante la carrera count→delete: la FK RESTRICT (mig. 0006)
+    // rechaza el borrado si entretanto se asignó la credencial a una instancia.
+    if (isForeignKeyViolation(err)) {
+      throw HttpError.conflict("La credencial está en uso por una o más instancias");
+    }
+    throw err;
+  }
 }
