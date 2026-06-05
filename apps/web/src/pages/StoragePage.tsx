@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Star, Trash2 } from "lucide-react";
 import {
+  CLOUD_PROVIDERS,
   DEFAULT_PAGE_SIZE,
   STORAGE_TYPES,
-  type GcpServiceAccountDto,
+  type CloudCredentialDto,
+  type CloudProvider,
   type Paginated,
   type StorageTargetDto,
   type StorageType,
@@ -19,10 +21,11 @@ interface FormState {
   type: StorageType;
   name: string;
   path: string;
+  provider: CloudProvider;
   bucket: string;
   prefix: string;
+  cloudCredentialId: string;
   isActive: boolean;
-  gcpServiceAccountId: string;
 }
 
 const emptyForm: FormState = {
@@ -30,10 +33,11 @@ const emptyForm: FormState = {
   type: "local",
   name: "",
   path: "",
+  provider: "gcp",
   bucket: "",
   prefix: "",
+  cloudCredentialId: "",
   isActive: true,
-  gcpServiceAccountId: "",
 };
 
 export function StoragePage() {
@@ -43,7 +47,7 @@ export function StoragePage() {
   const canDelete = has("servers:delete");
 
   const [data, setData] = useState<Paginated<StorageTargetDto>>({ items: [], total: 0 });
-  const [accounts, setAccounts] = useState<GcpServiceAccountDto[]>([]);
+  const [accounts, setAccounts] = useState<CloudCredentialDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +55,7 @@ export function StoragePage() {
   async function reload() {
     const [tgts, accs] = await Promise.all([
       api.get<Paginated<StorageTargetDto>>(`/storage?limit=${page.limit}&offset=${page.offset}`),
-      api.get<Paginated<GcpServiceAccountDto>>("/gcp-accounts?limit=100"),
+      api.get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100"),
     ]);
     setData(tgts);
     setAccounts(accs.items);
@@ -68,10 +72,11 @@ export function StoragePage() {
       type: s.type,
       name: s.name,
       path: s.path ?? "",
+      provider: s.provider ?? "gcp",
       bucket: s.bucket ?? "",
       prefix: s.prefix ?? "",
+      cloudCredentialId: s.cloudCredentialId ?? "",
       isActive: s.isActive,
-      gcpServiceAccountId: s.gcpServiceAccountId ?? "",
     });
   }
 
@@ -79,14 +84,16 @@ export function StoragePage() {
     if (!form) return;
     setError(null);
     try {
+      const isBucket = form.type === "bucket";
       const payload: Record<string, unknown> = {
         type: form.type,
         name: form.name,
         isActive: form.isActive,
         path: form.type === "local" ? form.path : null,
-        bucket: form.type === "gcs" ? form.bucket : null,
-        prefix: form.type === "gcs" ? form.prefix || null : null,
-        gcpServiceAccountId: form.type === "gcs" ? form.gcpServiceAccountId || null : null,
+        provider: isBucket ? form.provider : null,
+        bucket: isBucket ? form.bucket : null,
+        prefix: isBucket ? form.prefix || null : null,
+        cloudCredentialId: isBucket ? form.cloudCredentialId || null : null,
       };
       if (form.id) await api.patch(`/storage/${form.id}`, payload);
       else await api.post("/storage", payload);
@@ -106,6 +113,9 @@ export function StoragePage() {
       setError(e instanceof ApiClientError ? e.message : String(e));
     }
   }
+
+  const location = (s: StorageTargetDto) =>
+    s.type === "local" ? s.path : `${s.bucket ?? ""}${s.prefix ? `/${s.prefix}` : ""}`;
 
   return (
     <section>
@@ -138,9 +148,13 @@ export function StoragePage() {
             {data.items.map((s) => (
               <tr key={s.id}>
                 <td>{s.name}</td>
-                <td>{t(`storage.type_${s.type}`)}</td>
                 <td>
-                  <code>{s.type === "local" ? s.path : `${s.bucket}${s.prefix ? `/${s.prefix}` : ""}`}</code>
+                  {s.type === "local"
+                    ? t("storage.type_local")
+                    : `${t("storage.type_bucket")} · ${t(`cloud.provider_${s.provider}`)}`}
+                </td>
+                <td>
+                  <code>{location(s)}</code>
                 </td>
                 <td>
                   {s.isDefault && (
@@ -186,11 +200,7 @@ export function StoragePage() {
         >
           <label>
             {t("storage.type")}
-            <select
-              value={form.type}
-              disabled={!!form.id}
-              onChange={(e) => setForm({ ...form, type: e.target.value as StorageType })}
-            >
+            <select value={form.type} disabled={!!form.id} onChange={(e) => setForm({ ...form, type: e.target.value as StorageType })}>
               {STORAGE_TYPES.map((ty) => (
                 <option key={ty} value={ty}>
                   {t(`storage.type_${ty}`)}
@@ -206,15 +216,22 @@ export function StoragePage() {
           {form.type === "local" ? (
             <label>
               {t("storage.path")}
-              <input
-                value={form.path}
-                onChange={(e) => setForm({ ...form, path: e.target.value })}
-                placeholder="/var/backups/dbkeeper"
-              />
+              <input value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })} placeholder="/var/backups/dbkeeper" />
               <small>{t("storage.pathHint")}</small>
             </label>
           ) : (
             <>
+              <label>
+                {t("storage.provider")}
+                <select value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value as CloudProvider })}>
+                  {CLOUD_PROVIDERS.map((p) => (
+                    <option key={p} value={p} disabled={p !== "gcp"}>
+                      {t(`cloud.provider_${p}`)}
+                      {p !== "gcp" ? ` (${t("cloud.soon")})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 {t("storage.bucket")}
                 <input value={form.bucket} onChange={(e) => setForm({ ...form, bucket: e.target.value })} placeholder="mi-empresa-backups" />
@@ -225,17 +242,13 @@ export function StoragePage() {
               </label>
               <label>
                 {t("storage.account")}
-                <select
-                  value={form.gcpServiceAccountId}
-                  onChange={(e) => setForm({ ...form, gcpServiceAccountId: e.target.value })}
-                >
+                <select value={form.cloudCredentialId} onChange={(e) => setForm({ ...form, cloudCredentialId: e.target.value })}>
                   <option value="">{t("storage.accountNone")}</option>
                   {accounts
-                    .filter((a) => a.isActive || a.id === form.gcpServiceAccountId)
+                    .filter((a) => a.provider === form.provider && (a.isActive || a.id === form.cloudCredentialId))
                     .map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
-                        {a.clientEmail ? ` (${a.clientEmail})` : ""}
                       </option>
                     ))}
                 </select>

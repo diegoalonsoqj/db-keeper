@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { STORAGE_TYPES } from "@dbkeeper/shared";
+import { CLOUD_PROVIDERS, STORAGE_TYPES } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationSchema } from "../../lib/pagination.js";
@@ -14,9 +14,10 @@ const fields = {
   type: z.enum(STORAGE_TYPES),
   name: z.string().min(1).max(120),
   path: z.string().max(500).nullish().transform((v) => v ?? null),
+  provider: z.enum(CLOUD_PROVIDERS).nullish().transform((v) => v ?? null),
   bucket: z.string().max(255).nullish().transform((v) => v ?? null),
   prefix: z.string().max(255).nullish().transform((v) => v ?? null),
-  gcpServiceAccountId: z.string().uuid().nullish().transform((v) => v ?? null),
+  cloudCredentialId: z.string().uuid().nullish().transform((v) => v ?? null),
   isActive: z.boolean().default(true),
 };
 
@@ -25,9 +26,10 @@ const updateSchema = z.object({
   type: fields.type,
   name: fields.name,
   path: fields.path,
+  provider: fields.provider,
   bucket: fields.bucket,
   prefix: fields.prefix,
-  gcpServiceAccountId: fields.gcpServiceAccountId,
+  cloudCredentialId: fields.cloudCredentialId,
   isActive: z.boolean().default(true),
 });
 

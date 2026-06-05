@@ -1,4 +1,4 @@
-import type { StorageProvider, StorageTargetDto, StorageType } from "@dbkeeper/shared";
+import type { CloudProvider, StorageTargetDto, StorageType } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
 
 interface TargetRow {
@@ -6,11 +6,11 @@ interface TargetRow {
   type: StorageType;
   name: string;
   path: string | null;
-  provider: StorageProvider | null;
+  provider: CloudProvider | null;
   bucket: string | null;
   prefix: string | null;
-  gcp_service_account_id: string | null;
-  gcp_sa_name: string | null;
+  cloud_credential_id: string | null;
+  cloud_cred_name: string | null;
   is_active: boolean;
   is_default: boolean;
   created_at: Date;
@@ -28,17 +28,17 @@ function toDto(row: TargetRow): StorageTargetDto {
     prefix: row.prefix,
     isActive: row.is_active,
     isDefault: row.is_default,
-    gcpServiceAccountId: row.gcp_service_account_id,
-    gcpServiceAccountName: row.gcp_sa_name,
+    cloudCredentialId: row.cloud_credential_id,
+    cloudCredentialName: row.cloud_cred_name,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
 }
 
 const SELECT = `
-  SELECT t.*, sa.name AS gcp_sa_name
+  SELECT t.*, cc.name AS cloud_cred_name
   FROM core.storage_targets t
-  LEFT JOIN secrets.gcp_service_accounts sa ON sa.id = t.gcp_service_account_id
+  LEFT JOIN secrets.cloud_credentials cc ON cc.id = t.cloud_credential_id
 `;
 
 export async function listTargets(p: {
@@ -73,17 +73,17 @@ export interface TargetFields {
   type: StorageType;
   name: string;
   path: string | null;
-  provider: StorageProvider | null;
+  provider: CloudProvider | null;
   bucket: string | null;
   prefix: string | null;
-  gcpServiceAccountId: string | null;
+  cloudCredentialId: string | null;
   isActive: boolean;
 }
 
 export async function insertTarget(fields: TargetFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
     `INSERT INTO core.storage_targets
-       (type, name, path, provider, bucket, prefix, gcp_service_account_id, is_active)
+       (type, name, path, provider, bucket, prefix, cloud_credential_id, is_active)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
     [
       fields.type,
@@ -92,7 +92,7 @@ export async function insertTarget(fields: TargetFields): Promise<string> {
       fields.provider,
       fields.bucket,
       fields.prefix,
-      fields.gcpServiceAccountId,
+      fields.cloudCredentialId,
       fields.isActive,
     ],
   );
@@ -107,7 +107,7 @@ export async function updateTarget(id: string, fields: Partial<TargetFields>): P
     provider: "provider",
     bucket: "bucket",
     prefix: "prefix",
-    gcpServiceAccountId: "gcp_service_account_id",
+    cloudCredentialId: "cloud_credential_id",
     isActive: "is_active",
   };
   const sets: string[] = [];
@@ -148,10 +148,10 @@ export async function findDefault(type: StorageType): Promise<StorageTargetDto |
   return rows[0] ? toDto(rows[0]) : null;
 }
 
-/** Destino GCS activo cuyo bucket coincide (para resolver credenciales en descarga). */
-export async function findGcsByBucket(bucket: string): Promise<StorageTargetDto | null> {
+/** Destino tipo bucket activo cuyo bucket coincide (para resolver credenciales en descarga). */
+export async function findBucketByName(bucket: string): Promise<StorageTargetDto | null> {
   const { rows } = await query<TargetRow>(
-    `${SELECT} WHERE t.type = 'gcs' AND t.bucket = $1 AND t.is_active = true ORDER BY t.is_default DESC LIMIT 1`,
+    `${SELECT} WHERE t.type = 'bucket' AND t.bucket = $1 AND t.is_active = true ORDER BY t.is_default DESC LIMIT 1`,
     [bucket],
   );
   return rows[0] ? toDto(rows[0]) : null;

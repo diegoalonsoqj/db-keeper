@@ -6,12 +6,12 @@ import type {
   ExecutionState,
 } from "./index.js";
 
-/** Proveedores de almacenamiento en la nube soportados. */
-export const STORAGE_PROVIDERS = ["gcs"] as const;
-export type StorageProvider = (typeof STORAGE_PROVIDERS)[number];
+/** Proveedores de nube soportados (de momento solo `gcp` es funcional). */
+export const CLOUD_PROVIDERS = ["gcp", "aws", "azure"] as const;
+export type CloudProvider = (typeof CLOUD_PROVIDERS)[number];
 
 /** Tipo de destino de almacenamiento: carpeta local o bucket en la nube. */
-export const STORAGE_TYPES = ["local", "gcs"] as const;
+export const STORAGE_TYPES = ["local", "bucket"] as const;
 export type StorageType = (typeof STORAGE_TYPES)[number];
 
 /** Puerto por defecto sugerido por motor (para la UI). */
@@ -174,28 +174,29 @@ export interface StorageTargetDto {
   name: string;
   /** Solo `local`: ruta del directorio destino. */
   path: string | null;
-  /** Solo `gcs`. */
-  provider: StorageProvider | null;
+  /** Solo `bucket`: proveedor de nube. */
+  provider: CloudProvider | null;
   bucket: string | null;
   prefix: string | null;
   isActive: boolean;
   isDefault: boolean;
-  /** Cuenta de servicio GCP del catálogo (solo `gcs`). */
-  gcpServiceAccountId: string | null;
-  gcpServiceAccountName: string | null;
+  /** Credencial de nube del catálogo (solo `bucket`). */
+  cloudCredentialId: string | null;
+  cloudCredentialName: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 /**
- * Cuenta de servicio GCP del catálogo (`secrets.gcp_service_accounts`). La clave JSON
- * nunca se expone; `clientEmail`/`projectId` son metadatos para identificarla.
+ * Credencial de nube del catálogo (`secrets.cloud_credentials`). El secreto (clave
+ * JSON de GCP, claves de AWS, etc.) nunca se expone; `metadata` lleva datos no
+ * secretos para identificarla (p. ej. GCP: `clientEmail`, `projectId`).
  */
-export interface GcpServiceAccountDto {
+export interface CloudCredentialDto {
   id: string;
   name: string;
-  clientEmail: string | null;
-  projectId: string | null;
+  provider: CloudProvider;
+  metadata: Record<string, unknown>;
   isActive: boolean;
   isDefault: boolean;
   createdAt: string;

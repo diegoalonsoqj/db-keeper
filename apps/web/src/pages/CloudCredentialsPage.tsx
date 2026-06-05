@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Star, Trash2 } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, type GcpServiceAccountDto, type Paginated } from "@dbkeeper/shared";
+import {
+  CLOUD_PROVIDERS,
+  DEFAULT_PAGE_SIZE,
+  type CloudCredentialDto,
+  type CloudProvider,
+  type Paginated,
+} from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
@@ -9,26 +15,34 @@ import { Pagination } from "../components/Pagination";
 
 interface FormState {
   id: string | null;
+  provider: CloudProvider;
   name: string;
-  key: string;
+  secret: string;
   isActive: boolean;
 }
 
-const emptyForm: FormState = { id: null, name: "", key: "", isActive: true };
+const emptyForm: FormState = { id: null, provider: "gcp", name: "", secret: "", isActive: true };
 
-export function GcpAccountsPage() {
+/** Email/proyecto (GCP) u otros metadatos para identificar la cuenta. */
+function metaLabel(c: CloudCredentialDto): string {
+  const m = c.metadata as { clientEmail?: string; projectId?: string };
+  const parts = [m.clientEmail, m.projectId].filter(Boolean);
+  return parts.join(" · ");
+}
+
+export function CloudCredentialsPage() {
   const { t } = useTranslation();
   const { has } = useAuth();
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
 
-  const [data, setData] = useState<Paginated<GcpServiceAccountDto>>({ items: [], total: 0 });
+  const [data, setData] = useState<Paginated<CloudCredentialDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
-    setData(await api.get<Paginated<GcpServiceAccountDto>>(`/gcp-accounts?limit=${page.limit}&offset=${page.offset}`));
+    setData(await api.get<Paginated<CloudCredentialDto>>(`/cloud-credentials?limit=${page.limit}&offset=${page.offset}`));
   }
   useEffect(() => {
     reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
@@ -40,9 +54,10 @@ export function GcpAccountsPage() {
     setError(null);
     try {
       const body: Record<string, unknown> = { name: form.name.trim(), isActive: form.isActive };
-      if (form.key.trim()) body.key = form.key.trim();
-      if (form.id) await api.patch(`/gcp-accounts/${form.id}`, body);
-      else await api.post("/gcp-accounts", body);
+      if (!form.id) body.provider = form.provider;
+      if (form.secret.trim()) body.secret = form.secret.trim();
+      if (form.id) await api.patch(`/cloud-credentials/${form.id}`, body);
+      else await api.post("/cloud-credentials", body);
       setForm(null);
       await reload();
     } catch (e) {
@@ -50,10 +65,10 @@ export function GcpAccountsPage() {
     }
   }
 
-  async function remove(a: GcpServiceAccountDto) {
+  async function remove(c: CloudCredentialDto) {
     if (!confirm(t("common.confirm"))) return;
     try {
-      await api.delete(`/gcp-accounts/${a.id}`);
+      await api.delete(`/cloud-credentials/${c.id}`);
       await reload();
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : String(e));
@@ -63,8 +78,8 @@ export function GcpAccountsPage() {
   return (
     <section>
       <div className="page-head">
-        <p className="page-desc muted">{t("gcp.intro")}</p>
-        {canWrite && <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("gcp.new")}</button>}
+        <p className="page-desc muted">{t("cloud.intro")}</p>
+        {canWrite && <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("cloud.new")}</button>}
       </div>
       {error && <p className="error">{error}</p>}
 
@@ -72,11 +87,11 @@ export function GcpAccountsPage() {
         <table className="grid">
           <thead>
             <tr>
-              <th>{t("gcp.name")}</th>
-              <th>{t("gcp.clientEmail")}</th>
-              <th>{t("gcp.projectId")}</th>
-              <th>{t("gcp.default")}</th>
-              <th>{t("gcp.status")}</th>
+              <th>{t("cloud.name")}</th>
+              <th>{t("cloud.provider")}</th>
+              <th>{t("cloud.identity")}</th>
+              <th>{t("cloud.default")}</th>
+              <th>{t("cloud.status")}</th>
               {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
             </tr>
           </thead>
@@ -84,23 +99,23 @@ export function GcpAccountsPage() {
             {data.items.length === 0 && (
               <tr>
                 <td colSpan={6} className="muted">
-                  {t("gcp.empty")}
+                  {t("cloud.empty")}
                 </td>
               </tr>
             )}
-            {data.items.map((a) => (
-              <tr key={a.id}>
-                <td>{a.name}</td>
-                <td>{a.clientEmail ?? t("common.none")}</td>
-                <td>{a.projectId ?? t("common.none")}</td>
+            {data.items.map((c) => (
+              <tr key={c.id}>
+                <td>{c.name}</td>
+                <td>{t(`cloud.provider_${c.provider}`)}</td>
+                <td>{metaLabel(c) || t("common.none")}</td>
                 <td>
-                  {a.isDefault && (
-                    <span className="star-default" title={t("gcp.isDefault")} aria-label={t("gcp.isDefault")}>
-                      <Star size={16} fill="currentColor" /> {t("gcp.default")}
+                  {c.isDefault && (
+                    <span className="star-default" title={t("cloud.isDefault")} aria-label={t("cloud.isDefault")}>
+                      <Star size={16} fill="currentColor" /> {t("cloud.default")}
                     </span>
                   )}
                 </td>
-                <td>{a.isActive ? t("common.active") : t("common.inactive")}</td>
+                <td>{c.isActive ? t("common.active") : t("common.inactive")}</td>
                 {(canWrite || canDelete) && (
                   <td className="row-actions">
                     {canWrite && (
@@ -108,13 +123,13 @@ export function GcpAccountsPage() {
                         className="icon-btn"
                         title={t("common.edit")}
                         aria-label={t("common.edit")}
-                        onClick={() => setForm({ id: a.id, name: a.name, key: "", isActive: a.isActive })}
+                        onClick={() => setForm({ id: c.id, provider: c.provider, name: c.name, secret: "", isActive: c.isActive })}
                       >
                         <Pencil size={16} />
                       </button>
                     )}
                     {canDelete && (
-                      <button className="icon-btn danger" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => remove(a)}>
+                      <button className="icon-btn danger" title={t("common.delete")} aria-label={t("common.delete")} onClick={() => remove(c)}>
                         <Trash2 size={16} />
                       </button>
                     )}
@@ -129,7 +144,7 @@ export function GcpAccountsPage() {
 
       {form && (
         <Modal
-          title={form.id ? t("common.edit") : t("gcp.new")}
+          title={form.id ? t("common.edit") : t("cloud.new")}
           onClose={() => setForm(null)}
           footer={
             <>
@@ -141,18 +156,33 @@ export function GcpAccountsPage() {
           }
         >
           <label>
-            {t("gcp.name")}
+            {t("cloud.provider")}
+            <select
+              value={form.provider}
+              disabled={!!form.id}
+              onChange={(e) => setForm({ ...form, provider: e.target.value as CloudProvider })}
+            >
+              {CLOUD_PROVIDERS.map((p) => (
+                <option key={p} value={p} disabled={p !== "gcp"}>
+                  {t(`cloud.provider_${p}`)}
+                  {p !== "gcp" ? ` (${t("cloud.soon")})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("cloud.name")}
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
           <label>
-            {t("gcp.key")}
+            {t("cloud.secret")}
             <textarea
               rows={6}
-              value={form.key}
-              placeholder={t("gcp.keyPlaceholder")}
-              onChange={(e) => setForm({ ...form, key: e.target.value })}
+              value={form.secret}
+              placeholder={t("cloud.secretPlaceholder")}
+              onChange={(e) => setForm({ ...form, secret: e.target.value })}
             />
-            <small>{form.id ? t("gcp.keyHintEdit") : t("gcp.keyHint")}</small>
+            <small>{form.id ? t("cloud.secretHintEdit") : t("cloud.secretHint")}</small>
           </label>
           <label className="inline">
             <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />

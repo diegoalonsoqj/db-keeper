@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   APP_LOCALES,
   type AppLocale,
-  type GcpServiceAccountDto,
+  type CloudCredentialDto,
   type Paginated,
   type SettingsDto,
   type StorageTargetDto,
@@ -18,7 +18,7 @@ export function SettingsPage() {
 
   const [data, setData] = useState<SettingsDto | null>(null);
   const [targets, setTargets] = useState<StorageTargetDto[]>([]);
-  const [accounts, setAccounts] = useState<GcpServiceAccountDto[]>([]);
+  const [accounts, setAccounts] = useState<CloudCredentialDto[]>([]);
   const [bindPassword, setBindPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function SettingsPage() {
       .then((p) => setTargets(p.items))
       .catch(() => {});
     api
-      .get<Paginated<GcpServiceAccountDto>>("/gcp-accounts?limit=100")
+      .get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100")
       .then((p) => setAccounts(p.items))
       .catch(() => {});
   }, []);
@@ -44,13 +44,13 @@ export function SettingsPage() {
     setTargets(p.items);
   }
   async function setDefaultAccount(id: string) {
-    await api.post(`/gcp-accounts/${id}/default`);
-    const p = await api.get<Paginated<GcpServiceAccountDto>>("/gcp-accounts?limit=100");
+    await api.post(`/cloud-credentials/${id}/default`);
+    const p = await api.get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100");
     setAccounts(p.items);
   }
   const defaultOf = (ty: StorageTargetDto["type"]) =>
     targets.find((s) => s.type === ty && s.isDefault)?.id ?? "";
-  const defaultAccount = accounts.find((a) => a.isDefault)?.id ?? "";
+  const defaultAccount = accounts.find((a) => a.provider === "gcp" && a.isDefault)?.id ?? "";
 
   function notify(fn: () => Promise<unknown>) {
     setError(null);
@@ -139,7 +139,7 @@ export function SettingsPage() {
         <label>
           {t("settings.defaultBucket")}
           <select
-            value={defaultOf("gcs")}
+            value={defaultOf("bucket")}
             disabled={!canWrite}
             onChange={(e) => e.target.value && notify(() => setDefaultTarget(e.target.value))}
           >
@@ -147,7 +147,7 @@ export function SettingsPage() {
               {t("common.none")}
             </option>
             {targets
-              .filter((s) => s.type === "gcs")
+              .filter((s) => s.type === "bucket")
               .map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -165,11 +165,13 @@ export function SettingsPage() {
             <option value="" disabled>
               {t("common.none")}
             </option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
+            {accounts
+              .filter((a) => a.provider === "gcp")
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
           </select>
         </label>
       </div>

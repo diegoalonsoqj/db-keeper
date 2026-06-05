@@ -1,4 +1,4 @@
-import type { StorageTargetDto, StorageType } from "@dbkeeper/shared";
+import type { CloudProvider, StorageTargetDto, StorageType } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import * as repo from "./storage.repository.js";
 import type { TargetFields } from "./storage.repository.js";
@@ -17,9 +17,10 @@ export interface TargetInput {
   type: StorageType;
   name: string;
   path?: string | null;
+  provider?: CloudProvider | null;
   bucket?: string | null;
   prefix?: string | null;
-  gcpServiceAccountId?: string | null;
+  cloudCredentialId?: string | null;
   isActive: boolean;
 }
 
@@ -35,20 +36,22 @@ function fieldsFromInput(data: TargetInput): TargetFields {
       provider: null,
       bucket: null,
       prefix: null,
-      gcpServiceAccountId: null,
+      cloudCredentialId: null,
       isActive: data.isActive,
     };
   }
+  // type === "bucket"
+  if (!data.provider) throw HttpError.badRequest("El proveedor de nube es obligatorio para un bucket");
   const bucket = data.bucket?.trim();
-  if (!bucket) throw HttpError.badRequest("El nombre del bucket es obligatorio para un destino GCS");
+  if (!bucket) throw HttpError.badRequest("El nombre del bucket es obligatorio");
   return {
-    type: "gcs",
+    type: "bucket",
     name: data.name,
     path: null,
-    provider: "gcs",
+    provider: data.provider,
     bucket,
     prefix: data.prefix?.trim() || null,
-    gcpServiceAccountId: data.gcpServiceAccountId ?? null,
+    cloudCredentialId: data.cloudCredentialId ?? null,
     isActive: data.isActive,
   };
 }

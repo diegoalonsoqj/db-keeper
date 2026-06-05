@@ -72,8 +72,8 @@ audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip
 ### Modelo de datos (Etapa 2)
 
 ```
-core.storage_targets (id, type[local|gcs], name, path?, provider?, bucket?, prefix?, gcp_service_account_id? → secrets.gcp_service_accounts, is_active, is_default, …)
-secrets.gcp_service_accounts (id, name, client_email?, project_id?, key_encrypted, is_active, is_default, …)
+core.storage_targets (id, type[local|bucket], name, path?, provider?[gcp|aws|azure], bucket?, prefix?, cloud_credential_id? → secrets.cloud_credentials, is_active, is_default, …)
+secrets.cloud_credentials (id, name, provider[gcp|aws|azure], secret_encrypted, metadata jsonb, is_active, is_default, …)
 core.app_settings (key, value jsonb)   -- 'general' (timezone, idioma) · 'ldap' (config AD)
 ```
 

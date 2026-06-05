@@ -215,7 +215,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           <select value={bucketId} onChange={(e) => setBucketId(e.target.value)}>
             <option value="">{t("backups.bucketNone")}</option>
             {buckets
-              .filter((b) => b.type === "gcs")
+              .filter((b) => b.type === "bucket")
               .map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

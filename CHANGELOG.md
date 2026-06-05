@@ -3,6 +3,20 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 11] — Generalización multi-nube (estructura) · 2026-06-05
+
+### Cambiado
+- **Cuentas de servicio multi-nube** (`secrets.gcp_service_accounts → cloud_credentials`,
+  migración `0017`): cada cuenta tiene **`provider`** (gcp/aws/azure), `secret_encrypted`
+  (credencial propia de la nube) y `metadata` jsonb (datos no secretos, p. ej. GCP:
+  `clientEmail`/`projectId`). Módulo renombrado a **Cuentas de servicio**
+  (`/api/cloud-credentials`); default **por proveedor**.
+- **Destinos de nube multi-proveedor**: `storage_targets` pasa de `type='gcs'` a
+  `type='bucket'` con **`provider`** y referencia genérica `cloud_credential_id`. Los
+  formularios piden datos según el proveedor.
+- De momento **solo GCP es funcional**; `aws`/`azure` quedan como opción ("próximamente")
+  con la estructura lista para implementarse sin migración.
+
 ## [Etapa 4 · parte 10] — Catálogo de cuentas de servicio GCP · 2026-06-05
 
 ### Añadido

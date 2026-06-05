@@ -198,18 +198,18 @@ Cuerpo de creación:
 En `PATCH`, **omitir un campo = no tocarlo**; enviar `null` lo borra (aplica a
 `extra`, `environment`, `description`). Omitir `password` conserva la actual.
 
-## Cuentas de servicio GCP — `/api/gcp-accounts`
+## Cuentas de servicio — `/api/cloud-credentials`
 
-Cuentas de servicio (clave JSON) reutilizables para autenticarse contra GCP. La clave se
-guarda cifrada y nunca se expone; se muestran `clientEmail`/`projectId`. Reutiliza permisos
-de instancias.
+Credenciales de nube reutilizables. Cada una tiene `provider` (gcp/aws/azure; hoy solo GCP
+funcional), el secreto **cifrado** (nunca se expone) y `metadata` no secreta (GCP:
+`clientEmail`/`projectId`). Default **por proveedor**. Reutiliza permisos de instancias.
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/` | `servers:read` | Lista cuentas (sin la clave). |
-| POST | `/` | `servers:write` | Crea (`{ name, key (JSON), isActive? }`). |
-| PATCH | `/:id` | `servers:write` | Actualiza; `key` vacía conserva la actual. |
-| POST | `/:id/default` | `servers:write` | Marca la cuenta como por defecto. |
+| GET | `/` | `servers:read` | Lista cuentas (sin el secreto). |
+| POST | `/` | `servers:write` | Crea (`{ name, provider, secret, isActive? }`). |
+| PATCH | `/:id` | `servers:write` | Actualiza; `secret` vacío conserva el actual. |
+| POST | `/:id/default` | `servers:write` | Marca la cuenta por defecto de su proveedor. |
 | DELETE | `/:id` | `servers:delete` | Elimina; `409` si está en uso por un destino. |
 
 ## Almacenamiento — `/api/storage`
@@ -221,7 +221,7 @@ servicio cifrada). Un destino por defecto por tipo (`isDefault`). El motor escri
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
 | GET | `/` | `servers:read` | Lista destinos (nunca expone la clave de servicio). |
-| POST | `/` | `servers:write` | Crea destino (`{ type, name, path? \| bucket?, prefix?, gcpServiceAccountId?, isActive? }`). |
+| POST | `/` | `servers:write` | Crea destino (`{ type: local\|bucket, name, path? \| (provider, bucket, prefix?, cloudCredentialId?), isActive? }`). |
 | PATCH | `/:id` | `servers:write` | Actualiza (mismos campos que crear). |
 | POST | `/:id/default` | `servers:write` | Marca el destino como por defecto de su tipo. |
 | DELETE | `/:id` | `servers:delete` | Elimina. |
