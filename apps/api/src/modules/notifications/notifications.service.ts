@@ -27,11 +27,29 @@ export interface BackupNotification {
   items?: BackupItemResult[];
 }
 
+/** Etiqueta corta (sin emoji) para el asunto del correo. */
 const EVENT_LABEL: Record<BackupEvent, string> = {
   start: "Backup iniciado",
   success: "Backup completado",
   failure: "Backup con errores",
 };
+
+/** Encabezado del cuerpo, con emoji por estado. */
+const EVENT_HEAD: Record<BackupEvent, string> = {
+  start: "🚀 Backup iniciado",
+  success: "✅ Backup completado",
+  failure: "❌ Backup con errores",
+};
+
+/** Nombre presentable del motor. */
+const ENGINE_LABEL: Record<string, string> = {
+  postgres: "PostgreSQL",
+  mysql: "MySQL",
+  mongo: "MongoDB",
+  mongodb: "MongoDB",
+  sqlserver: "SQL Server",
+};
+const engineLabel = (e: string): string => ENGINE_LABEL[e] ?? e;
 
 function eventEnabled(cfg: NotifRuntimeConfig, event: BackupEvent): boolean {
   if (event === "start") return cfg.notifyOnStart;
@@ -67,36 +85,56 @@ function formatDuration(ms: number | null | undefined): string {
   return `${m}m ${rem}s`;
 }
 
-/** Líneas de resumen comunes (texto plano), una por elemento. */
-function summaryLines(n: BackupNotification): string[] {
-  const lines = [
-    `Evento: ${n.jobName}`,
-    `Motor: ${n.engine}`,
+/** Filas (emoji + etiqueta + valor) del resumen, comunes a todos los canales. */
+function summaryRows(n: BackupNotification): { emoji: string; label: string; value: string }[] {
+  const rows = [
+    { emoji: "🏷️", label: "Evento", value: n.jobName },
+    { emoji: "🗄️", label: "Motor", value: engineLabel(n.engine) },
   ];
-  if (n.environment) lines.push(`Ambiente: ${n.environment}`);
-  lines.push(`Bases de datos: ${n.databases.join(", ") || "—"}`);
+  if (n.environment) rows.push({ emoji: "🌎", label: "Ambiente", value: n.environment });
+  rows.push({ emoji: "💾", label: "Bases de datos", value: n.databases.join(", ") || "—" });
   if (n.event !== "start") {
-    lines.push(`Duración: ${formatDuration(n.durationMs)}`);
-    lines.push(`Peso total: ${formatBytes(n.totalBytes)}`);
+    rows.push({ emoji: "⏱️", label: "Duración", value: formatDuration(n.durationMs) });
+    rows.push({ emoji: "📦", label: "Peso total", value: formatBytes(n.totalBytes) });
   }
-  if (n.items && n.items.length > 0 && n.event !== "start") {
-    lines.push("Detalle:");
-    for (const it of n.items) {
-      const mark = it.status === "success" ? "OK" : "FALLÓ";
-      const extra = it.status === "success" ? formatBytes(it.bytes) : it.error || "error";
-      lines.push(`  - ${it.dbName}: ${mark} (${extra})`);
-    }
-  }
-  return lines;
+  return rows;
 }
 
+/** Detalle por BD (solo eventos de fin con ítems): emoji de estado + línea. */
+function detailItems(n: BackupNotification): { emoji: string; text: string }[] | null {
+  if (n.event === "start" || !n.items || n.items.length === 0) return null;
+  return n.items.map((it) => ({
+    emoji: it.status === "success" ? "✅" : "❌",
+    text: `${it.dbName} — ${it.status === "success" ? formatBytes(it.bytes) : it.error || "error"}`,
+  }));
+}
+
+/** Texto plano (para el cuerpo `text` del correo). */
 function buildText(n: BackupNotification): string {
-  return [`${EVENT_LABEL[n.event]}`, "", ...summaryLines(n)].join("\n");
+  const parts = [EVENT_HEAD[n.event], ""];
+  for (const r of summaryRows(n)) parts.push(`${r.emoji} ${r.label}: ${r.value}`);
+  const det = detailItems(n);
+  if (det) {
+    parts.push("", "📋 Detalle:");
+    for (const d of det) parts.push(`   ${d.emoji} ${d.text}`);
+  }
+  return parts.join("\n");
 }
 
-function buildHtml(n: BackupNotification): string {
-  const rows = summaryLines(n).map((l) => escapeHtml(l)).join("<br>");
-  return `<b>${escapeHtml(EVENT_LABEL[n.event])}</b><br><br>${rows}`;
+/**
+ * Versión HTML con etiquetas en negrita. `br` es el separador de línea: `\n` para
+ * Telegram (su HTML no admite `<br>`) y `<br>` para el correo. Los valores dinámicos
+ * se escapan; las etiquetas y emojis son estáticos.
+ */
+function buildHtml(n: BackupNotification, br: string): string {
+  const parts = [`<b>${escapeHtml(EVENT_HEAD[n.event])}</b>`, ""];
+  for (const r of summaryRows(n)) parts.push(`${r.emoji} <b>${r.label}:</b> ${escapeHtml(r.value)}`);
+  const det = detailItems(n);
+  if (det) {
+    parts.push("", "📋 <b>Detalle:</b>");
+    for (const d of det) parts.push(`   ${d.emoji} ${escapeHtml(d.text)}`);
+  }
+  return parts.join(br);
 }
 
 /**
@@ -117,13 +155,12 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   const subject = `[DBKeeper] ${EVENT_LABEL[n.event]}: ${n.jobName}`;
   const text = buildText(n);
-  const html = buildHtml(n);
 
   const tasks: Promise<void>[] = [];
 
   if (cfg.email.enabled) {
     tasks.push(
-      sendEmail(cfg.email, { subject, text, html }).catch((err) => {
+      sendEmail(cfg.email, { subject, text, html: buildHtml(n, "<br>") }).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar correo de notificación");
       }),
     );
@@ -131,7 +168,7 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, text).catch((err) => {
+      sendTelegram(cfg.telegram, buildHtml(n, "\n")).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
       }),
     );
@@ -164,9 +201,11 @@ export async function sendTestNotification(): Promise<NotificationTestResult> {
   const cfg = await settings.getNotifRuntimeConfig();
 
   const subject = "[DBKeeper] Notificación de prueba";
+  const head = "🔔 Notificación de prueba";
   const body = "Esta es una notificación de prueba de DBKeeper. Si la recibes, el canal está bien configurado.";
-  const text = `${subject}\n\n${body}`;
-  const html = `<b>${escapeHtml(subject)}</b><br><br>${escapeHtml(body)}`;
+  const text = `${head}\n\n${body}`;
+  const emailHtml = `<b>${escapeHtml(head)}</b><br><br>${escapeHtml(body)}`;
+  const telegramHtml = `<b>${escapeHtml(head)}</b>\n\n${escapeHtml(body)}`;
 
   const result: NotificationTestResult = {
     email: { ok: null },
@@ -177,7 +216,7 @@ export async function sendTestNotification(): Promise<NotificationTestResult> {
 
   if (cfg.email.enabled) {
     tasks.push(
-      sendEmail(cfg.email, { subject, text, html })
+      sendEmail(cfg.email, { subject, text, html: emailHtml })
         .then(() => {
           result.email = { ok: true };
         })
@@ -189,7 +228,7 @@ export async function sendTestNotification(): Promise<NotificationTestResult> {
 
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, text)
+      sendTelegram(cfg.telegram, telegramHtml)
         .then(() => {
           result.telegram = { ok: true };
         })

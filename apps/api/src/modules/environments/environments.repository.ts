@@ -59,6 +59,15 @@ export async function findByCode(code: string): Promise<{ id: string } | null> {
   return rows[0] ?? null;
 }
 
+/** Nombre/etiqueta del ambiente a partir de su código (p. ej. "PRD" → "Producción"). */
+export async function findNameByCode(code: string): Promise<string | null> {
+  const { rows } = await query<{ name: string }>(
+    "SELECT name FROM core.environments WHERE lower(code) = lower($1)",
+    [code],
+  );
+  return rows[0]?.name ?? null;
+}
+
 export interface EnvironmentFields {
   name: string;
   code: string;
