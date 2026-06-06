@@ -22,8 +22,8 @@ apps/
       db/                   # pool, runner de migraciones, seed
       lib/                  # password (scrypt), jwt (jose), http-error, respond
       middleware/           # error-handler, auth (authenticate + authorize)
-      modules/              # auth · users · roles · permissions · audit · servers · environments ·
-                            #   credentials · cloud-credentials · storage · backups (engine + scheduler) · settings
+      modules/              # auth · users · roles · permissions · audit · servers · environments · credentials ·
+                            #   cloud-credentials · storage · backups (engine + scheduler) · dashboard · settings
   web/                      # React + Vite
     src/
       auth/                 # AuthContext + guards
@@ -99,6 +99,8 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 
 ## Interfaz
 
+- **Panel** con KPIs (instancias, eventos, ejecuciones/éxito/peso de 7 días), últimas
+  ejecuciones, próximas programaciones y estado de API/BD.
 - **Tema claro/oscuro** con preferencia por usuario y respeto al sistema.
 - **Barra lateral contraíble** (riel de iconos) con logo de marca.
 - **Menú de usuario** con avatar, cambio de idioma, *Ver mi perfil* y cerrar sesión.
