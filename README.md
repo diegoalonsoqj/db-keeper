@@ -118,14 +118,14 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
   reutiliza esta misma maquinaria (solo falta su dumper):
   - [x] Evento de backup multi-BD + *Ejecutar ahora*.
   - [x] Motores reales: **PostgreSQL** (`pg_dump`), **MySQL** (`mysqldump` + limpieza
-    `DEFINER`) y **MongoDB** (`mongodump`, Atlas SRV / Community) → flags del script de
-    referencia, integridad, nombre `{db}_{ambiente}_{timestamp}`.
+    `DEFINER`), **MongoDB** (`mongodump`, Atlas SRV / Community) y **SQL Server**
+    (`BACKUP DATABASE` a ruta de la instancia + `RESTORE VERIFYONLY`).
   - [x] *Ejecuciones*: estado/fin/duración/peso, **log**, **descarga** y **reintento**.
   - [x] **Ambientes** (código + nombre) y consistencia instancia/credencial en el evento.
   - [x] **Almacenamiento** local + **bucket** multi-nube (subida a **GCS** por SDK).
   - [x] **Cuentas de servicio** de nube (multi-proveedor; GCP funcional).
   - [x] **Scheduler** (agendar única / recurrente por cron), poller in-proceso.
-  - [ ] Dumper **SQL Server**; AWS/Azure funcionales.
+  - [ ] AWS/Azure funcionales (estructura ya lista; hoy solo GCP).
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo) y cola (Redis/BullMQ).
 - [ ] **Etapa 7** — Notificaciones (Email + Telegram).
 - [ ] **Etapa 9** — Retención, auditoría completa, hardening.

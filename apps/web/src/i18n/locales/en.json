@@ -160,6 +160,8 @@
     "cleanDefinersHint": "Removes DEFINER from the dump to restore on Cloud SQL or another server.",
     "mongoSrv": "MongoDB Atlas (SRV connection)",
     "mongoSrvHint": "Uses mongodb+srv://…&tls=true. Auto-enabled for Atlas hosts (.mongodb.net); check to force it.",
+    "sqlBackupDir": "Backup folder (on the instance)",
+    "sqlBackupDirHint": "SQL Server writes the .bak to this path on the server itself (the SQL service must be able to write there). Not downloaded/uploaded; size/integrity are read from the server.",
     "active": "Active",
     "run": "Run",
     "runQueued": "Execution created for “{{name}}”. Check it under Executions.",

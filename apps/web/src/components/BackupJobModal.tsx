@@ -43,6 +43,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
   // MongoDB: forzar conexión SRV (Atlas).
   const [mongoSrv, setMongoSrv] = useState(job?.options?.mongoSrv === true);
+  // SQL Server: carpeta de backup en el host de la instancia.
+  const [sqlBackupDir, setSqlBackupDir] = useState(
+    (job?.options?.sqlBackupDir as string | undefined) ?? "",
+  );
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
@@ -57,6 +61,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExclude = dumpOpts.includes("excludeTables");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
   const showMongoSrv = dumpOpts.includes("mongoSrv");
+  const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
   // Ambiente consolidado del evento: el de la instancia y el de la credencial
   // efectiva (override, o la heredada de la instancia) deben coincidir.
@@ -135,6 +140,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.cleanDefiners;
     if (showMongoSrv) options.mongoSrv = mongoSrv;
     else delete options.mongoSrv;
+    if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
+    else delete options.sqlBackupDir;
 
     const payload = {
       name: name.trim(),
@@ -281,6 +288,18 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             placeholder={t("backups.excludeTablesPlaceholder")}
           />
           <small>{t("backups.excludeTablesHint")}</small>
+        </label>
+      )}
+
+      {showSqlBackupDir && (
+        <label>
+          {t("backups.sqlBackupDir")}
+          <input
+            value={sqlBackupDir}
+            onChange={(e) => setSqlBackupDir(e.target.value)}
+            placeholder="D:\\Backups o /var/opt/mssql/backups"
+          />
+          <small>{t("backups.sqlBackupDirHint")}</small>
         </label>
       )}
 

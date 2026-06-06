@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 16] — Motor SQL Server (`BACKUP DATABASE`) · 2026-06-05
+
+### Añadido
+- **Backup de SQL Server** (`engine/sqlserver.ts`) vía el driver `mssql`: `BACKUP DATABASE
+  [db] TO DISK = N'<ruta>' WITH FORMAT, INIT, CHECKSUM[, COMPRESSION]`. A diferencia de
+  los demás motores, el `.bak` se escribe **en el host de la instancia** (no se transmite
+  al cliente), así que el evento indica una **ruta en el servidor** (`options.sqlBackupDir`).
+  Se valida con `RESTORE VERIFYONLY` y el **peso** se lee de `msdb.dbo.backupset`.
+- El runner trata SQL Server como un flujo aparte: no usa destino local/GCS ni descarga
+  (el archivo vive en la instancia); registra ruta + peso + integridad desde el servidor.
+- Campo de ruta en el modal para motores SQL Server. Env `sqlBackupDir` por evento.
+
 ## [Etapa 4 · parte 15] — Motor MongoDB (`mongodump`) · 2026-06-05
 
 ### Añadido

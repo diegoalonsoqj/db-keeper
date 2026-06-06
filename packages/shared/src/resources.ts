@@ -23,7 +23,12 @@ export const DEFAULT_PORTS: Record<DbEngine, number> = {
 };
 
 /** Opciones de dump configurables por evento. */
-export type BackupOptionKey = "compress" | "excludeTables" | "cleanDefiners" | "mongoSrv";
+export type BackupOptionKey =
+  | "compress"
+  | "excludeTables"
+  | "cleanDefiners"
+  | "mongoSrv"
+  | "sqlBackupDir";
 
 /**
  * Opciones de dump aplicables a cada motor (para que el modal muestre solo las
@@ -34,7 +39,7 @@ export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
   postgres: ["compress", "excludeTables"],
   mysql: ["compress", "excludeTables", "cleanDefiners"],
   mongo: ["compress", "mongoSrv"],
-  sqlserver: [],
+  sqlserver: ["sqlBackupDir", "compress"],
 };
 
 /** Instancia de base de datos. Nunca expone la contraseña. */

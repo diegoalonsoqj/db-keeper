@@ -160,6 +160,8 @@
     "cleanDefinersHint": "Elimina DEFINER del dump para restaurar en Cloud SQL u otro servidor.",
     "mongoSrv": "MongoDB Atlas (conexión SRV)",
     "mongoSrvHint": "Usa mongodb+srv://…&tls=true. Se activa solo si el host es de Atlas (.mongodb.net); márcalo para forzarlo.",
+    "sqlBackupDir": "Carpeta de backup (en la instancia)",
+    "sqlBackupDirHint": "SQL Server escribe el .bak en esta ruta del propio servidor (debe poder escribir el servicio de SQL). No se descarga ni sube; el peso/integridad se leen del servidor.",
     "active": "Activo",
     "run": "Ejecutar",
     "runQueued": "Ejecución creada para «{{name}}». Revísala en Ejecuciones.",
