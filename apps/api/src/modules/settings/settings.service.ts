@@ -234,6 +234,58 @@ export async function updateNotifications(input: UpdateNotifInput): Promise<Noti
   return notifToDto(next);
 }
 
+/** Config efectiva de notificaciones con los secretos descifrados (para el envío real). */
+export interface NotifRuntimeConfig {
+  notifyOnStart: boolean;
+  notifyOnSuccess: boolean;
+  notifyOnFailure: boolean;
+  email: {
+    enabled: boolean;
+    provider: EmailProvider;
+    from: string;
+    recipients: string[];
+    smtp: { host: string; port: number; secure: boolean; user: string; password: string | null };
+    api: { url: string; authHeader: string; auth: string | null };
+  };
+  telegram: { enabled: boolean; chatId: string; botToken: string | null };
+}
+
+/**
+ * Devuelve la config de notificaciones con los secretos en claro. Úsala solo en el
+ * momento del envío; nunca la persistas ni la loguees.
+ */
+export async function getNotifRuntimeConfig(): Promise<NotifRuntimeConfig> {
+  const s = await getStoredNotif();
+  return {
+    notifyOnStart: s.notifyOnStart,
+    notifyOnSuccess: s.notifyOnSuccess,
+    notifyOnFailure: s.notifyOnFailure,
+    email: {
+      enabled: s.email.enabled,
+      provider: s.email.provider,
+      from: s.email.from,
+      recipients: s.email.recipients,
+      smtp: {
+        host: s.email.smtp.host,
+        port: s.email.smtp.port,
+        secure: s.email.smtp.secure,
+        user: s.email.smtp.user,
+        password: s.email.smtp.passwordEncrypted ? decryptSecret(s.email.smtp.passwordEncrypted) : null,
+      },
+      api: {
+        url: s.email.api.url,
+        authHeader: s.email.api.authHeader,
+        auth: s.email.api.authEncrypted ? decryptSecret(s.email.api.authEncrypted) : null,
+      },
+    },
+    telegram: {
+      enabled: s.telegram.enabled,
+      chatId: s.telegram.chatId,
+      botToken: s.telegram.botTokenEncrypted ? decryptSecret(s.telegram.botTokenEncrypted) : null,
+    },
+  };
+}
+
 /**
  * Config efectiva de LDAP para autenticar (con la contraseña descifrada).
  * Preferencia: BD (si está habilitada y completa) → variables de entorno (compat).

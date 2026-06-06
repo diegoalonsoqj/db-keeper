@@ -4,6 +4,7 @@ import { APP_LOCALES, EMAIL_PROVIDERS } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { sendTestNotification } from "../notifications/notifications.service.js";
 import * as service from "./settings.service.js";
 
 export const settingsRouter: Router = Router();
@@ -99,6 +100,16 @@ settingsRouter.patch("/notifications", authorize("settings:write"), async (req, 
     // No registrar el cuerpo: puede contener la contraseña SMTP, la auth de la API o el bot token.
     await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "notifications" });
     ok(res, notifications);
+  } catch (err) {
+    next(err);
+  }
+});
+
+settingsRouter.post("/notifications/test", authorize("settings:write"), async (req, res, next) => {
+  try {
+    const result = await sendTestNotification();
+    await recordAudit(req, { action: "settings.test", entityType: "settings", entityId: "notifications" });
+    ok(res, result);
   } catch (err) {
     next(err);
   }
