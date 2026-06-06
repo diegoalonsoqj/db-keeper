@@ -158,7 +158,7 @@ export function SettingsPage() {
   }
 
   return (
-    <section>
+    <section className="settings-grid">
 
       <div className="card form-card">
         <h2>{t("settings.general")}</h2>
@@ -191,7 +191,7 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="card form-card" style={{ marginTop: "1rem" }}>
+      <div className="card form-card">
         <h2>{t("settings.storageDefaults")}</h2>
         <p className="muted">{t("settings.storageDefaultsHint")}</p>
         <label>
@@ -253,7 +253,7 @@ export function SettingsPage() {
         </label>
       </div>
 
-      <div className="card form-card" style={{ marginTop: "1rem" }}>
+      <div className="card form-card">
         <h2>{t("settings.ldap")}</h2>
         <label className="inline">
           <input
@@ -324,7 +324,7 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="card form-card" style={{ marginTop: "1rem" }}>
+      <div className="card form-card">
         <h2>{t("settings.notifications")}</h2>
 
         <fieldset>
