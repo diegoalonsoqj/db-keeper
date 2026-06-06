@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
-import { BACKUP_METHODS } from "@dbkeeper/shared";
+import { BACKUP_METHODS, SCHEDULE_MODES } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationSchema } from "../../lib/pagination.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./backups.service.js";
+import * as schedules from "./schedules.service.js";
 import { gcsReadStream } from "./engine/gcs.js";
 
 export const backupsRouter: Router = Router();
@@ -87,6 +88,45 @@ backupsRouter.post("/executions/:execId/retry", authorize("backups:run"), async 
       detail: { retryOf: execId },
     });
     ok(res, exec, 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Programación de un evento (una por evento) ----
+const scheduleSchema = z.object({
+  mode: z.enum(SCHEDULE_MODES),
+  runAt: z.string().max(40).nullish().transform((v) => v ?? null),
+  cron: z.string().max(120).nullish().transform((v) => v ?? null),
+  timezone: z.string().max(60).optional(),
+  isActive: z.boolean().optional(),
+});
+
+backupsRouter.get("/:id/schedule", authorize("backups:read"), async (req, res, next) => {
+  try {
+    ok(res, await schedules.getSchedule(String(req.params.id)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+backupsRouter.put("/:id/schedule", authorize("backups:schedule"), async (req, res, next) => {
+  try {
+    const id = String(req.params.id);
+    const sched = await schedules.upsertSchedule(id, scheduleSchema.parse(req.body));
+    await recordAudit(req, { action: "backups.schedule", entityType: "backup_job", entityId: id, detail: { mode: sched.mode } });
+    ok(res, sched);
+  } catch (err) {
+    next(err);
+  }
+});
+
+backupsRouter.delete("/:id/schedule", authorize("backups:schedule"), async (req, res, next) => {
+  try {
+    const id = String(req.params.id);
+    await schedules.deleteSchedule(id);
+    await recordAudit(req, { action: "backups.unschedule", entityType: "backup_job", entityId: id });
+    ok(res, { deleted: true });
   } catch (err) {
     next(err);
   }

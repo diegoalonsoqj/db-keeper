@@ -11,8 +11,8 @@ construido hasta la **Etapa 1**; las piezas de etapas futuras se marcan como tal
 | **API / Backend** | ✅ | REST sobre Express 5, estructura en capas, sesión por cookie. |
 | **Web / SPA** | ✅ | React + Vite, i18n `es-419`/`en`, RBAC en el cliente. |
 | **BD de metadatos** | ✅ | PostgreSQL 16 (esquemas `auth`/`core`/`secrets`/`audit`). |
-| **Motor de ejecución** | ◑ Etapa 4 | Vuelca cada BD en segundo plano dentro de la API (in-proceso). **PostgreSQL** listo (`pg_dump`); resto de motores y destino GCS pendientes. |
-| **Programador** | ⏳ Etapa 6 | Dispara backups programados. |
+| **Motor de ejecución** | ◑ Etapa 4 | Vuelca cada BD en segundo plano dentro de la API (in-proceso). **PostgreSQL** listo (`pg_dump`) + subida a GCS; resto de motores pendientes. |
+| **Programador** | ✅ Etapa 4 | Poller in-proceso (60 s) sobre `core.backup_schedules`; dispara `once`/`recurring` (cron), agnóstico al motor. |
 | **Cola / tiempo real** | ⏳ Etapa 4–5 | Redis + BullMQ; progreso por WebSocket/SSE. Hoy el motor corre in-proceso, sin cola. |
 
 ## Capas de la API

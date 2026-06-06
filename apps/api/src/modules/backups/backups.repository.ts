@@ -222,13 +222,14 @@ export async function createExecution(
   label: string,
   environment: string | null,
   databases: string[],
+  origin: ExecutionDto["origin"] = "manual",
 ): Promise<string> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const { rows } = await client.query<{ id: string }>(
-      "INSERT INTO core.executions (job_id, label, environment) VALUES ($1,$2,$3) RETURNING id",
-      [jobId, label, environment],
+      "INSERT INTO core.executions (job_id, label, environment, origin) VALUES ($1,$2,$3,$4) RETURNING id",
+      [jobId, label, environment, origin],
     );
     const id = rows[0]!.id;
     if (databases.length > 0) {

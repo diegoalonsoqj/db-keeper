@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil, Play, Trash2 } from "lucide-react";
+import { CalendarClock, Pencil, Play, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type BackupJobDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
@@ -8,6 +8,7 @@ import { useStorageTargets, defaultLocalTarget } from "../lib/storage";
 import { useAuth } from "../auth/AuthContext";
 import { Pagination } from "../components/Pagination";
 import { BackupJobModal } from "../components/BackupJobModal";
+import { ScheduleModal } from "../components/ScheduleModal";
 
 export function BackupsPage() {
   const { t } = useTranslation();
@@ -21,6 +22,7 @@ export function BackupsPage() {
   const [data, setData] = useState<Paginated<BackupJobDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [modal, setModal] = useState<{ job: BackupJobDto | null } | null>(null);
+  const [scheduleJob, setScheduleJob] = useState<BackupJobDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -105,6 +107,16 @@ export function BackupsPage() {
                   {canManage && (
                     <button
                       className="icon-btn"
+                      title={t("schedule.title")}
+                      aria-label={t("schedule.title")}
+                      onClick={() => setScheduleJob(j)}
+                    >
+                      <CalendarClock size={16} />
+                    </button>
+                  )}
+                  {canManage && (
+                    <button
+                      className="icon-btn"
                       title={t("common.edit")}
                       aria-label={t("common.edit")}
                       onClick={() => setModal({ job: j })}
@@ -138,6 +150,15 @@ export function BackupsPage() {
             setModal(null);
             reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
           }}
+        />
+      )}
+
+      {scheduleJob && (
+        <ScheduleModal
+          jobId={scheduleJob.id}
+          jobName={scheduleJob.name}
+          onClose={() => setScheduleJob(null)}
+          onSaved={() => setMsg(t("schedule.saved", { name: scheduleJob.name }))}
         />
       )}
     </section>

@@ -3,6 +3,22 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 12] — Scheduler (agendar / recurrente) · 2026-06-05
+
+### Añadido
+- **Programación de eventos** (`core.backup_schedules`, migración `0018`): una por
+  evento, modo **`once`** (fecha/hora) o **`recurring`** (cron). Endpoints
+  `GET/PUT/DELETE /api/backups/:id/schedule` (permiso `backups:schedule`).
+- **Poller in-proceso** (cada 60 s): dispara las programaciones vencidas creando la
+  ejecución con `origin='scheduled'` y recalcula `next_run_at` (cron) o desactiva (once).
+  Es **agnóstico al motor** (solo crea la corrida; el runner hace el dump). Robusto ante
+  reinicios (el `next_run_at` está en BD). Usa `cron-parser` para el cálculo.
+- **Zona horaria**: por defecto la de Settings (`general.timezone`), guardada en la
+  programación; el cron y la hora "once" se interpretan en esa zona.
+- **UI**: acción *Programar* por evento → modal **Sin programación / Agendar (fecha+hora
+  nativa) / Recurrente** con presets (diario/semanal/mensual) que generan cron + campo
+  cron avanzado; muestra el próximo disparo.
+
 ## [Etapa 4 · parte 11] — Generalización multi-nube (estructura) · 2026-06-05
 
 ### Cambiado

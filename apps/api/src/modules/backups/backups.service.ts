@@ -135,6 +135,13 @@ export async function listExecutions(p: { limit: number; offset: number; jobId?:
   return repo.listExecutions(p);
 }
 
+/** Igual que `runNow` pero marca la ejecución como `scheduled` (la usa el scheduler). */
+export async function runScheduled(jobId: string): Promise<void> {
+  const job = await getJob(jobId);
+  const execId = await repo.createExecution(jobId, job.name, job.environment, job.databases, "scheduled");
+  void runExecution(execId).catch((err) => logger.error({ err, execId }, "Error al disparar el motor"));
+}
+
 /**
  * Reintenta una ejecución: crea una nueva corrida del mismo evento con las mismas
  * BDs registradas y dispara el motor. Devuelve la nueva ejecución (`pending`).

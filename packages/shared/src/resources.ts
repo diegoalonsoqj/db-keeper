@@ -168,6 +168,36 @@ export interface ExecutionDto {
  * o bucket en la nube (`provider`/`bucket`/`prefix` + clave de servicio cifrada).
  * Nunca expone la clave de servicio. `isDefault` marca el destino por tipo.
  */
+/** Modo de programación de un evento de backup. */
+export const SCHEDULE_MODES = ["once", "recurring"] as const;
+export type ScheduleMode = (typeof SCHEDULE_MODES)[number];
+
+/** Programación de un evento de backup (`core.backup_schedules`). */
+export interface ScheduleDto {
+  id: string;
+  jobId: string;
+  mode: ScheduleMode;
+  /** Modo `once`: instante a ejecutar (ISO). */
+  runAt: string | null;
+  /** Modo `recurring`: expresión cron. */
+  cron: string | null;
+  timezone: string;
+  isActive: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleInput {
+  mode: ScheduleMode;
+  /** ISO local (sin zona); se interpreta en `timezone`. */
+  runAt?: string | null;
+  cron?: string | null;
+  timezone?: string;
+  isActive?: boolean;
+}
+
 export interface StorageTargetDto {
   id: string;
   type: StorageType;
