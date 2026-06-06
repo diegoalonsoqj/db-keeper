@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   APP_LOCALES,
+  EMAIL_PROVIDERS,
   type AppLocale,
   type CloudCredentialDto,
+  type EmailProvider,
   type Paginated,
   type SettingsDto,
   type StorageTargetDto,
@@ -13,6 +15,9 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
+
+type ChannelTest = { ok: boolean | null; error?: string };
+type NotifTestResult = { email: ChannelTest; telegram: ChannelTest };
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -24,12 +29,20 @@ export function SettingsPage() {
   const [targets, setTargets] = useState<StorageTargetDto[]>([]);
   const [accounts, setAccounts] = useState<CloudCredentialDto[]>([]);
   const [bindPassword, setBindPassword] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [apiAuth, setApiAuth] = useState("");
+  const [botToken, setBotToken] = useState("");
+  const [recipientsText, setRecipientsText] = useState("");
+  const [testing, setTesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .get<SettingsDto>("/settings")
-      .then(setData)
+      .then((s) => {
+        setData(s);
+        setRecipientsText(s.notifications.email.recipients.join(", "));
+      })
       .catch((e) => setLoadError(errMsg(e)));
     api
       .get<Paginated<StorageTargetDto>>("/storage?limit=100")
@@ -65,6 +78,7 @@ export function SettingsPage() {
 
   const g = data.general;
   const l = data.ldap;
+  const n = data.notifications;
 
   async function saveGeneral() {
     const next = await api.patch<SettingsDto["general"]>("/settings/general", g);
@@ -77,6 +91,70 @@ export function SettingsPage() {
     const next = await api.patch<SettingsDto["ldap"]>("/settings/ldap", payload);
     setBindPassword("");
     setData((d) => (d ? { ...d, ldap: next } : d));
+  }
+
+  async function saveNotifications() {
+    const recipients = recipientsText
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const payload = {
+      notifyOnStart: n.notifyOnStart,
+      notifyOnSuccess: n.notifyOnSuccess,
+      notifyOnFailure: n.notifyOnFailure,
+      email: {
+        enabled: n.email.enabled,
+        provider: n.email.provider,
+        from: n.email.from,
+        recipients,
+        smtp: {
+          host: n.email.smtp.host,
+          port: n.email.smtp.port,
+          secure: n.email.smtp.secure,
+          user: n.email.smtp.user,
+          ...(smtpPassword ? { password: smtpPassword } : {}),
+        },
+        api: {
+          url: n.email.api.url,
+          authHeader: n.email.api.authHeader,
+          ...(apiAuth ? { auth: apiAuth } : {}),
+        },
+      },
+      telegram: {
+        enabled: n.telegram.enabled,
+        chatId: n.telegram.chatId,
+        ...(botToken ? { botToken } : {}),
+      },
+    };
+    const next = await api.patch<SettingsDto["notifications"]>("/settings/notifications", payload);
+    setSmtpPassword("");
+    setApiAuth("");
+    setBotToken("");
+    setRecipientsText(next.email.recipients.join(", "));
+    setData((d) => (d ? { ...d, notifications: next } : d));
+  }
+
+  async function testNotifications() {
+    setTesting(true);
+    try {
+      const res = await api.post<NotifTestResult>("/settings/notifications/test");
+      const channels: [string, ChannelTest][] = [
+        ["Email", res.email],
+        ["Telegram", res.telegram],
+      ];
+      let any = false;
+      for (const [channel, r] of channels) {
+        if (r.ok === null) continue;
+        any = true;
+        if (r.ok) toast.success(t("settings.testOk", { channel }));
+        else toast.error(t("settings.testFail", { channel, error: r.error ?? "" }));
+      }
+      if (!any) toast.info(t("settings.testNoChannel"));
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setTesting(false);
+    }
   }
 
   return (
@@ -242,6 +320,262 @@ export function SettingsPage() {
         {canWrite && (
           <div className="form-actions">
             <button onClick={() => notify(saveLdap)}>{t("common.save")}</button>
+          </div>
+        )}
+      </div>
+
+      <div className="card form-card" style={{ marginTop: "1rem" }}>
+        <h2>{t("settings.notifications")}</h2>
+
+        <fieldset>
+          <legend>{t("settings.notifEvents")}</legend>
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={n.notifyOnStart}
+              disabled={!canWrite}
+              onChange={(e) => setData({ ...data, notifications: { ...n, notifyOnStart: e.target.checked } })}
+            />
+            {t("settings.notifyOnStart")}
+          </label>
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={n.notifyOnSuccess}
+              disabled={!canWrite}
+              onChange={(e) => setData({ ...data, notifications: { ...n, notifyOnSuccess: e.target.checked } })}
+            />
+            {t("settings.notifyOnSuccess")}
+          </label>
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={n.notifyOnFailure}
+              disabled={!canWrite}
+              onChange={(e) => setData({ ...data, notifications: { ...n, notifyOnFailure: e.target.checked } })}
+            />
+            {t("settings.notifyOnFailure")}
+          </label>
+        </fieldset>
+
+        <fieldset style={{ marginTop: "0.75rem" }}>
+          <legend>{t("settings.notifEmail")}</legend>
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={n.email.enabled}
+              disabled={!canWrite}
+              onChange={(e) =>
+                setData({ ...data, notifications: { ...n, email: { ...n.email, enabled: e.target.checked } } })
+              }
+            />
+            {t("settings.emailEnabled")}
+          </label>
+          <label>
+            {t("settings.emailProvider")}
+            <select
+              value={n.email.provider}
+              disabled={!canWrite}
+              onChange={(e) =>
+                setData({
+                  ...data,
+                  notifications: { ...n, email: { ...n.email, provider: e.target.value as EmailProvider } },
+                })
+              }
+            >
+              {EMAIL_PROVIDERS.map((p) => (
+                <option key={p} value={p}>
+                  {p.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("settings.emailFrom")}
+            <input
+              value={n.email.from}
+              disabled={!canWrite}
+              placeholder="DBKeeper <no-reply@empresa.com>"
+              onChange={(e) =>
+                setData({ ...data, notifications: { ...n, email: { ...n.email, from: e.target.value } } })
+              }
+            />
+          </label>
+          <label>
+            {t("settings.emailRecipients")}
+            <input
+              value={recipientsText}
+              disabled={!canWrite}
+              placeholder="ops@empresa.com, dba@empresa.com"
+              onChange={(e) => setRecipientsText(e.target.value)}
+            />
+            <small>{t("settings.emailRecipientsHint")}</small>
+          </label>
+
+          {n.email.provider === "smtp" ? (
+            <>
+              <label>
+                {t("settings.smtpHost")}
+                <input
+                  value={n.email.smtp.host}
+                  disabled={!canWrite}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: { ...n, email: { ...n.email, smtp: { ...n.email.smtp, host: e.target.value } } },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("settings.smtpPort")}
+                <input
+                  type="number"
+                  value={n.email.smtp.port}
+                  disabled={!canWrite}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: {
+                        ...n,
+                        email: { ...n.email, smtp: { ...n.email.smtp, port: Number(e.target.value) } },
+                      },
+                    })
+                  }
+                />
+              </label>
+              <label className="inline">
+                <input
+                  type="checkbox"
+                  checked={n.email.smtp.secure}
+                  disabled={!canWrite}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: {
+                        ...n,
+                        email: { ...n.email, smtp: { ...n.email.smtp, secure: e.target.checked } },
+                      },
+                    })
+                  }
+                />
+                {t("settings.smtpSecure")}
+              </label>
+              <label>
+                {t("settings.smtpUser")}
+                <input
+                  value={n.email.smtp.user}
+                  disabled={!canWrite}
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: { ...n, email: { ...n.email, smtp: { ...n.email.smtp, user: e.target.value } } },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("settings.smtpPassword")}
+                <input
+                  type="password"
+                  value={smtpPassword}
+                  disabled={!canWrite}
+                  placeholder={n.email.smtp.hasPassword ? "••••••••" : ""}
+                  onChange={(e) => setSmtpPassword(e.target.value)}
+                />
+                <small>{t("settings.secretKeepHint")}</small>
+              </label>
+            </>
+          ) : (
+            <>
+              <label>
+                {t("settings.apiUrl")}
+                <input
+                  value={n.email.api.url}
+                  disabled={!canWrite}
+                  placeholder="https://api.proveedor.com/send"
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: { ...n, email: { ...n.email, api: { ...n.email.api, url: e.target.value } } },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("settings.apiAuthHeader")}
+                <input
+                  value={n.email.api.authHeader}
+                  disabled={!canWrite}
+                  placeholder="Authorization"
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: {
+                        ...n,
+                        email: { ...n.email, api: { ...n.email.api, authHeader: e.target.value } },
+                      },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                {t("settings.apiAuth")}
+                <input
+                  type="password"
+                  value={apiAuth}
+                  disabled={!canWrite}
+                  placeholder={n.email.api.hasAuth ? "••••••••" : "Bearer …"}
+                  onChange={(e) => setApiAuth(e.target.value)}
+                />
+                <small>{t("settings.secretKeepHint")}</small>
+              </label>
+            </>
+          )}
+        </fieldset>
+
+        <fieldset style={{ marginTop: "0.75rem" }}>
+          <legend>{t("settings.notifTelegram")}</legend>
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={n.telegram.enabled}
+              disabled={!canWrite}
+              onChange={(e) =>
+                setData({ ...data, notifications: { ...n, telegram: { ...n.telegram, enabled: e.target.checked } } })
+              }
+            />
+            {t("settings.telegramEnabled")}
+          </label>
+          <label>
+            {t("settings.telegramChatId")}
+            <input
+              value={n.telegram.chatId}
+              disabled={!canWrite}
+              onChange={(e) =>
+                setData({ ...data, notifications: { ...n, telegram: { ...n.telegram, chatId: e.target.value } } })
+              }
+            />
+          </label>
+          <label>
+            {t("settings.telegramBotToken")}
+            <input
+              type="password"
+              value={botToken}
+              disabled={!canWrite}
+              placeholder={n.telegram.hasBotToken ? "••••••••" : ""}
+              onChange={(e) => setBotToken(e.target.value)}
+            />
+            <small>{t("settings.secretKeepHint")}</small>
+          </label>
+        </fieldset>
+
+        {canWrite && (
+          <div className="form-actions">
+            <button onClick={() => notify(saveNotifications)}>{t("common.save")}</button>
+            <button className="secondary" disabled={testing} onClick={testNotifications}>
+              {testing ? t("settings.testSending") : t("settings.testSend")}
+            </button>
           </div>
         )}
       </div>
