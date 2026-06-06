@@ -41,6 +41,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   );
   // MySQL: quitar DEFINER por defecto.
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
+  // MongoDB: forzar conexión SRV (Atlas).
+  const [mongoSrv, setMongoSrv] = useState(job?.options?.mongoSrv === true);
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
@@ -54,6 +56,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
+  const showMongoSrv = dumpOpts.includes("mongoSrv");
 
   // Ambiente consolidado del evento: el de la instancia y el de la credencial
   // efectiva (override, o la heredada de la instancia) deben coincidir.
@@ -130,6 +133,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.excludeTables;
     if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
     else delete options.cleanDefiners;
+    if (showMongoSrv) options.mongoSrv = mongoSrv;
+    else delete options.mongoSrv;
 
     const payload = {
       name: name.trim(),
@@ -300,6 +305,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             {t("backups.cleanDefiners")}
           </label>
           <small>{t("backups.cleanDefinersHint")}</small>
+        </>
+      )}
+
+      {showMongoSrv && (
+        <>
+          <label className="inline">
+            <input type="checkbox" checked={mongoSrv} onChange={(e) => setMongoSrv(e.target.checked)} />
+            {t("backups.mongoSrv")}
+          </label>
+          <small>{t("backups.mongoSrvHint")}</small>
         </>
       )}
 

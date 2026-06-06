@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 15] — Motor MongoDB (`mongodump`) · 2026-06-05
+
+### Añadido
+- **Dumper de MongoDB** (`engine/mongo.ts`): `mongodump --archive` (+`--gzip` si se
+  comprime) → `.archive`/`.archive.gz` (restaurar con `mongorestore --gzip --archive`).
+  Soporta **Atlas** (`mongodb+srv://…&tls=true`, como el script de referencia) y
+  **Community** (`mongodb://host:port`). SRV se detecta por host `.mongodb.net` o con la
+  opción `mongoSrv` (checkbox en el modal). Credenciales desde la BD; integridad del
+  `.gz` validada. Env `MONGODUMP_PATH`.
+- Nota: `mongodump` no tiene variable de entorno para la contraseña, así que viaja en la
+  URI (se omite de los logs).
+
 ## [Etapa 4 · parte 14] — Motor MySQL (`mysqldump`) · 2026-06-05
 
 ### Añadido

@@ -158,6 +158,8 @@
     "compressHint": "If disabled, the dump is saved as plain .sql.",
     "cleanDefiners": "Strip DEFINER clauses (MySQL)",
     "cleanDefinersHint": "Removes DEFINER from the dump to restore on Cloud SQL or another server.",
+    "mongoSrv": "MongoDB Atlas (SRV connection)",
+    "mongoSrvHint": "Uses mongodb+srv://…&tls=true. Auto-enabled for Atlas hosts (.mongodb.net); check to force it.",
     "active": "Active",
     "run": "Run",
     "runQueued": "Execution created for “{{name}}”. Check it under Executions.",

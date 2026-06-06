@@ -27,6 +27,7 @@ const envSchema = z.object({
   // Ruta a los binarios de dump (si no están en el PATH).
   PG_DUMP_PATH: z.string().default("pg_dump"),
   MYSQLDUMP_PATH: z.string().default("mysqldump"),
+  MONGODUMP_PATH: z.string().default("mongodump"),
   // Timeout por base de datos para el volcado (ms). Por defecto 30 min.
   BACKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(1_800_000),
 

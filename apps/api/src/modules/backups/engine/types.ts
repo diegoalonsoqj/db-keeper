@@ -12,6 +12,8 @@ export interface DumpInput {
   excludeTables: string[];
   /** MySQL: quitar cláusulas `DEFINER` (compat. Cloud SQL). */
   cleanDefiners?: boolean;
+  /** MongoDB: conexión SRV (Atlas) en vez de `mongodb://host:port`. */
+  mongoSrv?: boolean;
   /** Ruta absoluta del archivo de salida (sin extensión; el dumper la añade). */
   destPathNoExt: string;
 }
