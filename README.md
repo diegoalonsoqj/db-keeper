@@ -143,6 +143,12 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
     en un **modal de log por BD** (streamea en vivo y muestra el log final).
     Diseño en `docs/REALTIME-QUEUE-DESIGN.md`.
   - [ ] AWS/Azure funcionales (estructura ya lista; hoy solo GCP).
+
+  > **Solo lectura del origen:** DBKeeper nunca modifica, escribe ni borra datos de las BD que
+  > respalda (descubrimiento por catálogos; dumps de solo lectura). Solo escribe en su propia
+  > BD (catálogo/auditoría) y en el destino del backup. **Excepción** SQL Server: `BACKUP
+  > DATABASE` no toca los datos de usuario, pero a nivel servidor escribe el `.bak`, el
+  > historial en `msdb` y la base diferencial. Detalle en `docs/ARCHITECTURE.md`.
 - [ ] **Etapa 5** — Tiempo real Fase B: cola (Redis/BullMQ) + consola en vivo.
 - [ ] **Etapa 9** — Auditoría completa, hardening.
 

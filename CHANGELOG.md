@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 25] — Nota de seguridad: acceso de solo lectura al origen · 2026-06-06
+
+### Documentación
+- Auditoría y documentación de la garantía: DBKeeper **nunca modifica, escribe ni borra
+  datos** de las BD respaldadas. Descubrimiento por catálogos (`pg_database` / `SHOW
+  DATABASES` / `listDatabases` / `sys.databases`) y dumps de solo lectura (`pg_dump
+  --serializable-deferrable`, `mysqldump --single-transaction` sin `--master-data`/
+  `--flush-logs`, `mongodump`). **Excepción SQL Server**: `BACKUP DATABASE` no toca los datos
+  de usuario pero escribe el `.bak`, el historial en `msdb` y la base diferencial/LSN.
+  Recomendación de **menor privilegio** (usuario de backup de solo lectura; `db_backupoperator`
+  en SQL Server). Documentado en `README.md` y `docs/ARCHITECTURE.md` (sección Seguridad).
+
 ## [Etapa 4 · parte 24] — Log en modal desde la columna Acciones · 2026-06-06
 
 ### Cambiado

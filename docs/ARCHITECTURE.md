@@ -174,6 +174,19 @@ secretos cifrados; `getNotifRuntimeConfig` los descifra solo en el momento del e
   loguean ni se devuelven por la API.
 - **Auditoría**: toda acción relevante se registra en `audit.activity_log`.
 - **Endurecimiento HTTP**: `helmet`, CORS con credenciales, `trust proxy` para IP real.
+- **Acceso de solo lectura al origen**: DBKeeper **nunca modifica, escribe ni borra datos**
+  de las BD que respalda. El **descubrimiento** solo consulta catálogos
+  (`pg_database` / `SHOW DATABASES` / `listDatabases` / `sys.databases`) y los **dumps**
+  son de solo lectura: `pg_dump --serializable-deferrable`, `mysqldump --single-transaction`
+  (sin `--master-data`/`--flush-logs`, no rota binlogs) y `mongodump`. Escribe solo en su
+  **propia** BD (catálogo `core.*`, auditoría) y en el **destino** del backup (disco local o
+  bucket). **Excepción SQL Server**: `BACKUP DATABASE` no toca los datos de usuario, pero a
+  nivel servidor escribe el `.bak` en disco (con `WITH FORMAT, INIT` sobrescribe ese archivo
+  si existía), registra el historial en `msdb` y actualiza la base diferencial/LSN (no trunca
+  el log); `RESTORE VERIFYONLY` solo verifica.
+- **Menor privilegio del usuario de backup**: para PostgreSQL/MySQL/MongoDB basta una
+  credencial **de solo lectura**. SQL Server requiere `db_backupoperator` (el mínimo para
+  respaldar; evita `sysadmin`).
 
 ## Configuración (12-factor)
 
