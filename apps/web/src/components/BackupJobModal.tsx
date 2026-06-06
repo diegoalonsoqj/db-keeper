@@ -39,6 +39,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [excludeTables, setExcludeTables] = useState(
     (job?.options?.excludeTables as string[] | undefined)?.join(", ") ?? "",
   );
+  // MySQL: quitar DEFINER por defecto.
+  const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
@@ -51,6 +53,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const dumpOpts = method === "dump" && engine ? ENGINE_BACKUP_OPTIONS[engine] : [];
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
+  const showCleanDefiners = dumpOpts.includes("cleanDefiners");
 
   // Ambiente consolidado del evento: el de la instancia y el de la credencial
   // efectiva (override, o la heredada de la instancia) deben coincidir.
@@ -125,6 +128,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         .map((t) => t.trim())
         .filter(Boolean);
     else delete options.excludeTables;
+    if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
+    else delete options.cleanDefiners;
 
     const payload = {
       name: name.trim(),
@@ -281,6 +286,20 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             {t("backups.compress")}
           </label>
           <small>{t("backups.compressHint")}</small>
+        </>
+      )}
+
+      {showCleanDefiners && (
+        <>
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={cleanDefiners}
+              onChange={(e) => setCleanDefiners(e.target.checked)}
+            />
+            {t("backups.cleanDefiners")}
+          </label>
+          <small>{t("backups.cleanDefinersHint")}</small>
         </>
       )}
 

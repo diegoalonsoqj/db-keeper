@@ -117,14 +117,15 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 - [~] **Etapa 4** — Backups. **Vertical PostgreSQL completo**; el resto de motores
   reutiliza esta misma maquinaria (solo falta su dumper):
   - [x] Evento de backup multi-BD + *Ejecutar ahora*.
-  - [x] Motor real para **PostgreSQL** (`pg_dump` → `.sql`/`.sql.gz`, flags del script de
-    referencia, validación de integridad, nombre `{db}_{ambiente}_{timestamp}`).
+  - [x] Motor real para **PostgreSQL** (`pg_dump`) y **MySQL** (`mysqldump` + limpieza
+    `DEFINER`) → `.sql`/`.sql.gz`, flags del script de referencia, integridad, nombre
+    `{db}_{ambiente}_{timestamp}`.
   - [x] *Ejecuciones*: estado/fin/duración/peso, **log**, **descarga** y **reintento**.
   - [x] **Ambientes** (código + nombre) y consistencia instancia/credencial en el evento.
   - [x] **Almacenamiento** local + **bucket** multi-nube (subida a **GCS** por SDK).
   - [x] **Cuentas de servicio** de nube (multi-proveedor; GCP funcional).
   - [x] **Scheduler** (agendar única / recurrente por cron), poller in-proceso.
-  - [ ] Dumpers **MySQL / Mongo / SQL Server**; AWS/Azure funcionales.
+  - [ ] Dumpers **Mongo / SQL Server**; AWS/Azure funcionales.
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo) y cola (Redis/BullMQ).
 - [ ] **Etapa 7** — Notificaciones (Email + Telegram).
 - [ ] **Etapa 9** — Retención, auditoría completa, hardening.

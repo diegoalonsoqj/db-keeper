@@ -156,7 +156,7 @@ Cuerpo de creación:
 > efectiva. La API valida que coincidan (`400` si difieren) y guarda el código en
 > `environment` (no se envía desde el cliente); ese código se usa en el nombre del dump.
 
-> **Motor**: hoy solo **PostgreSQL** (`pg_dump`). Genera
+> **Motor**: **PostgreSQL** (`pg_dump`) y **MySQL** (`mysqldump` + limpieza `DEFINER`). Genera
 > `{db}_{ambiente}_{timestamp}.sql[.gz]`, valida la integridad del `.gz` y registra
 > peso/log por BD. Método **`dump`** → guarda en el destino **local** por defecto.
 > Método **`gcloud`** → genera local (staging) y **sube al bucket** con el SDK de GCS

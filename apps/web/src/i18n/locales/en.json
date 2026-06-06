@@ -156,6 +156,8 @@
     "excludeTablesHint": "Optional. Comma-separated; skipped from the dump (--exclude-table).",
     "compress": "Compress with gzip (.sql.gz)",
     "compressHint": "If disabled, the dump is saved as plain .sql.",
+    "cleanDefiners": "Strip DEFINER clauses (MySQL)",
+    "cleanDefinersHint": "Removes DEFINER from the dump to restore on Cloud SQL or another server.",
     "active": "Active",
     "run": "Run",
     "runQueued": "Execution created for “{{name}}”. Check it under Executions.",

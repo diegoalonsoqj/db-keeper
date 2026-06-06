@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 14] — Motor MySQL (`mysqldump`) · 2026-06-05
+
+### Añadido
+- **Dumper de MySQL** (`engine/mysql.ts`) con los parámetros del script de referencia:
+  `mysqldump --single-transaction --quick --routines --triggers --events --hex-blob
+  --set-gtid-purged=OFF`. La contraseña viaja por `MYSQL_PWD` (no en la línea de
+  comandos). Canaliza stdout → **limpieza de `DEFINER`** (opcional, compat. Cloud SQL) →
+  gzip → archivo; valida integridad y reusa todo el vertical (estados, almacenamiento
+  local/GCS, scheduler, descarga, panel). `excludeTables` → `--ignore-table`.
+- Opción de evento **`cleanDefiners`** (por defecto activada) con checkbox en el modal
+  para motores MySQL. Env `MYSQLDUMP_PATH`.
+
 ## [Etapa 4 · parte 13] — Panel (dashboard) · 2026-06-05
 
 ### Añadido

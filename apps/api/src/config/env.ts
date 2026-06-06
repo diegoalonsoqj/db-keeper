@@ -24,8 +24,9 @@ const envSchema = z.object({
   // (que en dev/start es apps/api); por defecto apunta a /backups en la raíz del
   // repo, ya ignorada por git.
   BACKUP_DIR: z.string().default("../../backups"),
-  // Ruta al binario pg_dump (si no está en el PATH).
+  // Ruta a los binarios de dump (si no están en el PATH).
   PG_DUMP_PATH: z.string().default("pg_dump"),
+  MYSQLDUMP_PATH: z.string().default("mysqldump"),
   // Timeout por base de datos para el volcado (ms). Por defecto 30 min.
   BACKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(1_800_000),
 
