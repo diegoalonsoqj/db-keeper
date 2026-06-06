@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { APP_LOCALES } from "@dbkeeper/shared";
+import { APP_LOCALES, EMAIL_PROVIDERS } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
@@ -22,6 +22,43 @@ const ldapSchema = z.object({
   userFilter: z.string().max(255).optional(),
   tlsRejectUnauthorized: z.boolean().optional(),
   bindPassword: z.string().max(1024).optional(),
+});
+
+const notificationsSchema = z.object({
+  notifyOnStart: z.boolean().optional(),
+  notifyOnSuccess: z.boolean().optional(),
+  notifyOnFailure: z.boolean().optional(),
+  email: z
+    .object({
+      enabled: z.boolean().optional(),
+      provider: z.enum(EMAIL_PROVIDERS).optional(),
+      from: z.string().max(255).optional(),
+      recipients: z.array(z.string().email().max(255)).max(50).optional(),
+      smtp: z
+        .object({
+          host: z.string().max(255).optional(),
+          port: z.number().int().min(1).max(65535).optional(),
+          secure: z.boolean().optional(),
+          user: z.string().max(255).optional(),
+          password: z.string().max(1024).optional(),
+        })
+        .optional(),
+      api: z
+        .object({
+          url: z.string().max(1024).optional(),
+          authHeader: z.string().max(255).optional(),
+          auth: z.string().max(2048).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  telegram: z
+    .object({
+      enabled: z.boolean().optional(),
+      chatId: z.string().max(255).optional(),
+      botToken: z.string().max(1024).optional(),
+    })
+    .optional(),
 });
 
 settingsRouter.get("/", authorize("settings:read"), async (_req, res, next) => {
@@ -50,6 +87,18 @@ settingsRouter.patch("/ldap", authorize("settings:write"), async (req, res, next
     // No registrar el cuerpo: puede contener la contraseña de bind.
     await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "ldap" });
     ok(res, ldap);
+  } catch (err) {
+    next(err);
+  }
+});
+
+settingsRouter.patch("/notifications", authorize("settings:write"), async (req, res, next) => {
+  try {
+    const data = notificationsSchema.parse(req.body);
+    const notifications = await service.updateNotifications(data);
+    // No registrar el cuerpo: puede contener la contraseña SMTP, la auth de la API o el bot token.
+    await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "notifications" });
+    ok(res, notifications);
   } catch (err) {
     next(err);
   }

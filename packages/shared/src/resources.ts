@@ -279,7 +279,31 @@ export interface LdapSettings {
   hasBindPassword: boolean;
 }
 
+/** Proveedor de envío de correo. */
+export const EMAIL_PROVIDERS = ["smtp", "api"] as const;
+export type EmailProvider = (typeof EMAIL_PROVIDERS)[number];
+
+/**
+ * Configuración de notificaciones (global). Los secretos (contraseña SMTP, clave de
+ * la API, bot token) nunca se exponen: solo banderas `has*`.
+ */
+export interface NotificationSettings {
+  notifyOnStart: boolean;
+  notifyOnSuccess: boolean;
+  notifyOnFailure: boolean;
+  email: {
+    enabled: boolean;
+    provider: EmailProvider;
+    from: string;
+    recipients: string[];
+    smtp: { host: string; port: number; secure: boolean; user: string; hasPassword: boolean };
+    api: { url: string; authHeader: string; hasAuth: boolean };
+  };
+  telegram: { enabled: boolean; chatId: string; hasBotToken: boolean };
+}
+
 export interface SettingsDto {
   general: GeneralSettings;
   ldap: LdapSettings;
+  notifications: NotificationSettings;
 }
