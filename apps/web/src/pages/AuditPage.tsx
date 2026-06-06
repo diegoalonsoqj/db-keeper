@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DEFAULT_PAGE_SIZE, type AuditEntryDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
 
 const EMPTY_FILTERS = { from: "", to: "", action: "", entityType: "", username: "" };
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 export function AuditPage() {
   const { t, i18n } = useTranslation();
+  const toast = useToast();
   const [data, setData] = useState<Paginated<AuditEntryDto>>({ items: [], total: 0 });
   const [filters, setFilters] = useState(EMPTY_FILTERS); // borrador (inputs)
   const [applied, setApplied] = useState(EMPTY_FILTERS); // filtros en uso
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const qs = new URLSearchParams({ limit: String(page.limit), offset: String(page.offset) });
@@ -20,8 +22,8 @@ export function AuditPage() {
     api
       .get<Paginated<AuditEntryDto>>(`/audit?${qs.toString()}`)
       .then(setData)
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, [applied, page]);
+      .catch((e) => toast.error(errMsg(e)));
+  }, [applied, page, toast]);
 
   function apply() {
     setApplied(filters);
@@ -39,7 +41,6 @@ export function AuditPage() {
 
   return (
     <section>
-      {error && <p className="error">{error}</p>}
 
       <div className="filters">
         <label>

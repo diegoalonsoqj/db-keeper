@@ -5,11 +5,15 @@ import { useAuth } from "../auth/AuthContext";
 import type { Theme } from "../theme/ThemeContext";
 import { ApiClientError } from "../lib/api";
 import { fileToAvatarDataUrl, initialsOf } from "../lib/avatar";
+import { useToast } from "./Toast";
 import { Modal } from "./Modal";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const { identity, updateProfile, changePassword } = useAuth();
+  const toast = useToast();
   const user = identity!.user;
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -23,22 +27,17 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
 
-  const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onPickFile(file: File) {
-    setError(null);
     try {
       setAvatar(await fileToAvatarDataUrl(file));
     } catch (e) {
-      setError(String(e));
+      toast.error(String(e));
     }
   }
 
   async function saveProfile() {
-    setError(null);
-    setMsg(null);
     setBusy(true);
     try {
       await updateProfile({
@@ -48,19 +47,17 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         preferredTheme: (theme || null) as Theme | null,
         avatar: avatar ?? "",
       });
-      setMsg(t("profile.saved"));
+      toast.success(t("profile.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     } finally {
       setBusy(false);
     }
   }
 
   async function savePassword() {
-    setError(null);
-    setMsg(null);
     if (newPwd !== confirmPwd) {
-      setError(t("profile.passwordMismatch"));
+      toast.error(t("profile.passwordMismatch"));
       return;
     }
     setBusy(true);
@@ -69,9 +66,9 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
       setCurPwd("");
       setNewPwd("");
       setConfirmPwd("");
-      setMsg(t("profile.passwordChanged"));
+      toast.success(t("profile.passwordChanged"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     } finally {
       setBusy(false);
     }
@@ -79,8 +76,6 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title={t("profile.title")} onClose={onClose} size="md">
-      {error && <p className="error">{error}</p>}
-      {msg && <p className="success">{msg}</p>}
 
       <div className="profile-avatar-row">
         <div className="avatar avatar-lg">

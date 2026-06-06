@@ -13,6 +13,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
   - **Diálogo de confirmación** custom (`ConfirmProvider`/`useConfirm`, con el `Modal` de
     la app) en vez de `window.confirm()` — usado en los borrados de las 7 páginas, con
     mensaje «¿Eliminar «X»?» y botón en rojo.
+  - Migrado también el feedback de **Roles, Perfil y Auditoría** a toasts. Se mantiene
+    inline solo el feedback de formulario/página apropiado (login, validación dentro de
+    los modales de evento/programación, error de carga del panel).
 
 ## [Etapa 4 · parte 16] — Motor SQL Server (`BACKUP DATABASE`) · 2026-06-05
 

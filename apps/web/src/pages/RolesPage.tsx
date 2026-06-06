@@ -3,17 +3,19 @@ import { useTranslation } from "react-i18next";
 import type { PermissionDto, RoleDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 export function RolesPage() {
   const { t } = useTranslation();
   const { has } = useAuth();
   const canWrite = has("roles:write");
+  const toast = useToast();
 
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [perms, setPerms] = useState<PermissionDto[]>([]);
   const [draft, setDraft] = useState<Record<string, Set<string>>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
 
   async function reload() {
     const [r, p] = await Promise.all([
@@ -26,7 +28,8 @@ export function RolesPage() {
   }
 
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const categories = useMemo(() => {
@@ -48,21 +51,17 @@ export function RolesPage() {
   }
 
   async function save(role: RoleDto) {
-    setError(null);
-    setMsg(null);
     try {
       await api.patch(`/roles/${role.id}`, { permissions: [...(draft[role.id] ?? [])] });
-      setMsg(`${role.name}: ${t("roles.saved")}`);
+      toast.success(`${role.name}: ${t("roles.saved")}`);
       await reload();
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   return (
     <section>
-      {error && <p className="error">{error}</p>}
-      {msg && <p className="success">{msg}</p>}
 
       <div className="matrix-wrap">
         <table className="grid matrix">
