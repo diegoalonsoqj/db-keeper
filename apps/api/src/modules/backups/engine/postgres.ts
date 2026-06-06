@@ -3,6 +3,7 @@ import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
+import { pipeStderrLines } from "./log-lines.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
 const GZIP_LEVEL = 6;
@@ -34,16 +35,21 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     "-Fp", // formato SQL plano
     ...(input.compress ? ["-Z", String(GZIP_LEVEL)] : []), // gzip por el propio pg_dump
     "--no-password", // nunca prompt interactivo: si falta auth, falla rápido
+    ...(input.verbose ? ["--verbose"] : []), // progreso por objeto a stderr
     ...input.excludeTables.flatMap((t) => ["--exclude-table", t]),
     "-f",
     filePath,
   ];
 
   try {
-    await runPgDump(args, {
-      PGPASSWORD: input.password,
-      ...(input.ssl ? { PGSSLMODE: "require" } : {}),
-    });
+    await runPgDump(
+      args,
+      {
+        PGPASSWORD: input.password,
+        ...(input.ssl ? { PGSSLMODE: "require" } : {}),
+      },
+      input.onLog,
+    );
     const { size } = await stat(filePath);
     if (size === 0) throw new Error("El dump quedó vacío");
     // Validar integridad: el .gz debe descomprimir sin error.
@@ -57,7 +63,11 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
 }
 
 /** Lanza pg_dump como proceso externo y resuelve/rechaza según el código de salida. */
-function runPgDump(args: string[], extraEnv: Record<string, string>): Promise<void> {
+function runPgDump(
+  args: string[],
+  extraEnv: Record<string, string>,
+  onLog?: (line: string) => void,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(env.PG_DUMP_PATH, args, {
       env: { ...process.env, ...extraEnv },
@@ -65,11 +75,7 @@ function runPgDump(args: string[], extraEnv: Record<string, string>): Promise<vo
       windowsHide: true,
     });
 
-    let stderr = "";
-    child.stderr.on("data", (chunk: Buffer) => {
-      // Acotar para no acumular un log gigante en memoria.
-      if (stderr.length < 8000) stderr += chunk.toString();
-    });
+    const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line));
 
     child.on("error", (err) => {
       reject(
@@ -83,7 +89,7 @@ function runPgDump(args: string[], extraEnv: Record<string, string>): Promise<vo
 
     child.on("close", (code, signal) => {
       if (code === 0) return resolve();
-      const detail = stderr.trim() || (signal ? `terminado por señal ${signal}` : `código ${code}`);
+      const detail = getStderr().trim() || (signal ? `terminado por señal ${signal}` : `código ${code}`);
       reject(new Error(detail));
     });
   });

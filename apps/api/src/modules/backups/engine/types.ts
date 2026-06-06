@@ -14,6 +14,10 @@ export interface DumpInput {
   cleanDefiners?: boolean;
   /** MongoDB: conexión SRV (Atlas) en vez de `mongodb://host:port`. */
   mongoSrv?: boolean;
+  /** Modo detallado: añade `--verbose` al motor (más salida por stderr). */
+  verbose?: boolean;
+  /** Recibe cada línea de salida del motor (stderr) para la consola en vivo. */
+  onLog?: (line: string) => void;
   /** Ruta absoluta del archivo de salida (sin extensión; el dumper la añade). */
   destPathNoExt: string;
 }

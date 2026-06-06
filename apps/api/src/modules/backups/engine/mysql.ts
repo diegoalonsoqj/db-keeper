@@ -8,6 +8,7 @@ import { createGzip } from "node:zlib";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
+import { pipeStderrLines } from "./log-lines.js";
 
 const GZIP_LEVEL = 6;
 
@@ -33,12 +34,17 @@ export async function dumpMysql(input: DumpInput): Promise<DumpResult> {
     "--hex-blob",
     "--set-gtid-purged=OFF",
     ...(input.ssl ? ["--ssl-mode=REQUIRED"] : []),
+    ...(input.verbose ? ["--verbose"] : []), // progreso por tabla a stderr
     ...input.excludeTables.map((t) => `--ignore-table=${t.includes(".") ? t : `${input.dbName}.${t}`}`),
     input.dbName,
   ];
 
   try {
-    await runMysqldump(args, input.password, filePath, { cleanDefiners, compress: input.compress });
+    await runMysqldump(args, input.password, filePath, {
+      cleanDefiners,
+      compress: input.compress,
+      onLog: input.onLog,
+    });
     const { size } = await stat(filePath);
     if (size === 0) throw new Error("El dump quedó vacío");
     if (input.compress) await verifyGzip(filePath);
@@ -75,7 +81,7 @@ async function runMysqldump(
   args: string[],
   password: string,
   filePath: string,
-  opts: { cleanDefiners: boolean; compress: boolean },
+  opts: { cleanDefiners: boolean; compress: boolean; onLog?: (line: string) => void },
 ): Promise<void> {
   const child = spawn(env.MYSQLDUMP_PATH, args, {
     env: { ...process.env, MYSQL_PWD: password },
@@ -83,10 +89,7 @@ async function runMysqldump(
     windowsHide: true,
   });
 
-  let stderr = "";
-  child.stderr.on("data", (c: Buffer) => {
-    if (stderr.length < 8000) stderr += c.toString();
-  });
+  const getStderr = pipeStderrLines(child.stderr, (line) => opts.onLog?.(line));
 
   const closed = new Promise<number | null>((resolve, reject) => {
     child.on("close", (code) => resolve(code));
@@ -113,7 +116,7 @@ async function runMysqldump(
   const [, code] = await Promise.all([pipeline(streams), closed]);
 
   if (code !== 0) {
-    const detail = stderr.trim() || `mysqldump terminó con código ${code}`;
+    const detail = getStderr().trim() || `mysqldump terminó con código ${code}`;
     throw new Error(password ? detail.split(password).join("***") : detail);
   }
 }

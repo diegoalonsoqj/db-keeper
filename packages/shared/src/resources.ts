@@ -28,6 +28,7 @@ export type BackupOptionKey =
   | "excludeTables"
   | "cleanDefiners"
   | "mongoSrv"
+  | "verbose"
   | "sqlBackupDir";
 
 /**
@@ -36,9 +37,9 @@ export type BackupOptionKey =
  * opciones propias.
  */
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
-  postgres: ["compress", "excludeTables"],
-  mysql: ["compress", "excludeTables", "cleanDefiners"],
-  mongo: ["compress", "mongoSrv"],
+  postgres: ["compress", "excludeTables", "verbose"],
+  mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
+  mongo: ["compress", "mongoSrv", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],
 };
 
@@ -186,10 +187,15 @@ export interface ExecutionDto {
  * snapshot completo de la ejecución tras la transición (el cliente reemplaza el
  * registro por `id`). Ver `docs/REALTIME-QUEUE-DESIGN.md`.
  */
-export interface BackupStreamEvent {
-  type: "execution-updated";
-  execution: ExecutionDto;
-}
+export type BackupStreamEvent =
+  | { type: "execution-updated"; execution: ExecutionDto }
+  | {
+      /** Líneas de salida en vivo del motor (consola) para una BD de la ejecución. */
+      type: "execution-log";
+      executionId: string;
+      dbName: string;
+      lines: string[];
+    };
 
 /**
  * Destino de almacenamiento (`core.storage_targets`): carpeta local (con `path`)

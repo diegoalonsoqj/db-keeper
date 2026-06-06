@@ -165,6 +165,8 @@
     "cleanDefinersHint": "Removes DEFINER from the dump to restore on Cloud SQL or another server.",
     "mongoSrv": "MongoDB Atlas (SRV connection)",
     "mongoSrvHint": "Uses mongodb+srv://…&tls=true. Auto-enabled for Atlas hosts (.mongodb.net); check to force it.",
+    "verbose": "Verbose mode (--verbose)",
+    "verboseHint": "Adds --verbose to the engine and shows its live output (console) during the run. Useful for diagnostics; produces a lot of output on large databases.",
     "sqlBackupDir": "Backup folder (on the instance)",
     "sqlBackupDirHint": "SQL Server writes the .bak to this path on the server itself (the SQL service must be able to write there). Not downloaded/uploaded; size/integrity are read from the server.",
     "retention": "Retention",
@@ -224,6 +226,7 @@
     "download": "Download",
     "pruned": "Purged",
     "log": "View log",
+    "liveConsole": "Live console",
     "retry": "Retry",
     "retried": "Retry started for “{{name}}”.",
     "empty": "No executions"

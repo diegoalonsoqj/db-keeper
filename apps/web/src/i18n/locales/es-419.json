@@ -165,6 +165,8 @@
     "cleanDefinersHint": "Elimina DEFINER del dump para restaurar en Cloud SQL u otro servidor.",
     "mongoSrv": "MongoDB Atlas (conexión SRV)",
     "mongoSrvHint": "Usa mongodb+srv://…&tls=true. Se activa solo si el host es de Atlas (.mongodb.net); márcalo para forzarlo.",
+    "verbose": "Modo detallado (--verbose)",
+    "verboseHint": "Añade --verbose al motor y muestra su salida en vivo (consola) durante la ejecución. Útil para diagnóstico; en bases grandes genera mucha salida.",
     "sqlBackupDir": "Carpeta de backup (en la instancia)",
     "sqlBackupDirHint": "SQL Server escribe el .bak en esta ruta del propio servidor (debe poder escribir el servicio de SQL). No se descarga ni sube; el peso/integridad se leen del servidor.",
     "retention": "Retención",
@@ -224,6 +226,7 @@
     "download": "Descargar",
     "pruned": "Purgado",
     "log": "Ver log",
+    "liveConsole": "Consola en vivo",
     "retry": "Reintentar",
     "retried": "Reintento lanzado para «{{name}}».",
     "empty": "Sin ejecuciones"

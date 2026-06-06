@@ -43,6 +43,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
   // MongoDB: forzar conexión SRV (Atlas).
   const [mongoSrv, setMongoSrv] = useState(job?.options?.mongoSrv === true);
+  // Modo detallado: añade --verbose y muestra la consola en vivo.
+  const [verbose, setVerbose] = useState(job?.options?.verbose === true);
   // SQL Server: carpeta de backup en el host de la instancia.
   const [sqlBackupDir, setSqlBackupDir] = useState(
     (job?.options?.sqlBackupDir as string | undefined) ?? "",
@@ -65,6 +67,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExclude = dumpOpts.includes("excludeTables");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
   const showMongoSrv = dumpOpts.includes("mongoSrv");
+  const showVerbose = dumpOpts.includes("verbose");
   const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
   // Ambiente consolidado del evento: el de la instancia y el de la credencial
@@ -144,6 +147,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.cleanDefiners;
     if (showMongoSrv) options.mongoSrv = mongoSrv;
     else delete options.mongoSrv;
+    if (showVerbose) options.verbose = verbose;
+    else delete options.verbose;
     if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
     else delete options.sqlBackupDir;
 
@@ -348,6 +353,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             {t("backups.mongoSrv")}
           </label>
           <small>{t("backups.mongoSrvHint")}</small>
+        </>
+      )}
+
+      {showVerbose && (
+        <>
+          <label className="inline">
+            <input type="checkbox" checked={verbose} onChange={(e) => setVerbose(e.target.checked)} />
+            {t("backups.verbose")}
+          </label>
+          <small>{t("backups.verboseHint")}</small>
         </>
       )}
 

@@ -24,6 +24,11 @@ export function subscribe(fn: (e: BackupStreamEvent) => void): () => void {
   return () => bus.off("event", fn);
 }
 
+/** Empuja un lote de líneas de consola en vivo de una BD de la ejecución. */
+export function emitLog(executionId: string, dbName: string, lines: string[]): void {
+  if (lines.length > 0) publishEvent({ type: "execution-log", executionId, dbName, lines });
+}
+
 /**
  * Publica el snapshot actual de una ejecución. Lee el estado de la BD y emite.
  * Nunca lanza: un fallo al emitir no debe afectar a la corrida del backup.

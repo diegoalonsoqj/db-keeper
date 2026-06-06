@@ -134,8 +134,11 @@ progreso en tiempo real son fases siguientes.
 del runner el snapshot de la ejecución en cada transición y el endpoint SSE
 `GET /api/backups/executions/stream` lo retransmite a los navegadores. La web (*Ejecuciones*)
 consume por `EventSource` con *merge* por `id`, *fallback* a *poll* si la conexión cae y
-*resync* al reconectar. La Fase B (cola BullMQ + Redis pub/sub alimentando el mismo bus) está
-diseñada en `REALTIME-QUEUE-DESIGN.md` y aún no implementada.
+*resync* al reconectar. Con `options.verbose` el motor corre con `--verbose` y su `stderr` se
+lee **línea a línea** (`engine/log-lines.ts`); el runner lo agrupa en lotes y lo empuja como
+eventos `execution-log` (sin la contraseña) que la web muestra como **consola en vivo** y se
+persisten en `execution_items.log`. La Fase B (cola BullMQ + Redis pub/sub alimentando el
+mismo bus) está diseñada en `REALTIME-QUEUE-DESIGN.md` y aún no implementada.
 
 **Retención** (`modules/backups/retention.ts`): cada evento puede definir
 `options.retention = { days, keepLast }`. Un backup exitoso se purga si supera `days` de

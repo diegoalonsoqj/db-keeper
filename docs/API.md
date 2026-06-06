@@ -123,7 +123,7 @@ corrida genera una **ejecución** con su identificador, estado y un detalle por 
 |---|---|---|---|
 | GET | `/` | `backups:read` | Lista eventos (paginado). |
 | GET | `/executions` | `backups:read` | Historial de ejecuciones (paginado; `?jobId` opcional). |
-| GET | `/executions/stream` | `backups:read` | **SSE**: empuja el snapshot de cada ejecución al cambiar de estado (`data: { type:"execution-updated", execution }`). Heartbeat `: ping` cada 25 s. Usa la cookie de sesión. |
+| GET | `/executions/stream` | `backups:read` | **SSE**: empuja el snapshot de cada ejecución al cambiar de estado (`data: { type:"execution-updated", execution }`) y, con `options.verbose`, la salida en vivo del motor (`{ type:"execution-log", executionId, dbName, lines }`). Heartbeat `: ping` cada 25 s. Usa la cookie de sesión. |
 | GET | `/:id` | `backups:read` | Detalle de un evento. |
 | POST | `/` | `backups:schedule` | Crea un evento. |
 | PATCH | `/:id` | `backups:schedule` | Edita un evento. |
@@ -151,7 +151,8 @@ Cuerpo de creación:
     "retention": {                  // retención (opcional); cada campo null = sin regla
       "days": 30,                   // purga backups con más de N días
       "keepLast": 7                 // conserva solo los últimos N (por evento)
-    }
+    },
+    "verbose": false                // --verbose + consola en vivo por SSE (PG/MySQL/Mongo)
   },
   "isActive": true
 }

@@ -3,6 +3,7 @@ import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
+import { pipeStderrLines } from "./log-lines.js";
 
 /**
  * Vuelca una BD MongoDB con `mongodump --archive` (un solo archivo), con `--gzip`
@@ -17,10 +18,15 @@ import { verifyGzip } from "./verify.js";
 export async function dumpMongo(input: DumpInput): Promise<DumpResult> {
   const filePath = `${input.destPathNoExt}.archive${input.compress ? ".gz" : ""}`;
   const uri = buildUri(input);
-  const args = [`--uri=${uri}`, `--archive=${filePath}`, ...(input.compress ? ["--gzip"] : [])];
+  const args = [
+    `--uri=${uri}`,
+    `--archive=${filePath}`,
+    ...(input.compress ? ["--gzip"] : []),
+    ...(input.verbose ? ["--verbose"] : []),
+  ];
 
   try {
-    await runMongodump(args, input.password);
+    await runMongodump(args, input.password, input.onLog);
     const { size } = await stat(filePath);
     if (size === 0) throw new Error("El dump quedó vacío");
     if (input.compress) await verifyGzip(filePath);
@@ -42,7 +48,11 @@ function buildUri(input: DumpInput): string {
   return `mongodb://${auth}@${input.host}:${input.port}/${db}?authSource=admin${tls}`;
 }
 
-function runMongodump(args: string[], password: string): Promise<void> {
+function runMongodump(
+  args: string[],
+  password: string,
+  onLog?: (line: string) => void,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(env.MONGODUMP_PATH, args, {
       env: process.env,
@@ -50,10 +60,7 @@ function runMongodump(args: string[], password: string): Promise<void> {
       windowsHide: true,
     });
 
-    let stderr = "";
-    child.stderr.on("data", (c: Buffer) => {
-      if (stderr.length < 8000) stderr += c.toString();
-    });
+    const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line));
 
     child.on("error", (err) =>
       reject(
@@ -67,7 +74,7 @@ function runMongodump(args: string[], password: string): Promise<void> {
 
     child.on("close", (code, signal) => {
       if (code === 0) return resolve();
-      const detail = stderr.trim() || (signal ? `terminado por señal ${signal}` : `código ${code}`);
+      const detail = getStderr().trim() || (signal ? `terminado por señal ${signal}` : `código ${code}`);
       reject(new Error(password ? detail.split(password).join("***") : detail));
     });
   });

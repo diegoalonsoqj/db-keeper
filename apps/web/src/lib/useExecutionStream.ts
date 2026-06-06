@@ -4,6 +4,8 @@ import type { BackupStreamEvent, ExecutionDto } from "@dbkeeper/shared";
 interface Handlers {
   /** Snapshot de una ejecución que cambió de estado (reemplazar por `id`). */
   onEvent: (execution: ExecutionDto) => void;
+  /** Líneas de consola en vivo de una BD de la ejecución. */
+  onLog?: (log: { executionId: string; dbName: string; lines: string[] }) => void;
   /** Cambio de estado de la conexión: `true` al (re)conectar, `false` al caer. */
   onStatus?: (connected: boolean) => void;
 }
@@ -31,6 +33,8 @@ export function useExecutionStream(handlers: Handlers): void {
       try {
         const evt = JSON.parse(e.data) as BackupStreamEvent;
         if (evt.type === "execution-updated") ref.current.onEvent(evt.execution);
+        else if (evt.type === "execution-log")
+          ref.current.onLog?.({ executionId: evt.executionId, dbName: evt.dbName, lines: evt.lines });
       } catch {
         /* líneas de comentario/heartbeat no son JSON: se ignoran */
       }

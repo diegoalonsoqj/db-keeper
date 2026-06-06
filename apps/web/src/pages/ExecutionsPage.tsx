@@ -26,6 +26,8 @@ export function ExecutionsPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Si el stream SSE está conectado, no hace falta sondear; si cae, se reactiva.
   const [streamOn, setStreamOn] = useState(false);
+  // Consola en vivo por BD (clave `execId::dbName`), efímera (no persiste al recargar).
+  const [liveLogs, setLiveLogs] = useState<Record<string, string[]>>({});
 
   const load = useCallback(() => {
     return api
@@ -56,8 +58,16 @@ export function ExecutionsPage() {
     },
     [load, page.offset],
   );
+  const onLog = useCallback(({ executionId, dbName, lines }: { executionId: string; dbName: string; lines: string[] }) => {
+    const key = `${executionId}::${dbName}`;
+    setLiveLogs((prev) => {
+      const next = (prev[key] ?? []).concat(lines);
+      return { ...prev, [key]: next.length > 500 ? next.slice(-500) : next };
+    });
+  }, []);
   useExecutionStream({
     onEvent,
+    onLog,
     onStatus: (connected) => {
       setStreamOn(connected);
       if (connected) void load(); // resync al (re)conectar (cubre eventos perdidos)
@@ -236,6 +246,18 @@ export function ExecutionsPage() {
                                   )}
                                 </td>
                               </tr>
+                              {it.status === "running" && liveLogs[`${e.id}::${it.dbName}`] && (
+                                <tr key={`${it.id}-live`}>
+                                  <td colSpan={5}>
+                                    <details open>
+                                      <summary className="muted">{t("executions.liveConsole")}</summary>
+                                      <pre className="log">
+                                        {liveLogs[`${e.id}::${it.dbName}`]!.join("\n")}
+                                      </pre>
+                                    </details>
+                                  </td>
+                                </tr>
+                              )}
                               {it.log && (
                                 <tr key={`${it.id}-log`}>
                                   <td colSpan={5}>

@@ -3,6 +3,24 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 23] — Consola en vivo (`--verbose` configurable) · 2026-06-06
+
+### Añadido
+- **Modo detallado por evento** (`options.verbose`, checkbox en el modal para PostgreSQL,
+  MySQL y MongoDB): añade `--verbose` al motor y **transmite su salida en vivo** por el SSE
+  (nuevo evento `execution-log`). El motor lee `stderr` **línea a línea**
+  (`engine/log-lines.ts`) y el runner la **agrupa en lotes** (cada 300 ms o 50 líneas),
+  quita la contraseña y la persiste en `execution_items.log`.
+- **Web**: *Ejecuciones* muestra una **«Consola en vivo»** por BD mientras la corrida está en
+  curso (se nutre del SSE); al terminar queda el log persistido en *Ver log*.
+- **Shared**: `BackupStreamEvent` ahora es unión (`execution-updated` | `execution-log`);
+  `verbose` en `BackupOptionKey`/`ENGINE_BACKUP_OPTIONS` (no aplica a SQL Server).
+
+### Notas
+- Verificado e2e: una corrida real con `verbose` empujó 104 líneas de progreso de `pg_dump`
+  por SSE. En Windows los acentos de `pg_dump` pueden verse mal (emite cp1252 y se decodifica
+  como UTF-8); cosmético y preexistente, no ocurre con locale UTF-8 (Linux).
+
 ## [Etapa 4 · parte 22] — Progreso en vivo por SSE (Fase A) · 2026-06-06
 
 ### Añadido
