@@ -1,6 +1,6 @@
 # DBKeeper
 
-Sistema centralizado para la **generación, programación y monitoreo de backups** de bases de datos (PostgreSQL, MySQL, MongoDB, SQL Server), con backups a demanda o programados, seguimiento en tiempo real y notificaciones.
+Sistema centralizado para la **generación, programación y monitoreo de backups** de bases de datos (PostgreSQL, MySQL, MongoDB, SQL Server), a demanda o programados, con almacenamiento local o en la nube (GCS) y panel de monitoreo. Seguimiento en tiempo real y notificaciones están en el roadmap.
 
 > Especificación funcional completa: [`DBKeeper-Especificaciones.md`](./DBKeeper-Especificaciones.md).
 
@@ -47,7 +47,9 @@ packages/
 
 - Node.js 20+ (probado en 24)
 - pnpm 9+  ·  PostgreSQL 16+
-- Cliente nativo del motor a respaldar en la máquina de la API (p. ej. `pg_dump` para PostgreSQL)
+- Cliente nativo del motor a respaldar, en la máquina de la API: `pg_dump` (PostgreSQL),
+  `mysqldump` (MySQL), `mongodump` (MongoDB). **SQL Server** no requiere cliente externo
+  (usa el driver `mssql` y respalda en una ruta de la propia instancia).
 - Redis: planeado para cola/tiempo real; **aún no requerido**
 
 ## Puesta en marcha
