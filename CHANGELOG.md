@@ -3,6 +3,20 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 20] — Configuración con menú lateral por secciones · 2026-06-06
+
+### Cambiado
+- **Página de Configuración** reorganizada con **menú lateral por secciones**
+  (General · Almacenamiento · LDAP · Notificaciones): el menú es **fijo** (sticky) y a la
+  derecha se muestra **una sección a la vez** a ancho completo. Sustituye a la rejilla
+  multicolumna anterior, que dejaba grandes espacios en blanco por las alturas dispares de
+  las tarjetas.
+- **Distribución de campos** en rejilla fija de **2 columnas** alineada arriba: los campos
+  cortos ocupan media columna y los largos (URL/DN/Search Base/User Filter de LDAP;
+  remitente, destinatarios, host SMTP y URL de API en Notificaciones) ocupan todo el ancho.
+  Títulos, descripciones, checkboxes y acciones a ancho completo. Layout responsive (el menú
+  pasa arriba en pantallas angostas).
+
 ## [Etapa 4 · parte 19] — Notificaciones (Email + Telegram) · 2026-06-06
 
 ### Añadido

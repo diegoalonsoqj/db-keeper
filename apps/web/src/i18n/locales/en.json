@@ -316,6 +316,10 @@
   },
   "settings": {
     "title": "Settings",
+    "navGeneral": "General",
+    "navStorage": "Storage",
+    "navLdap": "LDAP",
+    "navNotifications": "Notifications",
     "general": "General",
     "storageDefaults": "Default storage",
     "storageDefaultsHint": "Target used when an event doesn't specify one (local for dumps; bucket for cloud).",

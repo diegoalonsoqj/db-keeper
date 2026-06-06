@@ -316,6 +316,10 @@
   },
   "settings": {
     "title": "Configuración",
+    "navGeneral": "General",
+    "navStorage": "Almacenamiento",
+    "navLdap": "LDAP",
+    "navNotifications": "Notificaciones",
     "general": "General",
     "storageDefaults": "Almacenamiento por defecto",
     "storageDefaultsHint": "Destino usado cuando un evento no especifica uno (local para dumps; bucket para la nube).",

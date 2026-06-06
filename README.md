@@ -112,6 +112,9 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
   custom (sin `alert`/`confirm` nativos del navegador).
 - **Notificaciones de backups**: configuración en *Settings* de correo (SMTP o API HTTP) y
   Telegram, con eventos a notificar (inicio/éxito/fallo) y botón *probar envío*.
+- **Configuración por secciones**: la página *Settings* usa un **menú lateral fijo**
+  (General · Almacenamiento · LDAP · Notificaciones) con los campos en una rejilla de 2
+  columnas; responsive en pantallas angostas.
 
 ## Estado: desarrollo por etapas
 

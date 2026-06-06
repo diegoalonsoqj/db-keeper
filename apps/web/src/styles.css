@@ -654,17 +654,87 @@ pre.log {
   gap: 0.5rem;
 }
 
-/* Settings: rejilla que aprovecha el ancho completo (varias columnas) en vez de
-   apilar tarjetas de 520px dejando vacío el lado derecho. */
-.settings-grid {
+/* Settings: menú lateral de secciones + contenido a la derecha (una sección a la
+   vez). Evita los huecos de una rejilla con tarjetas de alturas dispares. */
+.settings-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: 200px 1fr;
+  gap: 1.5rem;
   align-items: start;
 }
-.settings-grid .form-card {
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+}
+.settings-nav button {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.settings-nav button:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+.settings-nav button.active {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+  font-weight: 600;
+}
+/* Contenido: rejilla fija de 2 columnas, alineada arriba. Los campos cortos ocupan
+   media columna; títulos, descripciones, fieldsets, checkboxes, campos `.full` y
+   acciones ocupan todo el ancho. Da una distribución consistente y ordenada. */
+.settings-content .form-card {
   margin-top: 0;
-  max-width: none;
+  max-width: 820px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem 1.25rem;
+  align-items: start;
+  align-content: start;
+}
+.settings-content .form-card > h2,
+.settings-content .form-card > p,
+.settings-content .form-card > fieldset,
+.settings-content .form-card > label.inline,
+.settings-content .form-card > label.full,
+.settings-content .form-card > .form-actions {
+  grid-column: 1 / -1;
+}
+/* Fieldsets (Notificaciones) con la misma rejilla de 2 columnas. */
+.settings-content .form-card fieldset {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem 1.25rem;
+  align-items: start;
+}
+.settings-content .form-card fieldset > legend,
+.settings-content .form-card fieldset > label.inline,
+.settings-content .form-card fieldset > label.full {
+  grid-column: 1 / -1;
+}
+/* La tarjeta oculta usa display:grid/flex, que pisaría a [hidden]; forzar. */
+.settings-content .form-card[hidden] {
+  display: none;
+}
+@media (max-width: 760px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+  }
 }
 
 /* ---- Login ---- */

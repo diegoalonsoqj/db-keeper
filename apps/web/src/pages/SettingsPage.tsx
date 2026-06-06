@@ -35,6 +35,7 @@ export function SettingsPage() {
   const [recipientsText, setRecipientsText] = useState("");
   const [testing, setTesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<"general" | "storage" | "ldap" | "notifications">("general");
 
   useEffect(() => {
     api
@@ -158,10 +159,28 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="settings-grid">
+    <section className="settings-layout">
+      <nav className="settings-nav">
+        <button className={activeSection === "general" ? "active" : ""} onClick={() => setActiveSection("general")}>
+          {t("settings.navGeneral")}
+        </button>
+        <button className={activeSection === "storage" ? "active" : ""} onClick={() => setActiveSection("storage")}>
+          {t("settings.navStorage")}
+        </button>
+        <button className={activeSection === "ldap" ? "active" : ""} onClick={() => setActiveSection("ldap")}>
+          {t("settings.navLdap")}
+        </button>
+        <button
+          className={activeSection === "notifications" ? "active" : ""}
+          onClick={() => setActiveSection("notifications")}
+        >
+          {t("settings.navNotifications")}
+        </button>
+      </nav>
 
-      <div className="card form-card">
-        <h2>{t("settings.general")}</h2>
+      <div className="settings-content">
+        <div className="card form-card" hidden={activeSection !== "general"}>
+          <h2>{t("settings.general")}</h2>
         <label>
           {t("settings.timezone")}
           <input
@@ -191,7 +210,7 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="card form-card">
+      <div className="card form-card" hidden={activeSection !== "storage"}>
         <h2>{t("settings.storageDefaults")}</h2>
         <p className="muted">{t("settings.storageDefaultsHint")}</p>
         <label>
@@ -253,7 +272,7 @@ export function SettingsPage() {
         </label>
       </div>
 
-      <div className="card form-card">
+      <div className="card form-card" hidden={activeSection !== "ldap"}>
         <h2>{t("settings.ldap")}</h2>
         <label className="inline">
           <input
@@ -264,7 +283,7 @@ export function SettingsPage() {
           />
           {t("settings.ldapEnabled")}
         </label>
-        <label>
+        <label className="full">
           {t("settings.ldapUrl")}
           <input
             value={l.url}
@@ -273,7 +292,7 @@ export function SettingsPage() {
             onChange={(e) => setData({ ...data, ldap: { ...l, url: e.target.value } })}
           />
         </label>
-        <label>
+        <label className="full">
           {t("settings.ldapBindDn")}
           <input
             value={l.bindDn}
@@ -292,7 +311,7 @@ export function SettingsPage() {
           />
           <small>{t("settings.ldapBindPasswordHint")}</small>
         </label>
-        <label>
+        <label className="full">
           {t("settings.ldapSearchBase")}
           <input
             value={l.searchBase}
@@ -300,7 +319,7 @@ export function SettingsPage() {
             onChange={(e) => setData({ ...data, ldap: { ...l, searchBase: e.target.value } })}
           />
         </label>
-        <label>
+        <label className="full">
           {t("settings.ldapUserFilter")}
           <input
             value={l.userFilter}
@@ -324,7 +343,7 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="card form-card">
+      <div className="card form-card" hidden={activeSection !== "notifications"}>
         <h2>{t("settings.notifications")}</h2>
 
         <fieldset>
@@ -390,7 +409,7 @@ export function SettingsPage() {
               ))}
             </select>
           </label>
-          <label>
+          <label className="full">
             {t("settings.emailFrom")}
             <input
               value={n.email.from}
@@ -401,7 +420,7 @@ export function SettingsPage() {
               }
             />
           </label>
-          <label>
+          <label className="full">
             {t("settings.emailRecipients")}
             <input
               value={recipientsText}
@@ -414,7 +433,7 @@ export function SettingsPage() {
 
           {n.email.provider === "smtp" ? (
             <>
-              <label>
+              <label className="full">
                 {t("settings.smtpHost")}
                 <input
                   value={n.email.smtp.host}
@@ -488,7 +507,7 @@ export function SettingsPage() {
             </>
           ) : (
             <>
-              <label>
+              <label className="full">
                 {t("settings.apiUrl")}
                 <input
                   value={n.email.api.url}
@@ -578,6 +597,7 @@ export function SettingsPage() {
             </button>
           </div>
         )}
+      </div>
       </div>
     </section>
   );
