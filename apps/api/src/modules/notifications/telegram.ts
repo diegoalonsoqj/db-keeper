@@ -3,11 +3,13 @@ import type { NotifRuntimeConfig } from "../settings/settings.service.js";
 type TelegramConfig = NotifRuntimeConfig["telegram"];
 
 /**
- * Envía un mensaje por Telegram (Bot API `sendMessage`, parse_mode HTML).
- * Lanza si falta el token/chat o si la API responde con error; el orquestador
- * captura el fallo. El token nunca se incluye en los mensajes de error.
+ * Envía un mensaje por Telegram (Bot API `sendMessage`). Se envía como texto plano
+ * (sin parse_mode): el HTML de Telegram no soporta `<br>` ni etiquetas arbitrarias,
+ * así que el orquestador pasa el texto con saltos de línea reales `\n`.
+ * Lanza si falta el token/chat o si la API responde con error; el orquestador captura
+ * el fallo. El token nunca se incluye en los mensajes de error.
  */
-export async function sendTelegram(cfg: TelegramConfig, html: string): Promise<void> {
+export async function sendTelegram(cfg: TelegramConfig, text: string): Promise<void> {
   if (!cfg.botToken) throw new Error("Falta el bot token de Telegram");
   if (!cfg.chatId) throw new Error("Falta el chat de destino de Telegram");
 
@@ -16,8 +18,7 @@ export async function sendTelegram(cfg: TelegramConfig, html: string): Promise<v
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       chat_id: cfg.chatId,
-      text: html,
-      parse_mode: "HTML",
+      text,
       disable_web_page_preview: true,
     }),
   });

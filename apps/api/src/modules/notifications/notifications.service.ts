@@ -131,7 +131,7 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, html).catch((err) => {
+      sendTelegram(cfg.telegram, text).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
       }),
     );
@@ -164,8 +164,9 @@ export async function sendTestNotification(): Promise<NotificationTestResult> {
   const cfg = await settings.getNotifRuntimeConfig();
 
   const subject = "[DBKeeper] Notificación de prueba";
-  const text = "Esta es una notificación de prueba de DBKeeper. Si la recibes, el canal está bien configurado.";
-  const html = `<b>${subject}</b><br><br>${text}`;
+  const body = "Esta es una notificación de prueba de DBKeeper. Si la recibes, el canal está bien configurado.";
+  const text = `${subject}\n\n${body}`;
+  const html = `<b>${escapeHtml(subject)}</b><br><br>${escapeHtml(body)}`;
 
   const result: NotificationTestResult = {
     email: { ok: null },
@@ -188,7 +189,7 @@ export async function sendTestNotification(): Promise<NotificationTestResult> {
 
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, html)
+      sendTelegram(cfg.telegram, text)
         .then(() => {
           result.telegram = { ok: true };
         })
