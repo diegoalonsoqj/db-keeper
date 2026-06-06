@@ -136,9 +136,11 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
   - [x] **Scheduler** (agendar única / recurrente por cron), poller in-proceso.
   - [x] **Notificaciones** de backup por **correo** (SMTP/API) y **Telegram** (inicio/
     éxito/fallo), con envío de prueba; enganchadas al runner.
+  - [x] **Retención** por evento (antigüedad y/o cantidad): purga el archivo (local/GCS)
+    conservando el registro; barrido tras cada corrida y horario en el scheduler.
   - [ ] AWS/Azure funcionales (estructura ya lista; hoy solo GCP).
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo) y cola (Redis/BullMQ).
-- [ ] **Etapa 9** — Retención, auditoría completa, hardening.
+- [ ] **Etapa 9** — Auditoría completa, hardening.
 
 ## Licencia
 

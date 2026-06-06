@@ -209,7 +209,7 @@ const SELECT_EXECUTION = `
         json_build_object(
           'id', i.id, 'dbName', i.db_name, 'status', i.status,
           'fileName', i.file_name, 'fileBytes', i.file_bytes, 'log', i.log,
-          'startedAt', i.started_at, 'finishedAt', i.finished_at
+          'startedAt', i.started_at, 'finishedAt', i.finished_at, 'prunedAt', i.pruned_at
         ) ORDER BY i.db_name
       ) FILTER (WHERE i.id IS NOT NULL), '[]'
     ) AS items
@@ -258,13 +258,13 @@ export async function findExecutionById(id: string): Promise<ExecutionDto | null
 export async function findItemFile(
   executionId: string,
   itemId: string,
-): Promise<{ fileName: string | null; dbName: string; status: ExecutionDto["status"] } | null> {
-  const { rows } = await query<{ file_name: string | null; db_name: string; status: ExecutionDto["status"] }>(
-    "SELECT file_name, db_name, status FROM core.execution_items WHERE id = $1 AND execution_id = $2",
+): Promise<{ fileName: string | null; dbName: string; status: ExecutionDto["status"]; prunedAt: Date | null } | null> {
+  const { rows } = await query<{ file_name: string | null; db_name: string; status: ExecutionDto["status"]; pruned_at: Date | null }>(
+    "SELECT file_name, db_name, status, pruned_at FROM core.execution_items WHERE id = $1 AND execution_id = $2",
     [itemId, executionId],
   );
   return rows[0]
-    ? { fileName: rows[0].file_name, dbName: rows[0].db_name, status: rows[0].status }
+    ? { fileName: rows[0].file_name, dbName: rows[0].db_name, status: rows[0].status, prunedAt: rows[0].pruned_at }
     : null;
 }
 
@@ -340,4 +340,56 @@ export async function listExecutions(p: {
     params,
   );
   return { items: rows.map(toExecutionDto), total };
+}
+
+// ---- Retención (parte 21) ----
+
+/** Ítem con archivo aún vivo, candidato a purga por retención. */
+export interface PrunableItem {
+  id: string;
+  fileName: string;
+}
+
+/**
+ * Ítems exitosos con archivo presente (no purgado) de un evento que violan la
+ * política de retención: pertenecen a una ejecución más antigua que `days` **o**
+ * que queda fuera de las `keepLast` corridas exitosas más recientes. Cada regla
+ * es opcional (null = no se aplica esa dimensión); si ambas son null, no devuelve nada.
+ */
+export async function findPrunableItems(
+  jobId: string,
+  policy: { days: number | null; keepLast: number | null },
+): Promise<PrunableItem[]> {
+  if (policy.days == null && policy.keepLast == null) return [];
+  const { rows } = await query<{ id: string; file_name: string }>(
+    `WITH ranked AS (
+       SELECT e.id, e.created_at,
+              row_number() OVER (ORDER BY e.created_at DESC) AS rn
+       FROM core.executions e
+       WHERE e.job_id = $1 AND e.status = 'success'
+     )
+     SELECT i.id, i.file_name
+     FROM core.execution_items i
+     JOIN ranked r ON r.id = i.execution_id
+     WHERE i.status = 'success' AND i.file_name IS NOT NULL AND i.pruned_at IS NULL
+       AND ( ($2::int IS NOT NULL AND r.rn > $2::int)
+          OR ($3::int IS NOT NULL AND r.created_at < now() - make_interval(days => $3::int)) )`,
+    [jobId, policy.keepLast, policy.days],
+  );
+  return rows.map((r) => ({ id: r.id, fileName: r.file_name }));
+}
+
+/** Marca un ítem como purgado (su archivo físico ya se borró). */
+export async function markItemPruned(itemId: string): Promise<void> {
+  await query("UPDATE core.execution_items SET pruned_at = now() WHERE id = $1", [itemId]);
+}
+
+/** IDs de eventos que tienen alguna regla de retención configurada en options. */
+export async function listJobIdsWithRetention(): Promise<string[]> {
+  const { rows } = await query<{ id: string }>(
+    `SELECT id FROM core.backup_jobs
+     WHERE (options #>> '{retention,days}') IS NOT NULL
+        OR (options #>> '{retention,keepLast}') IS NOT NULL`,
+  );
+  return rows.map((r) => r.id);
 }

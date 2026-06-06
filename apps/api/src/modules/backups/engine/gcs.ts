@@ -30,6 +30,14 @@ export function gcsReadStream(auth: GcsAuth, objectName: string): Readable {
   return client(auth.serviceAccountJson).bucket(auth.bucket).file(objectName).createReadStream();
 }
 
+/** Borra un objeto de GCS. `ignoreNotFound` evita error si ya no existe. */
+export async function deleteGcsObject(auth: GcsAuth, objectName: string): Promise<void> {
+  await client(auth.serviceAccountJson)
+    .bucket(auth.bucket)
+    .file(objectName)
+    .delete({ ignoreNotFound: true });
+}
+
 /** Parsea `gs://bucket/objeto` → `{ bucket, object }` (o null). */
 export function parseGcsUri(uri: string): { bucket: string; object: string } | null {
   const m = /^gs:\/\/([^/]+)\/(.+)$/.exec(uri);

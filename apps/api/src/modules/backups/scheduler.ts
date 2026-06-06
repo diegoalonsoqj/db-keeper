@@ -2,10 +2,13 @@ import { logger } from "../../config/logger.js";
 import * as repo from "./schedules.repository.js";
 import { nextRunForCron } from "./schedule-time.js";
 import { runScheduled } from "./backups.service.js";
+import { sweepRetention } from "./retention.js";
 
 const TICK_MS = 60_000; // un minuto
+const RETENTION_SWEEP_MS = 3_600_000; // cada hora
 
 let timer: NodeJS.Timeout | null = null;
+let lastRetentionSweep = 0;
 
 /** Dispara las programaciones vencidas y recalcula el próximo disparo. */
 async function tick(): Promise<void> {
@@ -29,6 +32,13 @@ async function tick(): Promise<void> {
       }
       await repo.markRan(s.id, { lastRunAt: now, nextRunAt: next, isActive: next !== null });
     }
+  }
+
+  // Barrido de retención (a lo sumo cada hora): expira backups por antigüedad
+  // incluso en eventos que ya no se ejecutan.
+  if (now.getTime() - lastRetentionSweep >= RETENTION_SWEEP_MS) {
+    lastRetentionSweep = now.getTime();
+    await sweepRetention().catch((err) => logger.error({ err }, "Fallo en el barrido de retención"));
   }
 }
 

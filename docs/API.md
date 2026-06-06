@@ -146,7 +146,11 @@ Cuerpo de creación:
   "databases": ["app", "reporting"],
   "options": {                      // opciones del motor (dump)
     "compress": true,               // true → .sql.gz (gzip); false → .sql plano
-    "excludeTables": ["audit.log"]  // patrones --exclude-table (opcional)
+    "excludeTables": ["audit.log"], // patrones --exclude-table (opcional)
+    "retention": {                  // retención (opcional); cada campo null = sin regla
+      "days": 30,                   // purga backups con más de N días
+      "keepLast": 7                 // conserva solo los últimos N (por evento)
+    }
   },
   "isActive": true
 }
@@ -164,6 +168,12 @@ Cuerpo de creación:
 > Método **`gcloud`** → genera local (staging) y **sube al bucket** con el SDK de GCS
 > (service account del destino, en memoria); el ítem guarda la URI `gs://…`. La descarga
 > sirve archivos locales o por *streaming* desde GCS. Resto de motores: fases siguientes.
+
+> **Retención** (`options.retention`): un backup exitoso se purga si supera `days` de
+> antigüedad **o** queda fuera de los últimos `keepLast`. Se aplica tras cada corrida y en
+> un barrido horario del scheduler: borra el archivo (local/GCS) y marca el ítem como
+> purgado (`pruned_at`) conservando el registro; la descarga de un ítem purgado responde
+> `404`. **SQL Server** se omite (el `.bak` queda en el host de la instancia).
 
 ## Ambientes — `/api/environments`
 

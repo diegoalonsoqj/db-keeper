@@ -189,15 +189,21 @@ export function ExecutionsPage() {
                                 <td>{fmtBytes(it.fileBytes)}</td>
                                 <td>{fmtDuration(it.startedAt, it.finishedAt)}</td>
                                 <td className="row-actions">
-                                  {it.fileName && (
-                                    <button
-                                      className="icon-btn"
-                                      title={t("executions.download")}
-                                      aria-label={t("executions.download")}
-                                      onClick={() => download(e.id, it.id, it.dbName)}
-                                    >
-                                      <Download size={16} />
-                                    </button>
+                                  {it.prunedAt ? (
+                                    <span className="muted" title={fmt(it.prunedAt)}>
+                                      {t("executions.pruned")}
+                                    </span>
+                                  ) : (
+                                    it.fileName && (
+                                      <button
+                                        className="icon-btn"
+                                        title={t("executions.download")}
+                                        aria-label={t("executions.download")}
+                                        onClick={() => download(e.id, it.id, it.dbName)}
+                                      >
+                                        <Download size={16} />
+                                      </button>
+                                    )
                                   )}
                                 </td>
                               </tr>

@@ -12,7 +12,7 @@ construido hasta la **Etapa 1**; las piezas de etapas futuras se marcan como tal
 | **Web / SPA** | ✅ | React + Vite, i18n `es-419`/`en`, RBAC en el cliente. |
 | **BD de metadatos** | ✅ | PostgreSQL 16 (esquemas `auth`/`core`/`secrets`/`audit`). |
 | **Motor de ejecución** | ✅ Etapa 4 | Vuelca cada BD en segundo plano (in-proceso). **PostgreSQL** (`pg_dump`), **MySQL** (`mysqldump`), **MongoDB** (`mongodump`, Atlas/Community) y **SQL Server** (`BACKUP DATABASE` server-side) + subida a GCS. |
-| **Programador** | ✅ Etapa 4 | Poller in-proceso (60 s) sobre `core.backup_schedules`; dispara `once`/`recurring` (cron), agnóstico al motor. |
+| **Programador** | ✅ Etapa 4 | Poller in-proceso (60 s) sobre `core.backup_schedules`; dispara `once`/`recurring` (cron), agnóstico al motor. Barrido de retención cada hora. |
 | **Cola / tiempo real** | ⏳ Etapa 4–5 | Redis + BullMQ; progreso por WebSocket/SSE. Hoy el motor corre in-proceso, sin cola. |
 
 ## Capas de la API
@@ -109,7 +109,8 @@ core.backup_jobs (id, name, server_id → core.servers, credential_id? → secre
 
 core.executions (id, job_id? → core.backup_jobs, label, status, origin[manual|scheduled],
                  started_at, finished_at, created_at)
-   └─< core.execution_items (id, execution_id, db_name, status, file_name, file_bytes, log, …) >
+   └─< core.execution_items (id, execution_id, db_name, status, file_name, file_bytes, log,
+                             pruned_at, …) >   -- pruned_at: archivo borrado por retención
 ```
 
 Un **evento de backup** (`backup_jobs`) es la definición reutilizable; cada corrida
@@ -128,6 +129,14 @@ array (sin shell). Al arrancar, las ejecuciones que quedaron en curso por un rei
 marcan `failed`. Los cuatro motores (PostgreSQL/MySQL/MongoDB/SQL Server), el destino GCS
 y el scheduler (poller in-proceso) ya están operativos; la cola (Redis/BullMQ) y el
 progreso en tiempo real son fases siguientes.
+
+**Retención** (`modules/backups/retention.ts`): cada evento puede definir
+`options.retention = { days, keepLast }`. Un backup exitoso se purga si supera `days` de
+antigüedad **o** queda fuera de los últimos `keepLast`; se borra el archivo (local o GCS) y
+el ítem se marca con `pruned_at`, conservando el registro para auditoría. Se aplica tras
+cada corrida exitosa (vía el runner) y en un **barrido horario** del scheduler (cubre la
+expiración por antigüedad de eventos inactivos). SQL Server se omite (el `.bak` no viaja al
+servicio).
 
 **Notificaciones** (`modules/notifications/`): al iniciar y al cerrar cada corrida, el
 runner dispara `notifyBackup` (fire-and-forget, nunca lanza) que envía por los canales

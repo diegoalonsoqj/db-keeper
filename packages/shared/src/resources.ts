@@ -151,6 +151,19 @@ export interface ExecutionItemDto {
   log: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Fecha en que el archivo se borró por retención; null = sigue disponible. */
+  prunedAt: string | null;
+}
+
+/**
+ * Política de retención de un evento (en `options.retention`). Se conserva un
+ * backup mientras no supere `days` de antigüedad **y** quede dentro de los
+ * últimos `keepLast`; al violar cualquiera de las dos, su archivo se purga. Cada
+ * regla es opcional (null = no aplica esa dimensión).
+ */
+export interface RetentionPolicy {
+  days: number | null;
+  keepLast: number | null;
 }
 
 /** Cabecera de una corrida de un evento de backup (`core.executions`). */

@@ -47,6 +47,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [sqlBackupDir, setSqlBackupDir] = useState(
     (job?.options?.sqlBackupDir as string | undefined) ?? "",
   );
+  // Retención: borrar backups con más de N días y/o conservar solo los últimos N.
+  const ret = job?.options?.retention as { days?: number | null; keepLast?: number | null } | undefined;
+  const [retDays, setRetDays] = useState(ret?.days != null ? String(ret.days) : "");
+  const [retKeep, setRetKeep] = useState(ret?.keepLast != null ? String(ret.keepLast) : "");
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
@@ -142,6 +146,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.mongoSrv;
     if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
     else delete options.sqlBackupDir;
+
+    // Retención (independiente del motor): días y/o cantidad. Vacío = sin regla.
+    const days = retDays.trim() ? Number(retDays) : null;
+    const keepLast = retKeep.trim() ? Number(retKeep) : null;
+    if ((days != null && (!Number.isInteger(days) || days < 1)) ||
+        (keepLast != null && (!Number.isInteger(keepLast) || keepLast < 1))) {
+      return setError(t("backups.retentionInvalid"));
+    }
+    if (days != null || keepLast != null) options.retention = { days, keepLast };
+    else delete options.retention;
 
     const payload = {
       name: name.trim(),
@@ -336,6 +350,32 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           <small>{t("backups.mongoSrvHint")}</small>
         </>
       )}
+
+      <fieldset>
+        <legend>{t("backups.retention")}</legend>
+        <small className="muted">{t("backups.retentionHint")}</small>
+        <label>
+          {t("backups.retentionDays")}
+          <input
+            type="number"
+            min={1}
+            value={retDays}
+            onChange={(e) => setRetDays(e.target.value)}
+            placeholder={t("backups.retentionNoLimit")}
+          />
+        </label>
+        <label>
+          {t("backups.retentionKeep")}
+          <input
+            type="number"
+            min={1}
+            value={retKeep}
+            onChange={(e) => setRetKeep(e.target.value)}
+            placeholder={t("backups.retentionNoLimit")}
+          />
+        </label>
+        {engine === "sqlserver" && <small className="muted">{t("backups.retentionSqlNote")}</small>}
+      </fieldset>
 
       <label className="inline">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

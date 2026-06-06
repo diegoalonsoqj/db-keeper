@@ -10,8 +10,10 @@ import { logger } from "../../config/logger.js";
 import { decryptSecret } from "../../lib/crypto.js";
 import * as repo from "./backups.repository.js";
 import type { JobFields } from "./backups.repository.js";
-import { runExecution, resolveBackupFile } from "./engine/runner.js";
+import { runExecution } from "./engine/runner.js";
+import { resolveBackupFile } from "./engine/files.js";
 import { parseGcsUri } from "./engine/gcs.js";
+import { normalizeRetention } from "./retention.js";
 
 export interface JobData {
   name: string;
@@ -82,13 +84,23 @@ export async function getJob(id: string): Promise<BackupJobDto> {
   return job;
 }
 
+/** Valida la retención de `options` y devuelve una copia con la clave saneada. */
+function applyRetention(options: Record<string, unknown>): Record<string, unknown> {
+  const retention = normalizeRetention(options);
+  const next = { ...options };
+  if (retention) next.retention = retention;
+  else delete next.retention;
+  return next;
+}
+
 export async function createJob(data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
   const databases = cleanDatabases(data.databases);
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   const environment = await resolveEnvironment(data.serverId, data.credentialId);
   const { databases: _omit, ...fields } = data;
-  const id = await repo.insertJob({ ...fields, environment }, databases);
+  const options = applyRetention(data.options);
+  const id = await repo.insertJob({ ...fields, options, environment }, databases);
   return getJob(id);
 }
 
@@ -106,6 +118,7 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
+  if (data.options !== undefined) fields.options = applyRetention(data.options);
   await repo.updateJob(id, { ...fields, environment }, databases);
   return getJob(id);
 }
@@ -169,6 +182,7 @@ export type DownloadSource =
 export async function getItemDownload(executionId: string, itemId: string): Promise<DownloadSource> {
   const item = await repo.findItemFile(executionId, itemId);
   if (!item) throw HttpError.notFound("Ítem de ejecución no encontrado");
+  if (item.prunedAt) throw HttpError.notFound("El backup se eliminó por la política de retención");
   if (!item.fileName) throw HttpError.badRequest("Esta base de datos no generó un archivo");
 
   // Objeto en GCS: resolver credenciales por el bucket y servir por streaming.

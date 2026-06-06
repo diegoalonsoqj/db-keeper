@@ -3,6 +3,26 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 21] — Retención de backups · 2026-06-06
+
+### Añadido
+- **Política de retención por evento** (`options.retention = { days, keepLast }`): borra
+  automáticamente los backups antiguos. Se purga un backup exitoso si **supera la antigüedad
+  máxima en días** **o** si queda **fuera de los últimos N**; cada regla es opcional. El
+  archivo físico se elimina (disco local o GCS) y el ítem se marca como **purgado**
+  (`core.execution_items.pruned_at`, migración `0019`) conservando el registro de la
+  ejecución para auditoría; deja de ser descargable.
+- **Disparo de la limpieza**: tras cada corrida exitosa se aplica la retención del evento
+  (limpieza por cantidad inmediata) y el **scheduler** hace un **barrido global cada hora**
+  para expirar backups por antigüedad incluso en eventos que ya no se ejecutan.
+- **UI**: sección *Retención* en el modal del evento (antigüedad máxima en días y/o conservar
+  últimos N); en *Ejecuciones*, los ítems purgados muestran «Purgado» en lugar del botón de
+  descarga. i18n es-419/en.
+
+### Notas
+- **SQL Server** se omite: su `.bak` queda en el host de la instancia, fuera del alcance del
+  servicio, así que la retención no lo elimina (se avisa en el modal).
+
 ## [Etapa 4 · parte 20] — Configuración con menú lateral por secciones · 2026-06-06
 
 ### Cambiado
