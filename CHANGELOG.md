@@ -3,6 +3,13 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 18] — Descubrimiento de Mongo Atlas (SRV) · 2026-06-05
+
+### Corregido
+- El **descubrimiento de BDs de MongoDB** ahora usa conexión **SRV** (`mongodb+srv://…
+  &tls=true`) cuando el host es de Atlas (`.mongodb.net`), igual que el dumper. Antes solo
+  usaba `mongodb://host:port`, por lo que "Descubrir" fallaba en clústeres Atlas.
+
 ## [Etapa 4 · parte 17] — Avisos propios (toasts + confirmación) · 2026-06-05
 
 ### Cambiado
