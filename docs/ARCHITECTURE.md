@@ -137,7 +137,9 @@ consume por `EventSource` con *merge* por `id`, *fallback* a *poll* si la conexi
 *resync* al reconectar. Con `options.verbose` el motor corre con `--verbose` y su `stderr` se
 lee **línea a línea** (`engine/log-lines.ts`); el runner lo agrupa en lotes y lo empuja como
 eventos `execution-log` (sin la contraseña) que la web muestra como **consola en vivo** y se
-persisten en `execution_items.log`. La Fase B (cola BullMQ + Redis pub/sub alimentando el
+persisten en `execution_items.log`. En *Ejecuciones* el log de cada BD se abre desde un
+**botón en la columna Acciones** en un **modal** que streamea en vivo mientras corre y deja el
+log final al terminar (auto-scroll). La Fase B (cola BullMQ + Redis pub/sub alimentando el
 mismo bus) está diseñada en `REALTIME-QUEUE-DESIGN.md` y aún no implementada.
 
 **Retención** (`modules/backups/retention.ts`): cada evento puede definir

@@ -139,7 +139,8 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
   - [x] **Retención** por evento (antigüedad y/o cantidad): purga el archivo (local/GCS)
     conservando el registro; barrido tras cada corrida y horario en el scheduler.
   - [x] **Tiempo real (SSE, Fase A)**: progreso de ejecuciones en vivo por
-    `EventSource`, con fallback a poll, y **consola en vivo** (`--verbose` por evento).
+    `EventSource`, con fallback a poll, y **consola en vivo** (`--verbose` por evento)
+    en un **modal de log por BD** (streamea en vivo y muestra el log final).
     Diseño en `docs/REALTIME-QUEUE-DESIGN.md`.
   - [ ] AWS/Azure funcionales (estructura ya lista; hoy solo GCP).
 - [ ] **Etapa 5** — Tiempo real Fase B: cola (Redis/BullMQ) + consola en vivo.
