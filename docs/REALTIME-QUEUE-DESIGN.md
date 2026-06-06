@@ -1,6 +1,7 @@
 # Diseño: tiempo real (SSE) + cola Redis (BullMQ)
 
-> Estado: **propuesta de diseño** (no implementado). Fecha: 2026-06-06.
+> Estado: **Fase A implementada y verificada e2e** (parte 22, 2026-06-06); **Fase B
+> pendiente** (diseño abajo). Fecha: 2026-06-06.
 > Objetivo: empujar el progreso de las ejecuciones de backup en vivo y, opcionalmente,
 > mover la ejecución a una cola durable. Las dos partes son **independientes** y la cola
 > es **aditiva con degradación elegante** (sin `REDIS_URL` todo funciona como hoy).
@@ -52,7 +53,7 @@ Puntos de emisión en `runner.ts` (donde ya se escribe en BD):
 
 Cada emisión: `publishEvent({ type: "execution-updated", execution: await repo.findExecutionById(id) })`.
 
-## 4. Fase A — SSE in-proceso (sin Redis)
+## 4. Fase A — SSE in-proceso (sin Redis) — ✅ IMPLEMENTADA (parte 22)
 
 ### 4.1 Bus de eventos — `modules/backups/events.ts` (nuevo)
 

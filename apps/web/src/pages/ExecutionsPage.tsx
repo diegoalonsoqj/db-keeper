@@ -1,8 +1,9 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Download, RotateCcw } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { useExecutionStream } from "../lib/useExecutionStream";
 import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
@@ -23,6 +24,8 @@ export function ExecutionsPage() {
   const [data, setData] = useState<Paginated<ExecutionDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Si el stream SSE está conectado, no hace falta sondear; si cae, se reactiva.
+  const [streamOn, setStreamOn] = useState(false);
 
   const load = useCallback(() => {
     return api
@@ -35,13 +38,39 @@ export function ExecutionsPage() {
     void load();
   }, [load]);
 
-  // Mientras alguna ejecución esté pendiente/en curso, refresca en intervalo.
+  // Progreso en vivo por SSE: reemplaza el snapshot de la ejecución que cambió.
+  const itemsRef = useRef(data.items);
+  itemsRef.current = data.items;
+  const onEvent = useCallback(
+    (execution: ExecutionDto) => {
+      const exists = itemsRef.current.some((e) => e.id === execution.id);
+      if (!exists) {
+        // Ejecución nueva (p. ej. recién lanzada): refrescar la primera página.
+        if (page.offset === 0) void load();
+        return;
+      }
+      setData((prev) => ({
+        ...prev,
+        items: prev.items.map((e) => (e.id === execution.id ? execution : e)),
+      }));
+    },
+    [load, page.offset],
+  );
+  useExecutionStream({
+    onEvent,
+    onStatus: (connected) => {
+      setStreamOn(connected);
+      if (connected) void load(); // resync al (re)conectar (cubre eventos perdidos)
+    },
+  });
+
+  // Fallback: si el SSE no está conectado y hay corridas en curso, sondear.
   const isActive = data.items.some((e) => e.status === "pending" || e.status === "running");
   useEffect(() => {
-    if (!isActive) return;
+    if (streamOn || !isActive) return;
     const id = setInterval(() => void load(), POLL_MS);
     return () => clearInterval(id);
-  }, [isActive, load]);
+  }, [streamOn, isActive, load]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {

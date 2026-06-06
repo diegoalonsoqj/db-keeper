@@ -182,6 +182,16 @@ export interface ExecutionDto {
 }
 
 /**
+ * Evento empujado por SSE al cambiar el estado de una ejecución. Lleva el
+ * snapshot completo de la ejecución tras la transición (el cliente reemplaza el
+ * registro por `id`). Ver `docs/REALTIME-QUEUE-DESIGN.md`.
+ */
+export interface BackupStreamEvent {
+  type: "execution-updated";
+  execution: ExecutionDto;
+}
+
+/**
  * Destino de almacenamiento (`core.storage_targets`): carpeta local (con `path`)
  * o bucket en la nube (`provider`/`bucket`/`prefix` + clave de servicio cifrada).
  * Nunca expone la clave de servicio. `isDefault` marca el destino por tipo.

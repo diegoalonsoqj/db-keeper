@@ -3,6 +3,24 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 22] — Progreso en vivo por SSE (Fase A) · 2026-06-06
+
+### Añadido
+- **Tiempo real por SSE** (Fase A del diseño `docs/REALTIME-QUEUE-DESIGN.md`, in-proceso, sin
+  Redis): nuevo endpoint `GET /api/backups/executions/stream` (`backups:read`) que **empuja
+  el snapshot completo de cada ejecución** al cambiar de estado. Bus de eventos in-proceso
+  (`modules/backups/events.ts`); el runner emite en cada transición
+  (running → ítem running → ítem cerrado → estado final, y en fallos de pre-vuelo).
+- **Web**: hook `useExecutionStream` (`EventSource`, reconexión nativa) en *Ejecuciones*; el
+  progreso llega push y se hace *merge* por `id`. **Fallback** automático al *poll* (3 s) si
+  el SSE no está conectado, y **resync** (refetch) al (re)conectar. Heartbeat cada 25 s.
+- **Shared**: `BackupStreamEvent`.
+
+### Notas
+- La **Fase B** (cola BullMQ + Redis con pub/sub que alimenta este mismo SSE) queda
+  pendiente; el bus ya tiene el punto de extensión preparado. Verificado e2e: las 4
+  transiciones de una corrida real (`pg_dump`) se empujaron en orden.
+
 ## [Etapa 4 · parte 21] — Retención de backups · 2026-06-06
 
 ### Añadido

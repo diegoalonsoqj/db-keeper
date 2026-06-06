@@ -130,6 +130,13 @@ marcan `failed`. Los cuatro motores (PostgreSQL/MySQL/MongoDB/SQL Server), el de
 y el scheduler (poller in-proceso) ya están operativos; la cola (Redis/BullMQ) y el
 progreso en tiempo real son fases siguientes.
 
+**Tiempo real** (`modules/backups/events.ts`, Fase A): un bus de eventos in-proceso recibe
+del runner el snapshot de la ejecución en cada transición y el endpoint SSE
+`GET /api/backups/executions/stream` lo retransmite a los navegadores. La web (*Ejecuciones*)
+consume por `EventSource` con *merge* por `id`, *fallback* a *poll* si la conexión cae y
+*resync* al reconectar. La Fase B (cola BullMQ + Redis pub/sub alimentando el mismo bus) está
+diseñada en `REALTIME-QUEUE-DESIGN.md` y aún no implementada.
+
 **Retención** (`modules/backups/retention.ts`): cada evento puede definir
 `options.retention = { days, keepLast }`. Un backup exitoso se purga si supera `days` de
 antigüedad **o** queda fuera de los últimos `keepLast`; se borra el archivo (local o GCS) y

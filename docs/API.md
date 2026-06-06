@@ -123,6 +123,7 @@ corrida genera una **ejecución** con su identificador, estado y un detalle por 
 |---|---|---|---|
 | GET | `/` | `backups:read` | Lista eventos (paginado). |
 | GET | `/executions` | `backups:read` | Historial de ejecuciones (paginado; `?jobId` opcional). |
+| GET | `/executions/stream` | `backups:read` | **SSE**: empuja el snapshot de cada ejecución al cambiar de estado (`data: { type:"execution-updated", execution }`). Heartbeat `: ping` cada 25 s. Usa la cookie de sesión. |
 | GET | `/:id` | `backups:read` | Detalle de un evento. |
 | POST | `/` | `backups:schedule` | Crea un evento. |
 | PATCH | `/:id` | `backups:schedule` | Edita un evento. |

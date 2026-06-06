@@ -8,6 +8,7 @@ import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./backups.service.js";
 import * as schedules from "./schedules.service.js";
 import { gcsReadStream } from "./engine/gcs.js";
+import { subscribe } from "./events.js";
 
 export const backupsRouter: Router = Router();
 backupsRouter.use(authenticate);
@@ -45,6 +46,28 @@ backupsRouter.get("/executions", authorize("backups:read"), async (req, res, nex
   } catch (err) {
     next(err);
   }
+});
+
+// Progreso en vivo (SSE): empuja el snapshot de cada ejecución al cambiar de
+// estado. Una conexión por pestaña; se cierra al desconectar el cliente.
+backupsRouter.get("/executions/stream", authorize("backups:read"), (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+  });
+  res.flushHeaders?.();
+  res.write(": connected\n\n");
+
+  const unsubscribe = subscribe((evt) => res.write(`data: ${JSON.stringify(evt)}\n\n`));
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 25_000);
+  heartbeat.unref?.();
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+    res.end();
+  });
 });
 
 // Descarga del archivo de un ítem (una BD) de una ejecución.
