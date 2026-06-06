@@ -109,25 +109,24 @@ button.icon-btn.primary {
   max-width: min(380px, calc(100vw - 2rem));
 }
 .toast {
-  padding: 0.6rem 0.85rem;
+  padding: 0.65rem 0.9rem;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--panel, var(--panel-2));
-  color: var(--text);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  color: #fff;
+  background: #334155; /* por defecto (info usa el acento) */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   font-size: 0.88rem;
+  font-weight: 500;
   cursor: pointer;
-  border-left: 4px solid var(--accent);
   animation: toast-in 0.18s ease-out;
 }
 .toast-success {
-  border-left-color: #2ecc71;
+  background: #16a34a;
 }
 .toast-error {
-  border-left-color: var(--danger);
+  background: var(--danger);
 }
 .toast-info {
-  border-left-color: var(--accent);
+  background: var(--accent);
 }
 @keyframes toast-in {
   from {
