@@ -500,6 +500,12 @@ pre.log {
   border-radius: 4px;
 }
 
+/* Variante para el modal de log: más alto y a ancho completo. */
+pre.log.log-modal {
+  max-height: 60vh;
+  margin-top: 0;
+}
+
 /* ---- Badges de estado ---- */
 .badge {
   display: inline-block;

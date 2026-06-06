@@ -1,15 +1,53 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Download, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, FileText, RotateCcw } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useExecutionStream } from "../lib/useExecutionStream";
+import { Modal } from "../components/Modal";
 import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Pagination } from "../components/Pagination";
+
+/** Modal con el log de una BD: streamea en vivo mientras corre y hace auto-scroll. */
+function LogModal({
+  dbName,
+  text,
+  running,
+  onClose,
+}: {
+  dbName: string;
+  text: string;
+  running: boolean;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const preRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    const el = preRef.current;
+    if (el) el.scrollTop = el.scrollHeight; // seguir el final al llegar líneas
+  }, [text]);
+  return (
+    <Modal
+      title={`${t("executions.log")} — ${dbName}`}
+      size="lg"
+      onClose={onClose}
+      footer={
+        <button className="secondary" onClick={onClose}>
+          {t("common.close")}
+        </button>
+      }
+    >
+      {running && <p className="muted">{t("executions.liveConsole")}…</p>}
+      <pre className="log log-modal" ref={preRef}>
+        {text || "—"}
+      </pre>
+    </Modal>
+  );
+}
 
 /** Refresco mientras haya corridas en curso, para ver el avance del motor (ms). */
 const POLL_MS = 3000;
@@ -28,6 +66,8 @@ export function ExecutionsPage() {
   const [streamOn, setStreamOn] = useState(false);
   // Consola en vivo por BD (clave `execId::dbName`), efímera (no persiste al recargar).
   const [liveLogs, setLiveLogs] = useState<Record<string, string[]>>({});
+  // Log abierto en modal (se resuelve el ítem/líneas en cada render → siempre al día).
+  const [logFor, setLogFor] = useState<{ execId: string; dbName: string } | null>(null);
 
   const load = useCallback(() => {
     return api
@@ -228,6 +268,16 @@ export function ExecutionsPage() {
                                 <td>{fmtBytes(it.fileBytes)}</td>
                                 <td>{fmtDuration(it.startedAt, it.finishedAt)}</td>
                                 <td className="row-actions">
+                                  {(it.log || liveLogs[`${e.id}::${it.dbName}`]) && (
+                                    <button
+                                      className="icon-btn"
+                                      title={t("executions.log")}
+                                      aria-label={t("executions.log")}
+                                      onClick={() => setLogFor({ execId: e.id, dbName: it.dbName })}
+                                    >
+                                      <FileText size={16} />
+                                    </button>
+                                  )}
                                   {it.prunedAt ? (
                                     <span className="muted" title={fmt(it.prunedAt)}>
                                       {t("executions.pruned")}
@@ -246,28 +296,6 @@ export function ExecutionsPage() {
                                   )}
                                 </td>
                               </tr>
-                              {it.status === "running" && liveLogs[`${e.id}::${it.dbName}`] && (
-                                <tr key={`${it.id}-live`}>
-                                  <td colSpan={5}>
-                                    <details open>
-                                      <summary className="muted">{t("executions.liveConsole")}</summary>
-                                      <pre className="log">
-                                        {liveLogs[`${e.id}::${it.dbName}`]!.join("\n")}
-                                      </pre>
-                                    </details>
-                                  </td>
-                                </tr>
-                              )}
-                              {it.log && (
-                                <tr key={`${it.id}-log`}>
-                                  <td colSpan={5}>
-                                    <details>
-                                      <summary className="muted">{t("executions.log")}</summary>
-                                      <pre className="log">{it.log}</pre>
-                                    </details>
-                                  </td>
-                                </tr>
-                              )}
                             </Fragment>
                           ))}
                         </tbody>
@@ -281,6 +309,23 @@ export function ExecutionsPage() {
         </table>
       </div>
       <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+
+      {logFor &&
+        (() => {
+          const exec = data.items.find((e) => e.id === logFor.execId);
+          const item = exec?.items.find((i) => i.dbName === logFor.dbName);
+          if (!item) return null;
+          const live = liveLogs[`${logFor.execId}::${logFor.dbName}`];
+          const text = item.log ?? (live ? live.join("\n") : "");
+          return (
+            <LogModal
+              dbName={item.dbName}
+              text={text}
+              running={item.status === "running"}
+              onClose={() => setLogFor(null)}
+            />
+          );
+        })()}
     </section>
   );
 }

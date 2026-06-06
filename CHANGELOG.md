@@ -3,6 +3,15 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 24] — Log en modal desde la columna Acciones · 2026-06-06
+
+### Cambiado
+- El **log por BD** en *Ejecuciones* deja de mostrarse como filas `<details>` inline y pasa a
+  un **botón (icono) en la columna Acciones** que abre un **modal**. El modal **streamea en
+  vivo** mientras la corrida está en curso (consola) y muestra el **log persistido** al
+  terminar; hace **auto-scroll** al pie. Tabla más limpia, mejor para logs `--verbose` largos.
+- Nuevo `common.close` (es-419/en) y estilo `pre.log.log-modal` (área alta).
+
 ## [Etapa 4 · parte 23] — Consola en vivo (`--verbose` configurable) · 2026-06-06
 
 ### Añadido
