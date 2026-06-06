@@ -10,7 +10,8 @@ Sistema centralizado para la **generación, programación y monitoreo de backups
 - **API:** Node.js + Express 5 (estructura en capas).
 - **Web:** React + Vite + i18n (`es-419`, `en`), iconos `lucide-react`, tema claro/oscuro.
 - **BD de metadatos:** PostgreSQL 16+.
-- **Cola / tiempo real (desde Etapa 4):** Redis + BullMQ.
+- **Motor de backup:** binarios nativos (`pg_dump`…) lanzados in-proceso; subida a nube con SDK (`@google-cloud/storage`).
+- **Cola / tiempo real (planeado):** Redis + BullMQ; hoy el motor y el scheduler corren in-proceso.
 
 ```
 apps/
@@ -21,7 +22,8 @@ apps/
       db/                   # pool, runner de migraciones, seed
       lib/                  # password (scrypt), jwt (jose), http-error, respond
       middleware/           # error-handler, auth (authenticate + authorize)
-      modules/              # auth · users · roles · permissions · audit · servers · buckets · settings
+      modules/              # auth · users · roles · permissions · audit · servers · environments ·
+                            #   credentials · cloud-credentials · storage · backups (engine + scheduler) · settings
   web/                      # React + Vite
     src/
       auth/                 # AuthContext + guards
@@ -44,7 +46,9 @@ packages/
 ## Requisitos
 
 - Node.js 20+ (probado en 24)
-- pnpm 9+  ·  PostgreSQL 16+  ·  Redis (a partir de la Etapa 4)
+- pnpm 9+  ·  PostgreSQL 16+
+- Cliente nativo del motor a respaldar en la máquina de la API (p. ej. `pg_dump` para PostgreSQL)
+- Redis: planeado para cola/tiempo real; **aún no requerido**
 
 ## Puesta en marcha
 
@@ -105,17 +109,22 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 
 - [x] **Etapa 0** — Fundaciones (monorepo, API base, Web base, migraciones, esquemas).
 - [x] **Etapa 1** — Auth (local + AD/LDAP), Usuarios, Roles/Permisos, auditoría base.
-- [x] **Etapa 2** — Instancias, credenciales cifradas, buckets, módulo Settings.
+- [x] **Etapa 2** — Instancias, credenciales cifradas, almacenamiento, módulo Settings.
 - [x] **Etapa 3** — Catálogo de credenciales reutilizables ✅; descubrimiento de
   instancias → selección de BDs ✅.
-- [~] **Etapa 4** — Evento de backup multi-BD + ejecutar ahora ✅; motor de ejecución
-  real (`dump`) para **PostgreSQL** (`pg_dump` → `.sql`/`.sql.gz`, integridad y datos
-  de ejecución) ✅; resto de motores (MySQL/Mongo/SQL Server), destino GCS y cola
-  (pendiente).
-- [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo).
-- [ ] **Etapa 6** — Programación (scheduler).
+- [~] **Etapa 4** — Backups. **Vertical PostgreSQL completo**; el resto de motores
+  reutiliza esta misma maquinaria (solo falta su dumper):
+  - [x] Evento de backup multi-BD + *Ejecutar ahora*.
+  - [x] Motor real para **PostgreSQL** (`pg_dump` → `.sql`/`.sql.gz`, flags del script de
+    referencia, validación de integridad, nombre `{db}_{ambiente}_{timestamp}`).
+  - [x] *Ejecuciones*: estado/fin/duración/peso, **log**, **descarga** y **reintento**.
+  - [x] **Ambientes** (código + nombre) y consistencia instancia/credencial en el evento.
+  - [x] **Almacenamiento** local + **bucket** multi-nube (subida a **GCS** por SDK).
+  - [x] **Cuentas de servicio** de nube (multi-proveedor; GCP funcional).
+  - [x] **Scheduler** (agendar única / recurrente por cron), poller in-proceso.
+  - [ ] Dumpers **MySQL / Mongo / SQL Server**; AWS/Azure funcionales.
+- [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo) y cola (Redis/BullMQ).
 - [ ] **Etapa 7** — Notificaciones (Email + Telegram).
-- [ ] **Etapa 8** — GCS + `gcloud` + adaptador SQL Server.
 - [ ] **Etapa 9** — Retención, auditoría completa, hardening.
 
 ## Licencia
