@@ -168,6 +168,31 @@ export interface ExecutionDto {
  * o bucket en la nube (`provider`/`bucket`/`prefix` + clave de servicio cifrada).
  * Nunca expone la clave de servicio. `isDefault` marca el destino por tipo.
  */
+/** Resumen para el Panel (`GET /api/dashboard`). */
+export interface DashboardExecution {
+  id: string;
+  label: string;
+  status: ExecutionState;
+  environment: string | null;
+  finishedAt: string | null;
+  bytes: number;
+}
+export interface DashboardUpcoming {
+  jobId: string;
+  jobName: string;
+  mode: "once" | "recurring";
+  nextRunAt: string;
+}
+export interface DashboardDto {
+  servers: number;
+  jobsTotal: number;
+  jobsActive: number;
+  executions7d: { total: number; success: number; failed: number; bytes: number };
+  recent: DashboardExecution[];
+  upcoming: DashboardUpcoming[];
+  db: "up";
+}
+
 /** Modo de programación de un evento de backup. */
 export const SCHEDULE_MODES = ["once", "recurring"] as const;
 export type ScheduleMode = (typeof SCHEDULE_MODES)[number];

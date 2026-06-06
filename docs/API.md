@@ -13,6 +13,12 @@ protegidas requieren sesión válida; muchas requieren además un **permiso** co
 | GET | `/health` | — | Liveness. |
 | GET | `/ready` | — | Readiness (verifica la BD). |
 
+## Panel — `/api/dashboard`
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/` | `backups:read` | Resumen para el Panel: KPIs (instancias, eventos, ejecuciones 7d, peso), últimas ejecuciones y próximas programaciones. Agregado en SQL. |
+
 ## Auth — `/api/auth`
 
 | Método | Ruta | Auth | Permiso | Descripción |

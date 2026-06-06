@@ -34,6 +34,21 @@
     "inactive": "Inactivo",
     "none": "—"
   },
+  "dashboard": {
+    "kpiServers": "Instancias",
+    "kpiJobs": "Eventos activos / total",
+    "kpiExecutions7d": "Ejecuciones (7 días)",
+    "kpiSuccess7d": "Éxito (7 días)",
+    "kpiSize7d": "Respaldado (7 días)",
+    "recent": "Últimas ejecuciones",
+    "recentEmpty": "Aún no hay ejecuciones.",
+    "seeAll": "Ver todas",
+    "upcoming": "Próximas programaciones",
+    "upcomingEmpty": "No hay programaciones activas.",
+    "system": "Sistema",
+    "apiOk": "API",
+    "dbUp": "BD"
+  },
   "login": {
     "title": "Iniciar sesión",
     "username": "Usuario",

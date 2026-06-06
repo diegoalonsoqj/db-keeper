@@ -34,6 +34,21 @@
     "inactive": "Inactive",
     "none": "—"
   },
+  "dashboard": {
+    "kpiServers": "Instances",
+    "kpiJobs": "Active events / total",
+    "kpiExecutions7d": "Executions (7 days)",
+    "kpiSuccess7d": "Success (7 days)",
+    "kpiSize7d": "Backed up (7 days)",
+    "recent": "Recent executions",
+    "recentEmpty": "No executions yet.",
+    "seeAll": "See all",
+    "upcoming": "Upcoming schedules",
+    "upcomingEmpty": "No active schedules.",
+    "system": "System",
+    "apiOk": "API",
+    "dbUp": "DB"
+  },
   "login": {
     "title": "Sign in",
     "username": "Username",

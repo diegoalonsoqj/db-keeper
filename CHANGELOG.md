@@ -3,6 +3,15 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 13] — Panel (dashboard) · 2026-06-05
+
+### Añadido
+- **Panel** con datos reales (antes solo mostraba el health check): KPIs (instancias,
+  eventos activos/total, ejecuciones 7 días, % de éxito, peso respaldado), **últimas
+  ejecuciones**, **próximas programaciones** y estado de API/BD.
+- Endpoint agregado `GET /api/dashboard` (`backups:read`): resuelve todo en pocas
+  consultas SQL (sin N+1).
+
 ## [Etapa 4 · parte 12] — Scheduler (agendar / recurrente) · 2026-06-05
 
 ### Añadido
