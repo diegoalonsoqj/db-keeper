@@ -3,6 +3,41 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 19] — Notificaciones (Email + Telegram) · 2026-06-06
+
+### Añadido
+- **Notificaciones de backup** por **correo** y **Telegram**, configurables en *Settings*:
+  - **Eventos** a notificar: inicio, éxito y/o fallo (`notifyOnStart/Success/Failure`).
+  - **Correo** por **SMTP** (`nodemailer`) o por una **API HTTP** genérica (POST JSON con
+    header de autorización configurable). **Telegram** vía Bot API.
+  - Módulo `modules/notifications/` (`email.ts`, `telegram.ts`, `notifications.service.ts`):
+    `notifyBackup` orquesta los canales habilitados, **nunca lanza** y corre en segundo
+    plano (no bloquea ni rompe el backup); `sendTestNotification` reporta el resultado por
+    canal.
+  - El **runner** dispara el aviso de **inicio** y el de **fin** (éxito/fallo) con
+    duración, peso total y detalle por BD; también notifica los fallos de pre-vuelo.
+  - Config persistida en `app_settings['notifications']` con los **secretos cifrados**
+    (contraseña SMTP, auth de la API, bot token); el DTO solo expone banderas `has*`.
+    `getNotifRuntimeConfig` descifra únicamente en el momento del envío.
+  - Endpoints `PATCH /api/settings/notifications` y `POST /api/settings/notifications/test`
+    (`settings:write`); auditoría sin volcar el cuerpo (lleva secretos).
+  - **UI** en *Settings*: card con eventos, correo (selector SMTP/API con campos
+    condicionales), Telegram y botón **probar envío** (resultado por canal vía toast).
+    i18n es-419/en.
+
+### Cambiado
+- **Mensaje de notificación con formato**: encabezado por estado (🚀/✅/❌), etiquetas en
+  negrita, emoji por campo, nombre presentable del motor (`postgres`→PostgreSQL) y detalle
+  por BD. El **ambiente** muestra el **nombre** del catálogo (p. ej. *Producción*) en vez
+  del código (*PRD*); el nombre del archivo sigue usando el código.
+- **Settings** ahora se muestra en **rejilla multicolumna** (aprovecha el ancho completo en
+  vez de apilar tarjetas dejando vacío el lado derecho).
+
+### Corregido
+- **Telegram**: el `parse_mode: HTML` no admite `<br>` (daba *"can't parse entities:
+  Unsupported start tag br"*). El mensaje de Telegram usa saltos `\n` y solo `<b>`; el
+  correo mantiene `<br>`. Los valores dinámicos se escapan.
+
 ## [Etapa 4 · parte 18] — Descubrimiento de Mongo Atlas (SRV) · 2026-06-05
 
 ### Corregido

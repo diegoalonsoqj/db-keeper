@@ -241,9 +241,11 @@ servicio cifrada). Un destino por defecto por tipo (`isDefault`). El motor escri
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/` | `settings:read` | Configuración general + LDAP (sin contraseña de bind). |
+| GET | `/` | `settings:read` | Configuración general + LDAP + notificaciones (secretos ocultos tras banderas `has*`). |
 | PATCH | `/general` | `settings:write` | Zona horaria, idioma por defecto. |
 | PATCH | `/ldap` | `settings:write` | Config de AD/LDAP. `bindPassword` se cifra; `""` la borra. |
+| PATCH | `/notifications` | `settings:write` | Notificaciones de backup: eventos (inicio/éxito/fallo), correo (SMTP/API) y Telegram. Secretos (`smtp.password`, `api.auth`, `telegram.botToken`) se cifran; `""` los borra, omitir = no tocar. |
+| POST | `/notifications/test` | `settings:write` | Envía un mensaje de prueba por cada canal habilitado y reporta el resultado por canal. |
 
 ## Catálogo de permisos (`recurso:acción`)
 

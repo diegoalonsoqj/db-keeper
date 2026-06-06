@@ -74,7 +74,7 @@ audit.activity_log (id, user_id?, username, action, entity_type?, entity_id?, ip
 ```
 core.storage_targets (id, type[local|bucket], name, path?, provider?[gcp|aws|azure], bucket?, prefix?, cloud_credential_id? → secrets.cloud_credentials, is_active, is_default, …)
 secrets.cloud_credentials (id, name, provider[gcp|aws|azure], secret_encrypted, metadata jsonb, is_active, is_default, …)
-core.app_settings (key, value jsonb)   -- 'general' (timezone, idioma) · 'ldap' (config AD)
+core.app_settings (key, value jsonb)   -- 'general' (timezone, idioma) · 'ldap' (config AD) · 'notifications' (correo/Telegram; secretos cifrados)
 ```
 
 ### Modelo de datos (Etapa 3 · parte 1)
@@ -125,8 +125,16 @@ por `options.excludeTables`) generando `backups/<motor>/{db}_{ambiente}_{timesta
 borrado del parcial si falla. El archivo se descarga desde *Ejecuciones* y el `log` por
 BD queda disponible; una corrida fallida se puede **reintentar**. Las contraseñas viajan por `PGPASSWORD` y los argumentos como
 array (sin shell). Al arrancar, las ejecuciones que quedaron en curso por un reinicio se
-marcan `failed`. El destino GCS, el resto de motores, la cola (Redis/BullMQ) y el
-scheduler son fases siguientes.
+marcan `failed`. Los cuatro motores (PostgreSQL/MySQL/MongoDB/SQL Server), el destino GCS
+y el scheduler (poller in-proceso) ya están operativos; la cola (Redis/BullMQ) y el
+progreso en tiempo real son fases siguientes.
+
+**Notificaciones** (`modules/notifications/`): al iniciar y al cerrar cada corrida, el
+runner dispara `notifyBackup` (fire-and-forget, nunca lanza) que envía por los canales
+habilitados según las banderas `notifyOnStart/Success/Failure`. Correo por **SMTP**
+(`nodemailer`) o **API HTTP** genérica, y **Telegram** (Bot API; su `parse_mode:HTML` solo
+admite `\n` y `<b>`, no `<br>`). La config vive en `app_settings['notifications']` con los
+secretos cifrados; `getNotifRuntimeConfig` los descifra solo en el momento del envío.
 
 ## Seguridad
 

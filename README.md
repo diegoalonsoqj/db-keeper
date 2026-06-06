@@ -1,6 +1,6 @@
 # DBKeeper
 
-Sistema centralizado para la **generación, programación y monitoreo de backups** de bases de datos (PostgreSQL, MySQL, MongoDB, SQL Server), a demanda o programados, con almacenamiento local o en la nube (GCS) y panel de monitoreo. Seguimiento en tiempo real y notificaciones están en el roadmap.
+Sistema centralizado para la **generación, programación y monitoreo de backups** de bases de datos (PostgreSQL, MySQL, MongoDB, SQL Server), a demanda o programados, con almacenamiento local o en la nube (GCS), panel de monitoreo y **notificaciones** por correo (SMTP/API) y Telegram. El seguimiento en tiempo real está en el roadmap.
 
 > Especificación funcional completa: [`DBKeeper-Especificaciones.md`](./DBKeeper-Especificaciones.md).
 
@@ -23,7 +23,7 @@ apps/
       lib/                  # password (scrypt), jwt (jose), http-error, respond
       middleware/           # error-handler, auth (authenticate + authorize)
       modules/              # auth · users · roles · permissions · audit · servers · environments · credentials ·
-                            #   cloud-credentials · storage · backups (engine + scheduler) · dashboard · settings
+                            #   cloud-credentials · storage · backups (engine + scheduler) · notifications · dashboard · settings
   web/                      # React + Vite
     src/
       auth/                 # AuthContext + guards
@@ -110,6 +110,8 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 - Formularios de alta/edición en **modales** centrados; iconografía `lucide-react`.
 - **Avisos propios**: notificaciones *toast* (éxito/error) y diálogo de confirmación
   custom (sin `alert`/`confirm` nativos del navegador).
+- **Notificaciones de backups**: configuración en *Settings* de correo (SMTP o API HTTP) y
+  Telegram, con eventos a notificar (inicio/éxito/fallo) y botón *probar envío*.
 
 ## Estado: desarrollo por etapas
 
@@ -129,9 +131,10 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
   - [x] **Almacenamiento** local + **bucket** multi-nube (subida a **GCS** por SDK).
   - [x] **Cuentas de servicio** de nube (multi-proveedor; GCP funcional).
   - [x] **Scheduler** (agendar única / recurrente por cron), poller in-proceso.
+  - [x] **Notificaciones** de backup por **correo** (SMTP/API) y **Telegram** (inicio/
+    éxito/fallo), con envío de prueba; enganchadas al runner.
   - [ ] AWS/Azure funcionales (estructura ya lista; hoy solo GCP).
 - [ ] **Etapa 5** — Tiempo real (progreso + consola en vivo) y cola (Redis/BullMQ).
-- [ ] **Etapa 7** — Notificaciones (Email + Telegram).
 - [ ] **Etapa 9** — Retención, auditoría completa, hardening.
 
 ## Licencia
