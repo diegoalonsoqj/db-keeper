@@ -10,24 +10,27 @@ import {
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 export function SettingsPage() {
   const { t } = useTranslation();
   const { has } = useAuth();
   const canWrite = has("settings:write");
+  const toast = useToast();
 
   const [data, setData] = useState<SettingsDto | null>(null);
   const [targets, setTargets] = useState<StorageTargetDto[]>([]);
   const [accounts, setAccounts] = useState<CloudCredentialDto[]>([]);
   const [bindPassword, setBindPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .get<SettingsDto>("/settings")
       .then(setData)
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+      .catch((e) => setLoadError(errMsg(e)));
     api
       .get<Paginated<StorageTargetDto>>("/storage?limit=100")
       .then((p) => setTargets(p.items))
@@ -53,14 +56,12 @@ export function SettingsPage() {
   const defaultAccount = accounts.find((a) => a.provider === "gcp" && a.isDefault)?.id ?? "";
 
   function notify(fn: () => Promise<unknown>) {
-    setError(null);
-    setMsg(null);
     fn()
-      .then(() => setMsg(t("settings.saved")))
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+      .then(() => toast.success(t("settings.saved")))
+      .catch((e) => toast.error(errMsg(e)));
   }
 
-  if (!data) return <p className="muted">{error ?? t("common.loading")}</p>;
+  if (!data) return <p className="muted">{loadError ?? t("common.loading")}</p>;
 
   const g = data.general;
   const l = data.ldap;
@@ -80,8 +81,6 @@ export function SettingsPage() {
 
   return (
     <section>
-      {error && <p className="error">{error}</p>}
-      {msg && <p className="success">{msg}</p>}
 
       <div className="card form-card">
         <h2>{t("settings.general")}</h2>

@@ -5,6 +5,9 @@ import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Pagination } from "../components/Pagination";
 
 /** Refresco mientras haya corridas en curso, para ver el avance del motor (ms). */
@@ -16,18 +19,17 @@ export function ExecutionsPage() {
   const { has } = useAuth();
   const canRun = has("backups:run");
   const environments = useEnvironments();
+  const toast = useToast();
   const [data, setData] = useState<Paginated<ExecutionDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(() => {
     return api
       .get<Paginated<ExecutionDto>>(`/backups/executions?limit=${page.limit}&offset=${page.offset}`)
       .then(setData)
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, [page]);
+      .catch((e) => toast.error(errMsg(e)));
+  }, [page, toast]);
 
   useEffect(() => {
     void load();
@@ -49,23 +51,20 @@ export function ExecutionsPage() {
     });
 
   async function retry(e: ExecutionDto) {
-    setError(null);
-    setMsg(null);
     try {
       await api.post(`/backups/executions/${e.id}/retry`);
-      setMsg(t("executions.retried", { name: e.label }));
+      toast.success(t("executions.retried", { name: e.label }));
       await load();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : String(err));
+      toast.error(errMsg(err));
     }
   }
 
   async function download(execId: string, itemId: string, name: string) {
-    setError(null);
     try {
       await api.download(`/backups/executions/${execId}/items/${itemId}/download`, name);
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : String(err));
+      toast.error(errMsg(err));
     }
   }
 
@@ -104,8 +103,6 @@ export function ExecutionsPage() {
       <div className="page-head">
         <p className="page-desc muted">{t("executions.intro")}</p>
       </div>
-      {error && <p className="error">{error}</p>}
-      {msg && <p className="success">{msg}</p>}
 
       <div className="table-wrap">
         <table className="grid">

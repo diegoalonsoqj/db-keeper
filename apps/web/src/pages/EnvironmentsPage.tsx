@@ -4,8 +4,12 @@ import { Pencil, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type EnvironmentDto, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 interface FormState {
   id: string | null;
@@ -22,11 +26,12 @@ export function EnvironmentsPage() {
   const { has } = useAuth();
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [data, setData] = useState<Paginated<EnvironmentDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     setData(
@@ -36,13 +41,12 @@ export function EnvironmentsPage() {
     );
   }
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   async function submit() {
     if (!form) return;
-    setError(null);
     try {
       const body = {
         name: form.name.trim(),
@@ -54,18 +58,20 @@ export function EnvironmentsPage() {
       else await api.post("/environments", body);
       setForm(null);
       await reload();
+      toast.success(t("common.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   async function remove(env: EnvironmentDto) {
-    if (!confirm(t("common.confirm"))) return;
+    if (!(await confirm({ message: t("common.confirmDelete", { name: env.name }), danger: true }))) return;
     try {
       await api.delete(`/environments/${env.id}`);
       await reload();
+      toast.success(t("common.deleted"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
@@ -74,12 +80,9 @@ export function EnvironmentsPage() {
       <div className="page-head">
         <p className="page-desc muted">{t("environments.intro")}</p>
         {canWrite && (
-          <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>
-            {t("environments.new")}
-          </button>
+          <button onClick={() => setForm({ ...emptyForm })}>{t("environments.new")}</button>
         )}
       </div>
-      {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
         <table className="grid">

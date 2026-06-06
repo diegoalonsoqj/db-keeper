@@ -10,6 +10,10 @@ import {
 import { api, ApiClientError } from "../lib/api";
 import { environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
 
@@ -40,12 +44,13 @@ export function CredentialsPage() {
   const { has } = useAuth();
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [data, setData] = useState<Paginated<CredentialDto>>({ items: [], total: 0 });
   const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     const [creds, envs] = await Promise.all([
@@ -56,12 +61,11 @@ export function CredentialsPage() {
     setEnvironments(envs.items);
   }
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   function startEdit(c: CredentialDto) {
-    setError(null);
     setForm({
       id: c.id,
       name: c.name,
@@ -76,14 +80,13 @@ export function CredentialsPage() {
 
   async function submit() {
     if (!form) return;
-    setError(null);
 
     let extra: Record<string, unknown> | null | undefined;
     if (form.extra.trim()) {
       try {
         extra = JSON.parse(form.extra) as Record<string, unknown>;
       } catch {
-        setError(t("credentials.extraInvalid"));
+        toast.error(t("credentials.extraInvalid"));
         return;
       }
     } else if (form.id) {
@@ -107,18 +110,20 @@ export function CredentialsPage() {
       else await api.post("/credentials", body);
       setForm(null);
       await reload();
+      toast.success(t("common.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   async function remove(c: CredentialDto) {
-    if (!confirm(t("common.confirm"))) return;
+    if (!(await confirm({ message: t("common.confirmDelete", { name: c.name }), danger: true }))) return;
     try {
       await api.delete(`/credentials/${c.id}`);
       await reload();
+      toast.success(t("common.deleted"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
@@ -126,11 +131,8 @@ export function CredentialsPage() {
     <section>
       <div className="page-head">
         <p className="page-desc muted">{t("credentials.intro")}</p>
-        {canWrite && (
-          <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("credentials.new")}</button>
-        )}
+        {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("credentials.new")}</button>}
       </div>
-      {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
         <table className="grid">

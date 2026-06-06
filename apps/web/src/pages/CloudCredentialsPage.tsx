@@ -10,8 +10,12 @@ import {
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 interface FormState {
   id: string | null;
@@ -35,23 +39,23 @@ export function CloudCredentialsPage() {
   const { has } = useAuth();
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [data, setData] = useState<Paginated<CloudCredentialDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     setData(await api.get<Paginated<CloudCredentialDto>>(`/cloud-credentials?limit=${page.limit}&offset=${page.offset}`));
   }
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   async function submit() {
     if (!form) return;
-    setError(null);
     try {
       const body: Record<string, unknown> = { name: form.name.trim(), isActive: form.isActive };
       if (!form.id) body.provider = form.provider;
@@ -60,18 +64,20 @@ export function CloudCredentialsPage() {
       else await api.post("/cloud-credentials", body);
       setForm(null);
       await reload();
+      toast.success(t("common.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   async function remove(c: CloudCredentialDto) {
-    if (!confirm(t("common.confirm"))) return;
+    if (!(await confirm({ message: t("common.confirmDelete", { name: c.name }), danger: true }))) return;
     try {
       await api.delete(`/cloud-credentials/${c.id}`);
       await reload();
+      toast.success(t("common.deleted"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
@@ -79,9 +85,8 @@ export function CloudCredentialsPage() {
     <section>
       <div className="page-head">
         <p className="page-desc muted">{t("cloud.intro")}</p>
-        {canWrite && <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("cloud.new")}</button>}
+        {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("cloud.new")}</button>}
       </div>
-      {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
         <table className="grid">

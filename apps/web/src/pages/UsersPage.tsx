@@ -4,8 +4,12 @@ import { Pencil, Trash2 } from "lucide-react";
 import { DEFAULT_PAGE_SIZE, type Paginated, type RoleDto, type UserDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 interface FormState {
   id: string | null;
@@ -35,11 +39,13 @@ export function UsersPage() {
   const canWrite = has("users:write");
   const canDelete = has("users:delete");
 
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [data, setData] = useState<Paginated<UserDto>>({ items: [], total: 0 });
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     const [u, r] = await Promise.all([
@@ -51,17 +57,15 @@ export function UsersPage() {
   }
 
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   function startCreate() {
-    setError(null);
     setForm({ ...emptyForm });
   }
 
   function startEdit(u: UserDto) {
-    setError(null);
     setForm({
       id: u.id,
       username: u.username,
@@ -76,7 +80,6 @@ export function UsersPage() {
 
   async function submit() {
     if (!form) return;
-    setError(null);
     try {
       const payload = {
         email: form.email || null,
@@ -96,18 +99,20 @@ export function UsersPage() {
       }
       setForm(null);
       await reload();
+      toast.success(t("common.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   async function remove(u: UserDto) {
-    if (!confirm(t("common.confirm"))) return;
+    if (!(await confirm({ message: t("common.confirmDelete", { name: u.username }), danger: true }))) return;
     try {
       await api.delete(`/users/${u.id}`);
       await reload();
+      toast.success(t("common.deleted"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
@@ -124,7 +129,6 @@ export function UsersPage() {
       <div className="page-head">
         {canWrite && <button onClick={startCreate}>{t("users.new")}</button>}
       </div>
-      {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
         <table className="grid">

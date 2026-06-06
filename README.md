@@ -108,6 +108,8 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
 - **Menú de usuario** con avatar, cambio de idioma, *Ver mi perfil* y cerrar sesión.
 - **Perfil**: editar datos, idioma/tema por defecto, avatar y contraseña (usuarios locales).
 - Formularios de alta/edición en **modales** centrados; iconografía `lucide-react`.
+- **Avisos propios**: notificaciones *toast* (éxito/error) y diálogo de confirmación
+  custom (sin `alert`/`confirm` nativos del navegador).
 
 ## Estado: desarrollo por etapas
 

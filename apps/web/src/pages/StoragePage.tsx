@@ -13,8 +13,12 @@ import {
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 interface FormState {
   id: string | null;
@@ -45,12 +49,13 @@ export function StoragePage() {
   const { has } = useAuth();
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [data, setData] = useState<Paginated<StorageTargetDto>>({ items: [], total: 0 });
   const [accounts, setAccounts] = useState<CloudCredentialDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     const [tgts, accs] = await Promise.all([
@@ -61,12 +66,11 @@ export function StoragePage() {
     setAccounts(accs.items);
   }
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   function startEdit(s: StorageTargetDto) {
-    setError(null);
     setForm({
       id: s.id,
       type: s.type,
@@ -82,7 +86,6 @@ export function StoragePage() {
 
   async function submit() {
     if (!form) return;
-    setError(null);
     try {
       const isBucket = form.type === "bucket";
       const payload: Record<string, unknown> = {
@@ -99,18 +102,20 @@ export function StoragePage() {
       else await api.post("/storage", payload);
       setForm(null);
       await reload();
+      toast.success(t("common.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   async function remove(s: StorageTargetDto) {
-    if (!confirm(t("common.confirm"))) return;
+    if (!(await confirm({ message: t("common.confirmDelete", { name: s.name }), danger: true }))) return;
     try {
       await api.delete(`/storage/${s.id}`);
       await reload();
+      toast.success(t("common.deleted"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
@@ -121,9 +126,8 @@ export function StoragePage() {
     <section>
       <div className="page-head">
         <p className="page-desc muted">{t("storage.intro")}</p>
-        {canWrite && <button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("storage.new")}</button>}
+        {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("storage.new")}</button>}
       </div>
-      {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
         <table className="grid">

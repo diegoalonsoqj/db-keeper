@@ -3,6 +3,17 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 17] — Avisos propios (toasts + confirmación) · 2026-06-05
+
+### Cambiado
+- **Sistema de notificaciones propio** que reemplaza los diálogos nativos del navegador:
+  - **Toasts** (`ToastProvider`/`useToast`): pila flotante con auto‑cierre y variantes
+    éxito/error/info. Se migró el feedback de las páginas (alta/edición/borrado/ejecución/
+    reintento/descarga/errores de carga) de los `<p>` inline a toasts consistentes.
+  - **Diálogo de confirmación** custom (`ConfirmProvider`/`useConfirm`, con el `Modal` de
+    la app) en vez de `window.confirm()` — usado en los borrados de las 7 páginas, con
+    mensaje «¿Eliminar «X»?» y botón en rojo.
+
 ## [Etapa 4 · parte 16] — Motor SQL Server (`BACKUP DATABASE`) · 2026-06-05
 
 ### Añadido

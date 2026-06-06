@@ -14,6 +14,10 @@ import {
 import { api, ApiClientError } from "../lib/api";
 import { environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
+
+const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
 
@@ -52,13 +56,14 @@ export function ServersPage() {
   const { has } = useAuth();
   const canWrite = has("servers:write");
   const canDelete = has("servers:delete");
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [data, setData] = useState<Paginated<ServerDto>>({ items: [], total: 0 });
   const [credentials, setCredentials] = useState<CredentialDto[]>([]);
   const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     const [srv, creds, envs] = await Promise.all([
@@ -71,12 +76,11 @@ export function ServersPage() {
     setEnvironments(envs.items);
   }
   useEffect(() => {
-    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   function startEdit(s: ServerDto) {
-    setError(null);
     setForm({
       id: s.id,
       name: s.name,
@@ -95,7 +99,6 @@ export function ServersPage() {
 
   async function submit() {
     if (!form) return;
-    setError(null);
     try {
       const base = {
         name: form.name,
@@ -114,27 +117,28 @@ export function ServersPage() {
       else await api.post("/servers", base);
       setForm(null);
       await reload();
+      toast.success(t("common.saved"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   async function remove(s: ServerDto) {
-    if (!confirm(t("common.confirm"))) return;
+    if (!(await confirm({ message: t("common.confirmDelete", { name: s.name }), danger: true }))) return;
     try {
       await api.delete(`/servers/${s.id}`);
       await reload();
+      toast.success(t("common.deleted"));
     } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
+      toast.error(errMsg(e));
     }
   }
 
   return (
     <section>
       <div className="page-head">
-        {canWrite &&<button onClick={() => (setError(null), setForm({ ...emptyForm }))}>{t("servers.new")}</button>}
+        {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("servers.new")}</button>}
       </div>
-      {error && <p className="error">{error}</p>}
 
       <div className="table-wrap">
         <table className="grid">
