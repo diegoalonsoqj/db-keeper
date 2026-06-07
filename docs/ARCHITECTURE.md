@@ -139,7 +139,10 @@ lee **línea a línea** (`engine/log-lines.ts`); el runner lo agrupa en lotes y 
 eventos `execution-log` (sin la contraseña) que la web muestra como **consola en vivo** y se
 persisten en `execution_items.log`. En *Ejecuciones* el log de cada BD se abre desde un
 **botón en la columna Acciones** en un **modal** que streamea en vivo mientras corre y deja el
-log final al terminar (auto-scroll). La Fase B (cola BullMQ + Redis pub/sub alimentando el
+log final al terminar (auto-scroll). Además, el runner **vigila el tamaño del archivo** de
+salida mientras crece (`engine/progress.ts`) y lo empuja como `execution-progress`, de modo que
+*Ejecuciones* muestra el **peso creciente** y un **cronómetro** en vivo durante la corrida (útil
+en dumps grandes, sin depender de `--verbose`; no aplica a SQL Server). La Fase B (cola BullMQ + Redis pub/sub alimentando el
 mismo bus) está diseñada en `REALTIME-QUEUE-DESIGN.md` y aún no implementada.
 
 **Retención** (`modules/backups/retention.ts`): cada evento puede definir

@@ -29,6 +29,11 @@ export function emitLog(executionId: string, dbName: string, lines: string[]): v
   if (lines.length > 0) publishEvent({ type: "execution-log", executionId, dbName, lines });
 }
 
+/** Empuja el tamaño actual del archivo de dump en curso (progreso en vivo). */
+export function emitProgress(executionId: string, dbName: string, bytes: number): void {
+  publishEvent({ type: "execution-progress", executionId, dbName, bytes });
+}
+
 /**
  * Publica el snapshot actual de una ejecución. Lee el estado de la BD y emite.
  * Nunca lanza: un fallo al emitir no debe afectar a la corrida del backup.

@@ -6,6 +6,8 @@ interface Handlers {
   onEvent: (execution: ExecutionDto) => void;
   /** Líneas de consola en vivo de una BD de la ejecución. */
   onLog?: (log: { executionId: string; dbName: string; lines: string[] }) => void;
+  /** Tamaño actual (bytes) del dump en curso de una BD, para progreso en vivo. */
+  onProgress?: (p: { executionId: string; dbName: string; bytes: number }) => void;
   /** Cambio de estado de la conexión: `true` al (re)conectar, `false` al caer. */
   onStatus?: (connected: boolean) => void;
 }
@@ -35,6 +37,8 @@ export function useExecutionStream(handlers: Handlers): void {
         if (evt.type === "execution-updated") ref.current.onEvent(evt.execution);
         else if (evt.type === "execution-log")
           ref.current.onLog?.({ executionId: evt.executionId, dbName: evt.dbName, lines: evt.lines });
+        else if (evt.type === "execution-progress")
+          ref.current.onProgress?.({ executionId: evt.executionId, dbName: evt.dbName, bytes: evt.bytes });
       } catch {
         /* líneas de comentario/heartbeat no son JSON: se ignoran */
       }

@@ -195,6 +195,13 @@ export type BackupStreamEvent =
       executionId: string;
       dbName: string;
       lines: string[];
+    }
+  | {
+      /** Tamaño actual del archivo de dump en curso (bytes), para progreso en vivo. */
+      type: "execution-progress";
+      executionId: string;
+      dbName: string;
+      bytes: number;
     };
 
 /**

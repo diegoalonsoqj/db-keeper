@@ -3,6 +3,22 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 26] — Progreso en vivo por tamaño + cronómetro · 2026-06-06
+
+### Añadido
+- **Progreso en vivo del dump** sin depender de `--verbose`: el runner **vigila el tamaño del
+  archivo** de salida mientras crece (`engine/progress.ts`, muestreo cada 2 s) y lo empuja por
+  SSE (nuevo evento `execution-progress`). En *Ejecuciones* la columna **Peso** muestra el
+  tamaño creciente («… MB …») por BD y el total de la corrida mientras está en curso. Útil
+  para dumps grandes (p. ej. 23 GB) donde el estado se queda en `running` mucho tiempo.
+- **Cronómetro en vivo**: la columna **Duración** cuenta el tiempo transcurrido mientras la
+  corrida está `running` (antes solo se veía al terminar).
+- **Shared**: `BackupStreamEvent` suma la variante `execution-progress`.
+
+### Notas
+- No aplica a SQL Server (el `.bak` se escribe en el host de la instancia). Verificado e2e:
+  un dump de 486 MB emitió tamaño creciente por SSE (17→38→59→71 MB).
+
 ## [Etapa 4 · parte 25] — Nota de seguridad: acceso de solo lectura al origen · 2026-06-06
 
 ### Documentación

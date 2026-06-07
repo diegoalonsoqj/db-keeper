@@ -66,6 +66,10 @@ export function ExecutionsPage() {
   const [streamOn, setStreamOn] = useState(false);
   // Consola en vivo por BD (clave `execId::dbName`), efímera (no persiste al recargar).
   const [liveLogs, setLiveLogs] = useState<Record<string, string[]>>({});
+  // Progreso en vivo por BD (bytes del dump en curso), efímero.
+  const [liveProgress, setLiveProgress] = useState<Record<string, number>>({});
+  // Reloj para el cronómetro en vivo de las corridas en curso.
+  const [now, setNow] = useState(Date.now());
   // Log abierto en modal (se resuelve el ítem/líneas en cada render → siempre al día).
   const [logFor, setLogFor] = useState<{ execId: string; dbName: string } | null>(null);
 
@@ -105,9 +109,13 @@ export function ExecutionsPage() {
       return { ...prev, [key]: next.length > 500 ? next.slice(-500) : next };
     });
   }, []);
+  const onProgress = useCallback(({ executionId, dbName, bytes }: { executionId: string; dbName: string; bytes: number }) => {
+    setLiveProgress((prev) => ({ ...prev, [`${executionId}::${dbName}`]: bytes }));
+  }, []);
   useExecutionStream({
     onEvent,
     onLog,
+    onProgress,
     onStatus: (connected) => {
       setStreamOn(connected);
       if (connected) void load(); // resync al (re)conectar (cubre eventos perdidos)
@@ -121,6 +129,13 @@ export function ExecutionsPage() {
     const id = setInterval(() => void load(), POLL_MS);
     return () => clearInterval(id);
   }, [streamOn, isActive, load]);
+
+  // Cronómetro en vivo: refresca cada segundo mientras haya corridas en curso.
+  useEffect(() => {
+    if (!isActive) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isActive]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -159,10 +174,8 @@ export function ExecutionsPage() {
     return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
   };
 
-  /** Duración entre inicio y fin en formato compacto (s / m s / h m). */
-  const fmtDuration = (start: string | null, end: string | null) => {
-    if (!start || !end) return "—";
-    const ms = new Date(end).getTime() - new Date(start).getTime();
+  /** Formatea milisegundos en formato compacto (s / m s / h m). */
+  const fmtMs = (ms: number) => {
     if (ms < 0) return "—";
     const s = Math.round(ms / 1000);
     if (s < 60) return `${s} s`;
@@ -171,11 +184,40 @@ export function ExecutionsPage() {
     return `${Math.floor(m / 60)} h ${m % 60} m`;
   };
 
+  /** Duración entre inicio y fin en formato compacto. */
+  const fmtDuration = (start: string | null, end: string | null) =>
+    start && end ? fmtMs(new Date(end).getTime() - new Date(start).getTime()) : "—";
+
+  /** Duración mostrada: en vivo (desde el inicio hasta ahora) mientras corre. */
+  const liveDuration = (status: ExecutionDto["status"], start: string | null, end: string | null) =>
+    status === "running" && start ? fmtMs(now - new Date(start).getTime()) : fmtDuration(start, end);
+
   /** Suma de pesos de los ítems con archivo generado. */
   const totalBytes = (e: ExecutionDto) =>
     e.items.some((it) => it.fileBytes != null)
       ? e.items.reduce((acc, it) => acc + (it.fileBytes ?? 0), 0)
       : null;
+
+  /** Peso del ítem: en vivo (tamaño del dump en curso) mientras corre. */
+  const itemSize = (e: ExecutionDto, it: ExecutionDto["items"][number]) => {
+    const live = liveProgress[`${e.id}::${it.dbName}`];
+    if (it.status === "running" && live != null) return `${fmtBytes(live)} …`;
+    return fmtBytes(it.fileBytes);
+  };
+
+  /** Peso de la ejecución: suma en vivo de los dumps en curso mientras corre. */
+  const execSize = (e: ExecutionDto) => {
+    if (e.status === "running") {
+      const live = e.items
+        .filter((it) => it.status === "running")
+        .map((it) => liveProgress[`${e.id}::${it.dbName}`])
+        .filter((b): b is number => b != null);
+      const done = e.items.reduce((acc, it) => acc + (it.fileBytes ?? 0), 0);
+      const sum = done + live.reduce((a, b) => a + b, 0);
+      if (live.length > 0 || done > 0) return `${fmtBytes(sum)} …`;
+    }
+    return fmtBytes(totalBytes(e));
+  };
 
   return (
     <section>
@@ -219,8 +261,8 @@ export function ExecutionsPage() {
                   <td>{e.items.length}</td>
                   <td>{fmt(e.createdAt)}</td>
                   <td>{fmt(e.finishedAt)}</td>
-                  <td>{fmtDuration(e.startedAt, e.finishedAt)}</td>
-                  <td>{fmtBytes(totalBytes(e))}</td>
+                  <td>{liveDuration(e.status, e.startedAt, e.finishedAt)}</td>
+                  <td>{execSize(e)}</td>
                   <td className="row-actions">
                     <button
                       className="icon-btn"
@@ -265,8 +307,8 @@ export function ExecutionsPage() {
                                     {t(`status.${it.status}`)}
                                   </span>
                                 </td>
-                                <td>{fmtBytes(it.fileBytes)}</td>
-                                <td>{fmtDuration(it.startedAt, it.finishedAt)}</td>
+                                <td>{itemSize(e, it)}</td>
+                                <td>{liveDuration(it.status, it.startedAt, it.finishedAt)}</td>
                                 <td className="row-actions">
                                   {(it.log || liveLogs[`${e.id}::${it.dbName}`]) && (
                                     <button
