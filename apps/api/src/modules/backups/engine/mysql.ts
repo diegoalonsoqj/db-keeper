@@ -8,7 +8,7 @@ import { createGzip } from "node:zlib";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines } from "./log-lines.js";
+import { pipeStderrLines, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 
 const GZIP_LEVEL = 6;
 
@@ -89,7 +89,7 @@ async function runMysqldump(
     windowsHide: true,
   });
 
-  const getStderr = pipeStderrLines(child.stderr, (line) => opts.onLog?.(line));
+  const getStderr = pipeStderrLines(child.stderr, (line) => opts.onLog?.(line), NATIVE_CLIENT_STDERR_ENCODING);
 
   const closed = new Promise<number | null>((resolve, reject) => {
     child.on("close", (code) => resolve(code));

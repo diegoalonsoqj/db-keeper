@@ -4,6 +4,16 @@ import { StringDecoder } from "node:string_decoder";
 const MAX_ACC = 8000;
 
 /**
+ * Codificación con que los clientes nativos C (`pg_dump`, `mysqldump`) emiten
+ * texto en stderr. En Windows usan la codepage ANSI del sistema (Western/LatAm =
+ * Windows-1252, equivalente a `latin1` en el rango que ocupan estos mensajes:
+ * acentos y guillemets «»); en Linux/macOS emiten UTF-8. No aplica a `mongodump`
+ * (binario Go), que emite UTF-8 en toda plataforma.
+ */
+export const NATIVE_CLIENT_STDERR_ENCODING: BufferEncoding =
+  process.platform === "win32" ? "latin1" : "utf8";
+
+/**
  * Lee un stream (stderr) por líneas y llama `onLine` por cada una (sin el salto).
  * Mantiene además un acumulado acotado del texto crudo para el mensaje de error.
  * Devuelve un getter de ese acumulado. Respeta líneas partidas entre chunks.
@@ -11,8 +21,9 @@ const MAX_ACC = 8000;
 export function pipeStderrLines(
   stream: NodeJS.ReadableStream,
   onLine: (line: string) => void,
+  encoding: BufferEncoding = "utf8",
 ): () => string {
-  const decoder = new StringDecoder("utf8");
+  const decoder = new StringDecoder(encoding);
   let buf = "";
   let acc = "";
   const emit = (line: string) => {

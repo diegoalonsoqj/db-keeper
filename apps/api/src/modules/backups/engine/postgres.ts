@@ -3,7 +3,7 @@ import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines } from "./log-lines.js";
+import { pipeStderrLines, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
 const GZIP_LEVEL = 6;
@@ -75,7 +75,7 @@ function runPgDump(
       windowsHide: true,
     });
 
-    const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line));
+    const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line), NATIVE_CLIENT_STDERR_ENCODING);
 
     child.on("error", (err) => {
       reject(
