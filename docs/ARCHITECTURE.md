@@ -198,6 +198,21 @@ cifrado, `DATABASE_URL`, `REDIS_URL` y logging. La configuración de LDAP está 
 `.env` de forma temporal y migrará al **módulo Settings** (BD) en la Etapa 2.
 Validación estricta con Zod al arrancar (falla rápido si algo falta).
 
+## Despliegue (un solo puerto)
+
+En producción la **API sirve también el build estático del front**: con `SERVE_WEB=true`,
+Express monta `express.static(WEB_DIST_PATH)` y un *fallback* SPA que devuelve `index.html`
+para cualquier `GET` que no empiece por `/api` (el enrutado lo resuelve React Router). Así
+toda la app vive en un único puerto (`APP_PORT`), sin Nginx ni segundo proceso. En **dev** se
+ignora: Vite corre aparte en `:5173` con proxy `/api`.
+
+- `WEB_DIST_PATH` se resuelve **relativo a `apps/api`** (cwd de `pnpm start`); el default
+  `../web/dist` apunta a `apps/web/dist`.
+- **Orden de build (monorepo):** `@dbkeeper/api` y `@dbkeeper/web` dependen de
+  `@dbkeeper/shared`, que expone sus tipos desde `packages/shared/dist`. Construir un paquete
+  suelto en un checkout limpio falla con `Cannot find module '@dbkeeper/shared'`; usar siempre
+  `pnpm -r build` (orden topológico: shared → api → web). Detalle operativo en el README.
+
 ## Frontend
 
 - **AuthContext** restaura la sesión (`/auth/me`) y expone `login`, `logout`,
