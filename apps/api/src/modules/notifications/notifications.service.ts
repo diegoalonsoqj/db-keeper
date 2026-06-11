@@ -22,6 +22,8 @@ export interface BackupNotification {
   engine: string;
   environment?: string | null;
   databases: string[];
+  /** Dónde quedó el backup: "Local" o "<bucket>/<ruta>". */
+  storage?: string | null;
   /** Solo para eventos de fin (success/failure). */
   durationMs?: number | null;
   totalBytes?: number | null;
@@ -83,6 +85,7 @@ function summaryRows(n: BackupNotification): { emoji: string; label: string; val
   ];
   if (n.environment) rows.push({ emoji: "🌎", label: "Ambiente", value: n.environment });
   rows.push({ emoji: "💾", label: "Bases de datos", value: n.databases.join(", ") || "—" });
+  if (n.storage) rows.push({ emoji: "🗂️", label: "Almacenamiento", value: n.storage });
   if (n.event !== "start") {
     rows.push({ emoji: "⏱️", label: "Duración", value: formatDuration(n.durationMs) });
     rows.push({ emoji: "📦", label: "Peso total", value: formatBytes(n.totalBytes) });

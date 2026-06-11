@@ -3,6 +3,13 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 31] — Almacenamiento en las notificaciones · 2026-06-11
+
+### Añadido
+- **Línea "Almacenamiento"** en los avisos (correo y Telegram): indica dónde quedó el backup —
+  `Local` o `<bucket>/<prefijo>/<instancia>` para destino GCS. Aparece en el resumen junto a
+  motor/ambiente/BDs.
+
 ## [Etapa 4 · parte 30] — Log de la fase de subida a bucket · 2026-06-11
 
 ### Añadido
