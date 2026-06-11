@@ -11,16 +11,21 @@ function safeMessage(err: unknown, password: string): string {
   return msg.length > 300 ? `${msg.slice(0, 300)}…` : msg;
 }
 
-/** Conecta a la instancia con su credencial del catálogo y lista sus BDs reales. */
-export async function discover(serverId: string): Promise<string[]> {
+/**
+ * Conecta a la instancia y lista sus BDs reales. Usa la credencial recibida
+ * (override del evento) y, si no se pasa, la asignada a la instancia. Así se puede
+ * descubrir una instancia sin credencial base usando una credencial existente.
+ */
+export async function discover(serverId: string, credentialId?: string | null): Promise<string[]> {
   const server = await serversRepo.findById(serverId);
   if (!server) throw HttpError.notFound("Instancia no encontrada");
-  if (!server.credentialId) {
-    throw HttpError.badRequest("La instancia no tiene una credencial asignada");
+  const effectiveCredId = credentialId ?? server.credentialId;
+  if (!effectiveCredId) {
+    throw HttpError.badRequest("No hay credencial: asígnala a la instancia o elígela en el evento");
   }
-  const cred = await credsRepo.findById(server.credentialId);
-  const enc = await credsRepo.getEncrypted(server.credentialId);
-  if (!cred || !enc) throw HttpError.badRequest("La credencial asignada no existe");
+  const cred = await credsRepo.findById(effectiveCredId);
+  const enc = await credsRepo.getEncrypted(effectiveCredId);
+  if (!cred || !enc) throw HttpError.badRequest("La credencial indicada no existe");
 
   const password = decryptSecret(enc.passwordEncrypted);
   const discoverer = getDiscoverer(server.engine);

@@ -3,6 +3,15 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 33] — Descubrir BDs con la credencial del evento · 2026-06-11
+
+### Añadido
+- **El descubrimiento de BDs respeta la credencial del evento**: `POST …/databases/discover`
+  acepta un `credentialId` opcional y usa esa credencial (override), cayendo a la de la
+  instancia si no se envía. Antes solo usaba la de la instancia, así que una instancia sin
+  credencial base no se podía descubrir aunque se eligiera una credencial en el evento. El
+  modal envía la credencial efectiva (override ∥ la de la instancia).
+
 ## [Etapa 4 · parte 32] — Opciones de dump también en eventos a bucket · 2026-06-11
 
 ### Corregido

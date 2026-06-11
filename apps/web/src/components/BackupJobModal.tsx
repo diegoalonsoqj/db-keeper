@@ -108,7 +108,11 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     setError(null);
     setDiscovering(true);
     try {
-      const found = await api.post<string[]>(`/servers/${serverId}/databases/discover`);
+      // Descubrir con la credencial del evento (override) si se eligió; si no, el
+      // backend usa la de la instancia. Permite descubrir instancias sin credencial base.
+      const found = await api.post<string[]>(`/servers/${serverId}/databases/discover`, {
+        credentialId: credentialId || null,
+      });
       setDbOptions((prev) => uniq([...found, ...prev]));
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : String(e));
