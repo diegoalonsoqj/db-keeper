@@ -182,6 +182,13 @@ Toda acción relevante queda registrada en la **auditoría** (`audit.activity_lo
   > BD (catálogo/auditoría) y en el destino del backup. **Excepción** SQL Server: `BACKUP
   > DATABASE` no toca los datos de usuario, pero a nivel servidor escribe el `.bak`, el
   > historial en `msdb` y la base diferencial. Detalle en `docs/ARCHITECTURE.md`.
+
+  > **Acceso al bucket de destino:** DBKeeper opera solo sobre el bucket configurado (no crea/
+  > borra buckets ni cambia IAM). **Sube** sus backups (nombre con timestamp, no sobrescribe) y
+  > los **lee** al descargar. Solo **borra** mediante la **retención** del evento, y únicamente
+  > el objeto exacto (`gs://bucket/objeto`) que registró en su BD; nunca escanea ni borra por
+  > patrón. **Sin retención configurada, no borra nada.** Para impedir todo borrado a nivel IAM,
+  > da al service account solo `roles/storage.objectCreator`. Detalle en `docs/ARCHITECTURE.md`.
 - [ ] **Etapa 5** — Tiempo real Fase B: cola (Redis/BullMQ) + consola en vivo.
 - [ ] **Etapa 9** — Auditoría completa, hardening.
 

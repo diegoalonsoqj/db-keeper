@@ -190,6 +190,16 @@ secretos cifrados; `getNotifRuntimeConfig` los descifra solo en el momento del e
 - **Menor privilegio del usuario de backup**: para PostgreSQL/MySQL/MongoDB basta una
   credencial **de solo lectura**. SQL Server requiere `db_backupoperator` (el mínimo para
   respaldar; evita `sysadmin`).
+- **Acceso al bucket de destino (GCS)**: DBKeeper opera **solo sobre objetos del bucket
+  configurado**; no crea/borra buckets ni altera IAM ni otros recursos de GCP. Sube sus
+  backups (`uploadToGcs`, nombre con timestamp → no sobrescribe), los lee al descargar
+  (`gcsReadStream`) y **solo borra** vía la **política de retención** del evento
+  (`retention.ts`): toma la URI exacta `gs://bucket/objeto` que guardó en su BD y borra ese
+  objeto puntual; nunca escanea, lista ni borra por patrón, ni toca objetos que no estén en su
+  registro. **Sin retención configurada no borra nada.** Para garantizarlo a nivel de
+  infraestructura, otorga al service account solo `roles/storage.objectCreator` (crear sin
+  borrar): las subidas funcionan y cualquier purga falla de forma no fatal (se loguea), a costa
+  de perder la retención automática en nube (sustituible por una *lifecycle rule* del bucket).
 
 ## Configuración (12-factor)
 
