@@ -12,6 +12,11 @@ build/
 .env.*
 !.env.example
 
+# Claves de service accounts / secretos (nunca versionar). Se pegan en la UI,
+# no se leen del disco; el archivo solo sirve para copiar su contenido.
+keys/
+*.sa.json
+
 # Logs
 logs/
 *.log
