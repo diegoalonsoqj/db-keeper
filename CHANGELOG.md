@@ -3,6 +3,15 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 29] — Ruta en bucket por instancia · 2026-06-11
+
+### Cambiado
+- **Layout del objeto en GCS**: la ruta pasa de `<prefijo>/<motor>/<archivo>` a
+  `<prefijo>/<instancia>/<archivo>`, agrupando por **nombre de instancia** para caer en las
+  carpetas que el bucket ya mantiene por instancia. `safeFileName` conserva mayúsculas (GCS es
+  case-sensitive). El staging local sigue agrupando por motor (es temporal y se borra tras
+  subir). Los objetos ya subidos no se mueven; solo aplica a backups nuevos.
+
 ## [Etapa 4 · parte 28] — Cookie de sesión configurable para HTTP interno · 2026-06-11
 
 ### Corregido
