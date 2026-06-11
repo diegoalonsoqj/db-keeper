@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 30] — Log de la fase de subida a bucket · 2026-06-11
+
+### Añadido
+- **Log de subida a GCS**: los eventos a bucket ahora registran en el log por BD (persistido y
+  en vivo por SSE) el destino `gs://…`, el tamaño y la duración de la subida, y la limpieza de
+  la copia local de staging. Antes el log solo traía la salida del dumper, así que un evento a
+  bucket no dejaba rastro de a dónde ni cuánto subió.
+
+### Interno
+- `formatBytes` se extrae a `lib/format.ts` y se reutiliza en el runner y en notificaciones
+  (antes estaba duplicado en notifications.service).
+
 ## [Etapa 4 · parte 29] — Ruta en bucket por instancia · 2026-06-11
 
 ### Cambiado

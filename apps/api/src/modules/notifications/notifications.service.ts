@@ -1,4 +1,5 @@
 import { logger } from "../../config/logger.js";
+import { formatBytes } from "../../lib/format.js";
 import * as settings from "../settings/settings.service.js";
 import type { NotifRuntimeConfig } from "../settings/settings.service.js";
 import { sendEmail } from "./email.js";
@@ -64,17 +65,6 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function formatBytes(bytes: number | null | undefined): string {
-  if (!bytes || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let n = bytes;
-  let i = 0;
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024;
-    i++;
-  }
-  return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
 
 function formatDuration(ms: number | null | undefined): string {
   if (!ms || ms <= 0) return "—";
