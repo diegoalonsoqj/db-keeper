@@ -3,6 +3,20 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 27] — Fix despliegue un-solo-puerto + doc de producción · 2026-06-11
+
+### Corregido
+- **Ruta del build del front**: `WEB_DIST_PATH` apuntaba a `../../web/dist` (raíz del repo)
+  en vez de `../web/dist` (`apps/web/dist`), provocando `ENOENT … web/dist/index.html` al
+  arrancar con `SERVE_WEB=true`. Corregido el default en `config/env.ts` y `.env.example`.
+
+### Documentación
+- **README**: nueva sección *Despliegue en producción (un solo puerto)* con el flujo de
+  build y arranque. Se documenta el **orden de build obligatorio** (`pnpm -r build`: shared →
+  api → web); construir `@dbkeeper/api` suelto en un checkout limpio falla con `Cannot find
+  module '@dbkeeper/shared'` porque `packages/shared/dist` aún no existe. Tabla de variables
+  `SERVE_WEB` / `WEB_DIST_PATH`. Verificado e2e en local y en server Linux de producción.
+
 ## [Etapa 4 · parte 26] — Progreso en vivo por tamaño + cronómetro · 2026-06-06
 
 ### Añadido

@@ -82,6 +82,38 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `pnpm migrate` | Aplica migraciones pendientes |
 | `pnpm --filter @dbkeeper/api seed` | Siembra permisos, roles de sistema y superadmin |
 
+## Despliegue en producción (un solo puerto)
+
+En producción la **API sirve también el front** (build estático de Vite), de modo que
+toda la app queda en un único puerto (`APP_PORT`), sin Nginx ni segundo proceso.
+
+```bash
+git pull origin main
+pnpm install --frozen-lockfile     # incluye devDependencies (TypeScript se usa en el build)
+pnpm -r build                      # compila en orden topológico: shared → api → web
+pnpm migrate                       # aplica migraciones pendientes
+pnpm --filter @dbkeeper/api start  # node dist/index.js (sin tsx watch)
+```
+
+> **Importante — orden de build.** `@dbkeeper/api` y `@dbkeeper/web` dependen de
+> `@dbkeeper/shared`, que expone sus tipos desde `packages/shared/dist`. Construir un
+> paquete suelto (`pnpm --filter @dbkeeper/api build`) **falla** en un checkout limpio con
+> `Cannot find module '@dbkeeper/shared'` porque ese `dist` aún no existe. Usa siempre
+> `pnpm -r build` (resuelve el orden) o construye `shared` primero.
+
+Variables relevantes en `.env` (ver `.env.example`):
+
+| Variable | Valor en prod | Notas |
+|---|---|---|
+| `SERVE_WEB` | `true` | Activa el servido del front por Express. En dev se ignora (Vite corre aparte en :5173 con proxy). |
+| `WEB_DIST_PATH` | `../web/dist` | Ruta al build del front, **relativa a `apps/api`** (cwd de `start`). El default apunta a `apps/web/dist`. |
+
+En el arranque el log debe mostrar `Sirviendo front desde …/apps/web/dist`. Verifica con
+`curl -I http://localhost:$APP_PORT` (200 con el index.html) y `curl …/api/health`.
+
+> Si cambias código del front, recuerda re-ejecutar el build: en este modo se sirve el
+> `dist` estático, no hay hot-reload.
+
 ## Autenticación y roles
 
 Login con usuarios **locales** (hash scrypt) y de **Active Directory** (LDAP/LDAPS).
