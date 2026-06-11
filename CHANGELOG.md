@@ -3,6 +3,17 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 32] — Opciones de dump también en eventos a bucket · 2026-06-11
+
+### Corregido
+- **Las opciones del dump (compresión, verbose, exclude-tables, cleanDefiners) se ignoraban en
+  eventos a bucket**: estaban condicionadas a `method === "dump"`, así que al guardar un evento
+  "Subir a bucket" se **borraban** todas (dump sin comprimir y sin `--verbose`, por eso el log
+  en vivo no mostraba la creación del backup, solo la subida). Ahora aplican a ambos métodos —
+  "Subir a bucket" también ejecuta el dump, solo cambia el destino.
+  > Nota: los eventos a bucket creados antes de este fix tienen esas opciones ya vacías;
+  > vuelve a editarlos y guardar para reactivar compresión/verbose.
+
 ## [Etapa 4 · parte 31] — Almacenamiento en las notificaciones · 2026-06-11
 
 ### Añadido

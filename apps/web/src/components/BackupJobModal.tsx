@@ -59,10 +59,11 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set(job?.databases ?? []));
   const [discovering, setDiscovering] = useState(false);
 
-  // Opciones de dump aplicables según el motor de la instancia elegida.
+  // Opciones de dump aplicables según el motor de la instancia elegida. Aplican a
+  // ambos métodos: "Subir a bucket" también ejecuta el dump, solo cambia el destino.
   const selectedServer = servers.find((s) => s.id === serverId);
   const engine = selectedServer?.engine;
-  const dumpOpts = method === "dump" && engine ? ENGINE_BACKUP_OPTIONS[engine] : [];
+  const dumpOpts = engine ? ENGINE_BACKUP_OPTIONS[engine] : [];
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
