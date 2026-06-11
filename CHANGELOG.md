@@ -9,8 +9,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - **Layout del objeto en GCS**: la ruta pasa de `<prefijo>/<motor>/<archivo>` a
   `<prefijo>/<instancia>/<archivo>`, agrupando por **nombre de instancia** para caer en las
   carpetas que el bucket ya mantiene por instancia. `safeFileName` conserva mayúsculas (GCS es
-  case-sensitive). El staging local sigue agrupando por motor (es temporal y se borra tras
-  subir). Los objetos ya subidos no se mueven; solo aplica a backups nuevos.
+  case-sensitive). Los objetos ya subidos no se mueven; solo aplica a backups nuevos.
+- **Layout local**: el destino local pasa de `<BACKUP_DIR>/<motor>/<archivo>` a
+  `<BACKUP_DIR>/<motor>/<instancia>/<archivo>`. El registro guarda la ruta absoluta, así que
+  descarga y retención siguen funcionando; los archivos previos no se mueven.
 
 ## [Etapa 4 · parte 28] — Cookie de sesión configurable para HTTP interno · 2026-06-11
 
