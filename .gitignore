@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+# Este monorepo usa pnpm: ignora locks de otros gestores para evitar ruido/confusión.
+package-lock.json
+yarn.lock
 
 # Build output
 dist/
