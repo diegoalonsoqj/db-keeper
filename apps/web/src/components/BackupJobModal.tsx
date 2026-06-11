@@ -240,7 +240,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         <select value={method} onChange={(e) => setMethod(e.target.value as BackupMethod)}>
           {BACKUP_METHODS.map((m) => (
             <option key={m} value={m}>
-              {m}
+              {t(m === "dump" ? "backups.methodDump" : "backups.methodGcloud")}
             </option>
           ))}
         </select>
