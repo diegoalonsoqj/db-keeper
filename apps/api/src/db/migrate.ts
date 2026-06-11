@@ -64,7 +64,8 @@ async function run(): Promise<void> {
 run()
   .then(() => pool.end())
   .then(() => process.exit(0))
-  .catch(async () => {
+  .catch(async (err) => {
+    logger.error({ err }, "Falló la ejecución de migraciones");
     await pool.end();
     process.exit(1);
   });

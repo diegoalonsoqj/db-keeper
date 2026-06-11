@@ -33,6 +33,16 @@ const envSchema = z.object({
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
+  // --- Servir el front desde la propia API (despliegue de un solo puerto, sin reverse proxy) ---
+  // Con SERVE_WEB=true, Express entrega los estáticos de WEB_DIST_PATH y hace
+  // fallback SPA; el front llama a /api en el mismo origen.
+  SERVE_WEB: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  // Ruta al build del front. Relativa se resuelve contra el cwd (apps/api), igual que BACKUP_DIR.
+  WEB_DIST_PATH: z.string().default("../../web/dist"),
+
   // --- AD / LDAP (temporal en env; migra al módulo Settings en la Etapa 2) ---
   LDAP_URL: z.string().optional(), // ldap(s)://host:389
   LDAP_BIND_DN: z.string().optional(), // cuenta de servicio para buscar usuarios

@@ -1,8 +1,10 @@
+import { join, resolve } from "node:path";
 import express, { type Express } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { pinoHttp } from "pino-http";
+import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -31,7 +33,30 @@ export function createApp(): Express {
   // Detrás de un proxy (Vite en dev, reverse proxy en prod): confiar para obtener IP real.
   app.set("trust proxy", true);
   app.disable("x-powered-by");
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Si la API sirve el front (SERVE_WEB), se relaja la CSP para una SPA por
+      // HTTP: estilos inline de React e imágenes/fuentes embebidas como data:.
+      // Sin upgrade-insecure-requests para no forzar HTTPS en despliegue interno.
+      // En modo solo-API se mantiene la CSP estricta por defecto de helmet.
+      contentSecurityPolicy: env.SERVE_WEB
+        ? {
+            useDefaults: false,
+            directives: {
+              "default-src": ["'self'"],
+              "script-src": ["'self'"],
+              "style-src": ["'self'", "'unsafe-inline'"],
+              "img-src": ["'self'", "data:"],
+              "font-src": ["'self'", "data:"],
+              "connect-src": ["'self'"],
+              "object-src": ["'none'"],
+              "base-uri": ["'self'"],
+              "frame-ancestors": ["'self'"],
+            },
+          }
+        : undefined,
+    }),
+  );
   // CORS con credenciales para permitir la cookie de sesión desde el frontend.
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
@@ -66,6 +91,20 @@ export function createApp(): Express {
   app.use("/api/cloud-credentials", cloudCredentialsRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/dashboard", dashboardRouter);
+
+  // Front (SPA) servido por la propia API: despliegue de un solo puerto. Va tras
+  // los routers /api para que la API siempre tenga prioridad sobre los estáticos.
+  if (env.SERVE_WEB) {
+    const webDist = resolve(env.WEB_DIST_PATH);
+    app.use(express.static(webDist));
+    // Fallback SPA: un GET que no sea de la API ni un archivo existente devuelve
+    // index.html (el enrutado lo resuelve React Router en el cliente).
+    app.use((req, res, next) => {
+      if (req.method !== "GET" || req.path.startsWith("/api")) return next();
+      res.sendFile(join(webDist, "index.html"));
+    });
+    logger.info(`Sirviendo front desde ${webDist}`);
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
