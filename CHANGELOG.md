@@ -3,6 +3,19 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 28] — Cookie de sesión configurable para HTTP interno · 2026-06-11
+
+### Corregido
+- **Sesión no persistía en prod por HTTP**: la cookie se marcaba `secure` cuando
+  `APP_ENV=production`, así que en un despliegue interno **sin TLS** el navegador la
+  descartaba y todo respondía *No autenticado* tras un login aparentemente exitoso.
+
+### Añadido
+- **`COOKIE_SECURE`**: nueva variable que desacopla el flag `secure` de la cookie de
+  `APP_ENV`. Sin definir conserva el comportamiento seguro (true en producción); ponerla en
+  `false` permite servir por HTTP interno. `login` y `logout` usan el nuevo `cookieSecure`
+  de `config/env.ts`, y el `clearCookie` alinea atributos para borrar bien la cookie.
+
 ## [Etapa 4 · parte 27] — Fix despliegue un-solo-puerto + doc de producción · 2026-06-11
 
 ### Corregido

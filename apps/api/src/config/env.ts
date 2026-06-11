@@ -42,6 +42,13 @@ const envSchema = z.object({
     .transform((v) => v === "true"),
   // Ruta al build del front. Relativa se resuelve contra el cwd (apps/api), igual que BACKUP_DIR.
   WEB_DIST_PATH: z.string().default("../web/dist"),
+  // Marca `secure` en la cookie de sesión. Sin definir, sigue a APP_ENV (true en
+  // producción). Ponla en `false` para despliegue interno por HTTP sin TLS: una cookie
+  // secure no se envía sobre HTTP y la sesión nunca persistiría (login OK, luego 401).
+  COOKIE_SECURE: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
 
   // --- AD / LDAP (temporal en env; migra al módulo Settings en la Etapa 2) ---
   LDAP_URL: z.string().optional(), // ldap(s)://host:389
@@ -73,3 +80,6 @@ if (!parsed.success) {
 export const env = parsed.data;
 export type Env = typeof env;
 export const isProd = env.APP_ENV === "production";
+// Por defecto la cookie es secure en producción; COOKIE_SECURE permite forzarlo
+// (p. ej. desactivarlo en un despliegue interno por HTTP sin TLS).
+export const cookieSecure = env.COOKIE_SECURE ?? isProd;

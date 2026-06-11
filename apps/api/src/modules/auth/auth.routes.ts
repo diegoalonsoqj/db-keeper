@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { env } from "../../config/env.js";
+import { cookieSecure } from "../../config/env.js";
 import { ok } from "../../lib/respond.js";
 import { SESSION_COOKIE, signSession } from "../../lib/jwt.js";
 import { APP_LOCALES } from "@dbkeeper/shared";
@@ -25,7 +25,7 @@ authRouter.post("/login", async (req, res, next) => {
 
     res.cookie(SESSION_COOKIE, token, {
       httpOnly: true,
-      secure: env.APP_ENV === "production",
+      secure: cookieSecure,
       sameSite: "lax",
       maxAge: COOKIE_MAX_AGE,
       path: "/",
@@ -55,7 +55,7 @@ authRouter.post("/login", async (req, res, next) => {
 authRouter.post("/logout", authenticate, async (req, res, next) => {
   try {
     await recordAudit(req, { action: "auth.logout" });
-    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    res.clearCookie(SESSION_COOKIE, { path: "/", httpOnly: true, secure: cookieSecure, sameSite: "lax" });
     ok(res, { loggedOut: true });
   } catch (err) {
     next(err);

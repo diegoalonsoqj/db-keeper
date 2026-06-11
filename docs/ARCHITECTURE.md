@@ -212,6 +212,9 @@ ignora: Vite corre aparte en `:5173` con proxy `/api`.
   `@dbkeeper/shared`, que expone sus tipos desde `packages/shared/dist`. Construir un paquete
   suelto en un checkout limpio falla con `Cannot find module '@dbkeeper/shared'`; usar siempre
   `pnpm -r build` (orden topológico: shared → api → web). Detalle operativo en el README.
+- **Cookie de sesión sobre HTTP:** la cookie es `secure` por defecto en producción, lo que la
+  hace inválida sobre HTTP plano (sesión no persiste → 401 tras el login). Para despliegue
+  interno sin TLS, `COOKIE_SECURE=false` desacopla ese flag de `APP_ENV`.
 
 ## Frontend
 

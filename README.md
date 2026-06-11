@@ -107,6 +107,7 @@ Variables relevantes en `.env` (ver `.env.example`):
 |---|---|---|
 | `SERVE_WEB` | `true` | Activa el servido del front por Express. En dev se ignora (Vite corre aparte en :5173 con proxy). |
 | `WEB_DIST_PATH` | `../web/dist` | Ruta al build del front, **relativa a `apps/api`** (cwd de `start`). El default apunta a `apps/web/dist`. |
+| `COOKIE_SECURE` | `false` (si sirves por HTTP) | Flag `secure` de la cookie de sesión. Sin definir sigue a `APP_ENV` (true en prod). **En despliegue interno por HTTP sin TLS debe ser `false`**, o el navegador descarta la cookie y todo responde *No autenticado* tras el login. |
 
 En el arranque el log debe mostrar `Sirviendo front desde …/apps/web/dist`. Verifica con
 `curl -I http://localhost:$APP_PORT` (200 con el index.html) y `curl …/api/health`.
