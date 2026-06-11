@@ -41,7 +41,7 @@ const envSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
   // Ruta al build del front. Relativa se resuelve contra el cwd (apps/api), igual que BACKUP_DIR.
-  WEB_DIST_PATH: z.string().default("../../web/dist"),
+  WEB_DIST_PATH: z.string().default("../web/dist"),
 
   // --- AD / LDAP (temporal en env; migra al módulo Settings en la Etapa 2) ---
   LDAP_URL: z.string().optional(), // ldap(s)://host:389
