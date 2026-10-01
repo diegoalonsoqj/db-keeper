@@ -30,6 +30,26 @@ cloudCredentialsRouter.get("/", authorize("servers:read"), async (req, res, next
   }
 });
 
+// Cuenta de servicio de la VM (Compute Engine) donde corre DBKeeper: detectarla
+// por el servidor de metadatos y agregarla al catálogo (sin clave).
+cloudCredentialsRouter.get("/compute", authorize("servers:read"), async (_req, res, next) => {
+  try {
+    ok(res, await service.detectCompute());
+  } catch (err) {
+    next(err);
+  }
+});
+
+cloudCredentialsRouter.post("/compute", authorize("servers:write"), async (req, res, next) => {
+  try {
+    const acc = await service.createComputeCredential();
+    await recordAudit(req, { action: "cloud_credentials.create", entityType: "cloud_credential", entityId: acc.id, detail: { name: acc.name, provider: acc.provider, kind: acc.kind } });
+    ok(res, acc, 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
 cloudCredentialsRouter.post("/", authorize("servers:write"), async (req, res, next) => {
   try {
     const acc = await service.createCredential(createSchema.parse(req.body));

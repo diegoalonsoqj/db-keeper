@@ -1,6 +1,8 @@
 import type { CloudCredentialDto, CloudProvider } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
+import type { ComputeIdentityDto } from "@dbkeeper/shared";
 import { decryptSecret, encryptSecret } from "../../lib/crypto.js";
+import { detectComputeIdentity } from "../../lib/gce-metadata.js";
 import * as repo from "./cloud-credentials.repository.js";
 
 export async function listCredentials(p: { limit: number; offset: number }) {
@@ -69,6 +71,9 @@ export async function updateCredential(id: string, data: Partial<CredentialInput
   }
   const fields: Partial<repo.Fields> = { name: data.name, isActive: data.isActive };
   // secret vacío/omitido = conservar; con valor = re-cifrar y re-extraer metadatos.
+  if (data.secret && existing.kind === "compute") {
+    throw HttpError.badRequest("La cuenta de la VM no usa clave: su identidad la da Compute Engine");
+  }
   if (data.secret) {
     const { metadata } = buildSecret(existing.provider, data.secret);
     fields.secretEncrypted = encryptSecret(data.secret);
@@ -96,12 +101,48 @@ export async function setDefault(id: string): Promise<CloudCredentialDto> {
 }
 
 /**
+ * Clave JSON de una credencial del catálogo. null = autenticar con ADC: es el caso de
+ * la cuenta de la VM (`compute`, sin clave) y de una credencial que ya no existe.
+ */
+export async function getServiceAccountJson(id: string): Promise<string | null> {
+  const enc = await repo.getSecretEncrypted(id);
+  return enc ? decryptSecret(enc) : null;
+}
+
+/**
  * Clave JSON de la service account GCP a usar: la indicada o, si no hay, la GCP
  * activa por defecto del catálogo. null = Application Default Credentials (ADC).
  */
 export async function resolveGcpServiceAccountJson(id: string | null): Promise<string | null> {
   const credId = id ?? (await repo.findDefaultActiveId("gcp"));
-  if (!credId) return null;
-  const enc = await repo.getSecretEncrypted(credId);
-  return enc ? decryptSecret(enc) : null;
+  return credId ? getServiceAccountJson(credId) : null;
+}
+
+/** Identidad de la VM de Compute Engine (si DBKeeper corre en una) y si ya está en el catálogo. */
+export async function detectCompute(): Promise<ComputeIdentityDto> {
+  const id = await detectComputeIdentity();
+  return { ...id, credentialId: id.available ? await repo.findComputeId("gcp") : null };
+}
+
+/**
+ * Agrega la cuenta de servicio de la VM al catálogo (sin clave) para poder elegirla
+ * en destinos e instancias como cualquier otra.
+ */
+export async function createComputeCredential(): Promise<CloudCredentialDto> {
+  const id = await detectComputeIdentity();
+  if (!id.available || !id.email) {
+    throw HttpError.badRequest("No se detectó una cuenta de servicio de Compute Engine: DBKeeper no corre en una VM de GCP o la VM no tiene cuenta asignada");
+  }
+  if (await repo.findComputeId("gcp")) throw HttpError.conflict("La cuenta de la VM ya está en el catálogo");
+  const name = `VM: ${id.email}`;
+  if (await repo.findByName(name)) throw HttpError.conflict("Ya existe una cuenta con ese nombre");
+  const newId = await repo.insert({
+    name,
+    provider: "gcp",
+    kind: "compute",
+    metadata: { clientEmail: id.email, projectId: id.projectId },
+    secretEncrypted: null,
+    isActive: true,
+  });
+  return getCredential(newId);
 }

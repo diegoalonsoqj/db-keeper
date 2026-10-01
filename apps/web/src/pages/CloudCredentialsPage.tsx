@@ -6,6 +6,7 @@ import {
   DEFAULT_PAGE_SIZE,
   type CloudCredentialDto,
   type CloudProvider,
+  type ComputeIdentityDto,
   type Paginated,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
@@ -19,13 +20,15 @@ const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String
 
 interface FormState {
   id: string | null;
+  /** true si edita la cuenta de la VM (no lleva clave). */
+  isCompute: boolean;
   provider: CloudProvider;
   name: string;
   secret: string;
   isActive: boolean;
 }
 
-const emptyForm: FormState = { id: null, provider: "gcp", name: "", secret: "", isActive: true };
+const emptyForm: FormState = { id: null, isCompute: false, provider: "gcp", name: "", secret: "", isActive: true };
 
 /** Email/proyecto (GCP) u otros metadatos para identificar la cuenta. */
 function metaLabel(c: CloudCredentialDto): string {
@@ -45,9 +48,26 @@ export function CloudCredentialsPage() {
   const [data, setData] = useState<Paginated<CloudCredentialDto>>({ items: [], total: 0 });
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
+  // Cuenta de servicio de la VM (Compute Engine) donde corre DBKeeper, si la hay.
+  const [compute, setCompute] = useState<ComputeIdentityDto | null>(null);
 
   async function reload() {
-    setData(await api.get<Paginated<CloudCredentialDto>>(`/cloud-credentials?limit=${page.limit}&offset=${page.offset}`));
+    const [list, vm] = await Promise.all([
+      api.get<Paginated<CloudCredentialDto>>(`/cloud-credentials?limit=${page.limit}&offset=${page.offset}`),
+      api.get<ComputeIdentityDto>("/cloud-credentials/compute"),
+    ]);
+    setData(list);
+    setCompute(vm);
+  }
+
+  async function addCompute() {
+    try {
+      await api.post("/cloud-credentials/compute", {});
+      await reload();
+      toast.success(t("common.saved"));
+    } catch (e) {
+      toast.error(errMsg(e));
+    }
   }
   useEffect(() => {
     reload().catch((e) => toast.error(errMsg(e)));
@@ -59,7 +79,7 @@ export function CloudCredentialsPage() {
     try {
       const body: Record<string, unknown> = { name: form.name.trim(), isActive: form.isActive };
       if (!form.id) body.provider = form.provider;
-      if (form.secret.trim()) body.secret = form.secret.trim();
+      if (!form.isCompute && form.secret.trim()) body.secret = form.secret.trim();
       if (form.id) await api.patch(`/cloud-credentials/${form.id}`, body);
       else await api.post("/cloud-credentials", body);
       setForm(null);
@@ -88,6 +108,28 @@ export function CloudCredentialsPage() {
         {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("cloud.new")}</button>}
       </div>
 
+      {compute?.available && (
+        <div className="card">
+          <p>
+            {t("cloud.computeDetected")} <strong>{compute.email}</strong>
+            {compute.projectId ? ` · ${compute.projectId}` : ""}
+          </p>
+          {compute.missingScopes.length > 0 && (
+            <p className="error">{t("cloud.computeScopesWarn", { missing: compute.missingScopes.join(", ") })}</p>
+          )}
+          {compute.credentialId ? (
+            <small className="muted">{t("cloud.computeAdded")}</small>
+          ) : (
+            canWrite && (
+              <>
+                <button onClick={addCompute}>{t("cloud.computeAdd")}</button>
+                <small className="muted"> {t("cloud.computeAddHint")}</small>
+              </>
+            )
+          )}
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="grid">
           <thead>
@@ -112,7 +154,9 @@ export function CloudCredentialsPage() {
               <tr key={c.id}>
                 <td>{c.name}</td>
                 <td>{t(`cloud.provider_${c.provider}`)}</td>
-                <td>{metaLabel(c) || t("common.none")}</td>
+                <td>
+                  {c.kind === "compute" && <span className="badge">{t("cloud.kindCompute")}</span>} {metaLabel(c) || t("common.none")}
+                </td>
                 <td>
                   {c.isDefault && (
                     <span className="star-default" title={t("cloud.isDefault")} aria-label={t("cloud.isDefault")}>
@@ -128,7 +172,7 @@ export function CloudCredentialsPage() {
                         className="icon-btn"
                         title={t("common.edit")}
                         aria-label={t("common.edit")}
-                        onClick={() => setForm({ id: c.id, provider: c.provider, name: c.name, secret: "", isActive: c.isActive })}
+                        onClick={() => setForm({ id: c.id, isCompute: c.kind === "compute", provider: c.provider, name: c.name, secret: "", isActive: c.isActive })}
                       >
                         <Pencil size={16} />
                       </button>
@@ -179,16 +223,20 @@ export function CloudCredentialsPage() {
             {t("cloud.name")}
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
-          <label>
-            {t("cloud.secret")}
-            <textarea
-              rows={6}
-              value={form.secret}
-              placeholder={t("cloud.secretPlaceholder")}
-              onChange={(e) => setForm({ ...form, secret: e.target.value })}
-            />
-            <small>{form.id ? t("cloud.secretHintEdit") : t("cloud.secretHint")}</small>
-          </label>
+          {form.isCompute ? (
+            <small className="muted">{t("cloud.computeNoKey")}</small>
+          ) : (
+            <label>
+              {t("cloud.secret")}
+              <textarea
+                rows={6}
+                value={form.secret}
+                placeholder={t("cloud.secretPlaceholder")}
+                onChange={(e) => setForm({ ...form, secret: e.target.value })}
+              />
+              <small>{form.id ? t("cloud.secretHintEdit") : t("cloud.secretHint")}</small>
+            </label>
+          )}
           <label className="inline">
             <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
             {t("common.active")}

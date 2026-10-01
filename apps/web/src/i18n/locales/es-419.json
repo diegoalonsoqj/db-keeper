@@ -337,7 +337,14 @@
     "secretPlaceholder": "{ \"type\": \"service_account\", \"project_id\": \"...\", ... }",
     "secretHint": "Pega el JSON de la cuenta de servicio que entrega GCP. Se guarda cifrado.",
     "secretHintEdit": "Déjalo vacío para conservar la credencial actual.",
-    "empty": "Sin cuentas de servicio"
+    "empty": "Sin cuentas de servicio",
+    "computeDetected": "DBKeeper corre en una VM de Compute Engine con la cuenta de servicio",
+    "computeScopesWarn": "Los access scopes de la VM no permiten: {{missing}}. Aunque la cuenta tenga los roles IAM, fallará. Cambia los scopes de la VM a cloud-platform (requiere detenerla).",
+    "computeAdded": "Ya está en el catálogo: puedes elegirla en Almacenamiento e Instancias.",
+    "computeAdd": "Usar la cuenta de la VM",
+    "computeAddHint": "La agrega al catálogo sin clave; se autentica con la identidad de la VM.",
+    "kindCompute": "VM",
+    "computeNoKey": "Cuenta de la VM (Compute Engine): no usa clave, la identidad la da la propia VM. Los permisos se asignan por IAM a esa cuenta."
   },
   "settings": {
     "title": "Configuración",

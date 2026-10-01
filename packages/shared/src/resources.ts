@@ -290,10 +290,18 @@ export interface StorageTargetDto {
  * JSON de GCP, claves de AWS, etc.) nunca se expone; `metadata` lleva datos no
  * secretos para identificarla (p. ej. GCP: `clientEmail`, `projectId`).
  */
+/**
+ * Tipo de credencial de nube: `key` = clave (JSON) cifrada en el catálogo;
+ * `compute` = identidad de la VM de Compute Engine donde corre DBKeeper (sin clave).
+ */
+export const CLOUD_CREDENTIAL_KINDS = ["key", "compute"] as const;
+export type CloudCredentialKind = (typeof CLOUD_CREDENTIAL_KINDS)[number];
+
 export interface CloudCredentialDto {
   id: string;
   name: string;
   provider: CloudProvider;
+  kind: CloudCredentialKind;
   metadata: Record<string, unknown>;
   isActive: boolean;
   isDefault: boolean;
@@ -358,4 +366,18 @@ export interface CloudSqlCheckDto {
    * por lo que necesita `roles/storage.objectCreator` sobre él.
    */
   serviceAccountEmail: string | null;
+}
+
+/** Identidad de la VM (Compute Engine) detectada en el servidor de metadatos. */
+export interface ComputeIdentityDto {
+  /** true si DBKeeper corre en una VM de GCE con cuenta de servicio asignada. */
+  available: boolean;
+  email: string | null;
+  projectId: string | null;
+  /** Access scopes de la VM (limitan lo que la cuenta puede hacer, aunque IAM lo permita). */
+  scopes: string[];
+  /** Capacidades que los scopes de la VM NO cubren (vacío = todo OK). */
+  missingScopes: string[];
+  /** Id de la entrada del catálogo que ya la representa (null = aún no agregada). */
+  credentialId: string | null;
 }

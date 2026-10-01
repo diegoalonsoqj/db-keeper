@@ -1,10 +1,11 @@
-import type { CloudCredentialDto, CloudProvider } from "@dbkeeper/shared";
+import type { CloudCredentialDto, CloudCredentialKind, CloudProvider } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
 
 interface Row {
   id: string;
   name: string;
   provider: CloudProvider;
+  kind: CloudCredentialKind;
   metadata: Record<string, unknown>;
   is_active: boolean;
   is_default: boolean;
@@ -17,6 +18,7 @@ function toDto(row: Row): CloudCredentialDto {
     id: row.id,
     name: row.name,
     provider: row.provider,
+    kind: row.kind,
     metadata: row.metadata ?? {},
     isActive: row.is_active,
     isDefault: row.is_default,
@@ -25,7 +27,7 @@ function toDto(row: Row): CloudCredentialDto {
   };
 }
 
-const COLS = "id, name, provider, metadata, is_active, is_default, created_at, updated_at";
+const COLS = "id, name, provider, kind, metadata, is_active, is_default, created_at, updated_at";
 
 export async function list(p: {
   limit: number;
@@ -64,28 +66,39 @@ export async function findDefaultActiveId(provider: CloudProvider): Promise<stri
   return rows[0]?.id ?? null;
 }
 
-/** Secreto cifrado (clave de la nube) para autenticarse. */
+/** Secreto cifrado (clave de la nube) para autenticarse; null en las de tipo `compute`. */
 export async function getSecretEncrypted(id: string): Promise<string | null> {
-  const { rows } = await query<{ secret_encrypted: string }>(
+  const { rows } = await query<{ secret_encrypted: string | null }>(
     "SELECT secret_encrypted FROM secrets.cloud_credentials WHERE id = $1",
     [id],
   );
   return rows[0]?.secret_encrypted ?? null;
 }
 
+/** Id de la entrada que representa la identidad de la VM para el proveedor (o null). */
+export async function findComputeId(provider: CloudProvider): Promise<string | null> {
+  const { rows } = await query<{ id: string }>(
+    "SELECT id FROM secrets.cloud_credentials WHERE provider = $1 AND kind = 'compute'",
+    [provider],
+  );
+  return rows[0]?.id ?? null;
+}
+
 export interface Fields {
   name: string;
   provider: CloudProvider;
   metadata: Record<string, unknown>;
-  secretEncrypted: string;
+  /** null solo en las de tipo `compute` (sin clave). */
+  secretEncrypted: string | null;
   isActive: boolean;
+  kind?: CloudCredentialKind;
 }
 
 export async function insert(fields: Fields): Promise<string> {
   const { rows } = await query<{ id: string }>(
-    `INSERT INTO secrets.cloud_credentials (name, provider, metadata, secret_encrypted, is_active)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-    [fields.name, fields.provider, fields.metadata, fields.secretEncrypted, fields.isActive],
+    `INSERT INTO secrets.cloud_credentials (name, provider, kind, metadata, secret_encrypted, is_active)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    [fields.name, fields.provider, fields.kind ?? "key", fields.metadata, fields.secretEncrypted, fields.isActive],
   );
   return rows[0]!.id;
 }
