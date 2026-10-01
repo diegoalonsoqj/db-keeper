@@ -37,3 +37,7 @@ Thumbs.db
 *.sql.gz
 *.bak
 *.archive
+
+# Scripts de referencia/inspiración para DBKeeper (solo locales, nunca versionar).
+docs/*.py
+docs/*.sh
