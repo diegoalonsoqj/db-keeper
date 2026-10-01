@@ -36,14 +36,6 @@ export async function getGcsObjectSize(auth: GcsAuth, objectName: string): Promi
   return Number(meta.size ?? 0);
 }
 
-/** Borra un objeto de GCS. `ignoreNotFound` evita error si ya no existe. */
-export async function deleteGcsObject(auth: GcsAuth, objectName: string): Promise<void> {
-  await client(auth.serviceAccountJson)
-    .bucket(auth.bucket)
-    .file(objectName)
-    .delete({ ignoreNotFound: true });
-}
-
 /** Parsea `gs://bucket/objeto` → `{ bucket, object }` (o null). */
 export function parseGcsUri(uri: string): { bucket: string; object: string } | null {
   const m = /^gs:\/\/([^/]+)\/(.+)$/.exec(uri);

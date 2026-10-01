@@ -2,13 +2,9 @@ import { rm } from "node:fs/promises";
 import type { RetentionPolicy } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
 import { HttpError } from "../../lib/http-error.js";
-import { decryptSecret } from "../../lib/crypto.js";
 import * as serversRepo from "../servers/servers.repository.js";
-import * as storageRepo from "../storage/storage.repository.js";
-import * as cloudRepo from "../cloud-credentials/cloud-credentials.repository.js";
 import * as repo from "./backups.repository.js";
 import { resolveBackupFile } from "./engine/files.js";
-import { parseGcsUri, deleteGcsObject } from "./engine/gcs.js";
 
 /** Límites defensivos para la política (evita valores absurdos en la BD). */
 const MAX_DAYS = 3650; // ~10 años
@@ -50,10 +46,11 @@ function parseStored(options: Record<string, unknown>): RetentionPolicy {
 }
 
 /**
- * Aplica la retención de un evento: borra el archivo físico (disco local o GCS)
- * de los backups que la incumplen y marca el ítem como purgado, conservando el
- * registro para auditoría. No lanza: cualquier fallo se loguea. SQL Server se
- * omite (su .bak vive en el host de la instancia, fuera de nuestro alcance).
+ * Aplica la retención de un evento: borra el archivo del disco local de los backups
+ * que la incumplen y marca el ítem como purgado, conservando el registro para
+ * auditoría. No lanza: cualquier fallo se loguea. Solo aplica al almacenamiento local:
+ * la app nunca borra objetos de buckets, y SQL Server nativo se omite (su .bak vive
+ * en el host de la instancia, fuera de nuestro alcance).
  */
 export async function enforceRetentionForJob(jobId: string): Promise<void> {
   try {
@@ -63,7 +60,9 @@ export async function enforceRetentionForJob(jobId: string): Promise<void> {
     if (policy.days == null && policy.keepLast == null) return;
 
     const server = await serversRepo.findById(job.serverId);
-    if (server?.engine === "sqlserver") return; // no podemos borrar el .bak remoto
+    // Solo almacenamiento local: los métodos a bucket (gcloud, cloudsql_export) no se
+    // purgan, y en SQL Server nativo el .bak vive en el host de la instancia.
+    if (job.method !== "dump" || server?.engine === "sqlserver") return;
 
     const items = await repo.findPrunableItems(jobId, policy);
     if (items.length === 0) return;
@@ -86,21 +85,9 @@ export async function enforceRetentionForJob(jobId: string): Promise<void> {
   }
 }
 
-/** Borra el archivo de backup, ya sea local o un objeto en GCS (`gs://`). */
+/** Borra el archivo de backup local (la app nunca borra objetos de buckets). */
 async function deletePhysical(fileName: string): Promise<void> {
-  if (fileName.startsWith("gs://")) {
-    const parsed = parseGcsUri(fileName);
-    if (!parsed) throw new Error("URI de backup inválida");
-    const target = await storageRepo.findBucketByName(parsed.bucket);
-    const enc = target?.cloudCredentialId
-      ? await cloudRepo.getSecretEncrypted(target.cloudCredentialId)
-      : null;
-    await deleteGcsObject(
-      { bucket: parsed.bucket, serviceAccountJson: enc ? decryptSecret(enc) : null },
-      parsed.object,
-    );
-    return;
-  }
+  if (fileName.startsWith("gs://")) throw new Error("La retención no borra objetos de buckets");
   await rm(resolveBackupFile(fileName), { force: true });
 }
 

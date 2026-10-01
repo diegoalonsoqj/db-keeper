@@ -3,11 +3,10 @@ import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
 import * as storageRepo from "../storage/storage.repository.js";
-import * as cloudRepo from "../cloud-credentials/cloud-credentials.repository.js";
+import { getServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { logger } from "../../config/logger.js";
-import { decryptSecret } from "../../lib/crypto.js";
 import * as repo from "./backups.repository.js";
 import type { JobFields } from "./backups.repository.js";
 import { runExecution } from "./engine/runner.js";
@@ -106,23 +105,35 @@ export async function getJob(id: string): Promise<BackupJobDto> {
   return job;
 }
 
-/** Valida la retención de `options` y devuelve una copia con la clave saneada. */
-function applyRetention(options: Record<string, unknown>): Record<string, unknown> {
-  const retention = normalizeRetention(options);
+/**
+ * Valida la retención de `options` y devuelve una copia con la clave saneada. Solo
+ * aplica al método local (`dump`): en los métodos a bucket se descarta, porque la app
+ * no borra objetos de buckets.
+ */
+function applyRetention(options: Record<string, unknown>, method: BackupMethod): Record<string, unknown> {
+  const retention = method === "dump" ? normalizeRetention(options) : null;
   const next = { ...options };
   if (retention) next.retention = retention;
   else delete next.retention;
   return next;
 }
 
+/** Un destino recién asignado a un evento debe estar activo. */
+async function assertActiveBucket(bucketId: string | null | undefined): Promise<void> {
+  if (!bucketId) return;
+  const t = await storageRepo.findById(bucketId);
+  if (t && !t.isActive) throw HttpError.badRequest(`El destino '${t.name}' está inactivo`);
+}
+
 export async function createJob(data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
+  await assertActiveBucket(data.bucketId);
   if (data.method === "cloudsql_export") await assertCloudSqlExport(data.serverId, data.bucketId);
   const databases = cleanDatabases(data.databases);
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   const environment = await resolveEnvironment(data.serverId, data.credentialId);
   const { databases: _omit, ...fields } = data;
-  const options = applyRetention(data.options);
+  const options = applyRetention(data.options, data.method);
   const id = await repo.insertJob({ ...fields, options, environment }, databases);
   return getJob(id);
 }
@@ -131,6 +142,7 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   const current = await repo.findJobById(id);
   if (!current) throw HttpError.notFound("Evento de backup no encontrado");
   await validateRefs(data);
+  if (data.bucketId !== undefined && data.bucketId !== current.bucketId) await assertActiveBucket(data.bucketId);
   let databases: string[] | undefined;
   if (data.databases) {
     databases = cleanDatabases(data.databases);
@@ -144,7 +156,10 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
-  if (data.options !== undefined) fields.options = applyRetention(data.options);
+  // Recalcula si cambian las opciones o el método (al pasar a bucket se quita la retención).
+  if (data.options !== undefined || data.method !== undefined) {
+    fields.options = applyRetention(data.options ?? current.options, data.method ?? current.method);
+  }
   await repo.updateJob(id, { ...fields, environment }, databases);
   return getJob(id);
 }
@@ -216,14 +231,14 @@ export async function getItemDownload(executionId: string, itemId: string): Prom
     const parsed = parseGcsUri(item.fileName);
     if (!parsed) throw HttpError.badRequest("URI de backup inválida");
     const target = await storageRepo.findBucketByName(parsed.bucket);
-    const enc = target?.cloudCredentialId
-      ? await cloudRepo.getSecretEncrypted(target.cloudCredentialId)
+    const serviceAccountJson = target?.cloudCredentialId
+      ? await getServiceAccountJson(target.cloudCredentialId)
       : null;
     return {
       kind: "gcs",
       bucket: parsed.bucket,
       object: parsed.object,
-      serviceAccountJson: enc ? decryptSecret(enc) : null,
+      serviceAccountJson,
       fileName: path.basename(parsed.object),
     };
   }

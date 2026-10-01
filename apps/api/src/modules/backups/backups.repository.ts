@@ -372,6 +372,9 @@ export async function findPrunableItems(
      FROM core.execution_items i
      JOIN ranked r ON r.id = i.execution_id
      WHERE i.status = 'success' AND i.file_name IS NOT NULL AND i.pruned_at IS NULL
+       -- La retención solo aplica al almacenamiento local: en buckets la app no borra
+       -- (la limpieza se gestiona con el ciclo de vida del bucket en GCS).
+       AND i.file_name NOT LIKE 'gs://%'
        AND ( ($2::int IS NOT NULL AND r.rn > $2::int)
           OR ($3::int IS NOT NULL AND r.created_at < now() - make_interval(days => $3::int)) )`,
     [jobId, policy.keepLast, policy.days],

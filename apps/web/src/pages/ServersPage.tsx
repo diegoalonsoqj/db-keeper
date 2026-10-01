@@ -15,6 +15,7 @@ import {
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { environmentLabel } from "../lib/environments";
+import { optionLabel } from "../lib/options";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -270,7 +271,7 @@ export function ServersPage() {
                 .filter((env) => env.isActive || env.code === form.environment)
                 .map((env) => (
                   <option key={env.id} value={env.code}>
-                    {env.name} ({env.code})
+                    {optionLabel(t, `${env.name} (${env.code})`, env.isActive)}
                   </option>
                 ))}
             </select>
@@ -305,7 +306,7 @@ export function ServersPage() {
                     .filter((c) => c.isActive || c.id === form.cloudCredentialId)
                     .map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}
+                        {optionLabel(t, c.name, c.isActive)}
                       </option>
                     ))}
                 </select>

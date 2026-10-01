@@ -11,6 +11,7 @@ import {
   type StorageTargetDto,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { optionLabel } from "../lib/options";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 
@@ -224,10 +225,10 @@ export function SettingsPage() {
               {t("common.none")}
             </option>
             {targets
-              .filter((s) => s.type === "local")
+              .filter((s) => s.type === "local" && (s.isActive || s.isDefault))
               .map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}
+                  {optionLabel(t, s.name, s.isActive)}
                 </option>
               ))}
           </select>
@@ -243,10 +244,10 @@ export function SettingsPage() {
               {t("common.none")}
             </option>
             {targets
-              .filter((s) => s.type === "bucket")
+              .filter((s) => s.type === "bucket" && (s.isActive || s.isDefault))
               .map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}
+                  {optionLabel(t, s.name, s.isActive)}
                 </option>
               ))}
           </select>
@@ -262,10 +263,10 @@ export function SettingsPage() {
               {t("common.none")}
             </option>
             {accounts
-              .filter((a) => a.provider === "gcp")
+              .filter((a) => a.provider === "gcp" && (a.isActive || a.isDefault))
               .map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name}
+                  {optionLabel(t, a.name, a.isActive)}
                 </option>
               ))}
           </select>

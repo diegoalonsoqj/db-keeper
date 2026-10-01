@@ -13,6 +13,7 @@ import {
 import { api, ApiClientError } from "../lib/api";
 import { Modal } from "./Modal";
 import { METHOD_LABELS } from "../lib/backup-methods";
+import { optionLabel } from "../lib/options";
 
 interface Props {
   job: BackupJobDto | null; // null = nuevo
@@ -171,9 +172,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
     else delete options.sqlBackupDir;
 
-    // Retención (independiente del motor): días y/o cantidad. Vacío = sin regla.
-    const days = retDays.trim() ? Number(retDays) : null;
-    const keepLast = retKeep.trim() ? Number(retKeep) : null;
+    // Retención: solo almacenamiento local (método dump); en buckets la app no borra.
+    // Días y/o cantidad; vacío = sin regla.
+    const days = !usesBucket && retDays.trim() ? Number(retDays) : null;
+    const keepLast = !usesBucket && retKeep.trim() ? Number(retKeep) : null;
     if ((days != null && (!Number.isInteger(days) || days < 1)) ||
         (keepLast != null && (!Number.isInteger(keepLast) || keepLast < 1))) {
       return setError(t("backups.retentionInvalid"));
@@ -272,9 +274,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             <option value="">{t("backups.bucketNone")}</option>
             {buckets
               .filter((b) => b.type === "bucket" && (!isExport || b.provider === "gcp"))
+              .filter((b) => b.isActive || b.id === bucketId)
               .map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name}
+                  {optionLabel(t, b.name, b.isActive)}
                 </option>
               ))}
           </select>
@@ -386,31 +389,35 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         </>
       )}
 
-      <fieldset>
-        <legend>{t("backups.retention")}</legend>
-        <small className="muted">{t("backups.retentionHint")}</small>
-        <label>
-          {t("backups.retentionDays")}
-          <input
-            type="number"
-            min={1}
-            value={retDays}
-            onChange={(e) => setRetDays(e.target.value)}
-            placeholder={t("backups.retentionNoLimit")}
-          />
-        </label>
-        <label>
-          {t("backups.retentionKeep")}
-          <input
-            type="number"
-            min={1}
-            value={retKeep}
-            onChange={(e) => setRetKeep(e.target.value)}
-            placeholder={t("backups.retentionNoLimit")}
-          />
-        </label>
-        {engine === "sqlserver" && !isExport && <small className="muted">{t("backups.retentionSqlNote")}</small>}
-      </fieldset>
+      {usesBucket ? (
+        <small className="muted">{t("backups.retentionBucketNote")}</small>
+      ) : (
+        <fieldset>
+          <legend>{t("backups.retention")}</legend>
+          <small className="muted">{t("backups.retentionHint")}</small>
+          <label>
+            {t("backups.retentionDays")}
+            <input
+              type="number"
+              min={1}
+              value={retDays}
+              onChange={(e) => setRetDays(e.target.value)}
+              placeholder={t("backups.retentionNoLimit")}
+            />
+          </label>
+          <label>
+            {t("backups.retentionKeep")}
+            <input
+              type="number"
+              min={1}
+              value={retKeep}
+              onChange={(e) => setRetKeep(e.target.value)}
+              placeholder={t("backups.retentionNoLimit")}
+            />
+          </label>
+          {engine === "sqlserver" && <small className="muted">{t("backups.retentionSqlNote")}</small>}
+        </fieldset>
+      )}
 
       <label className="inline">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

@@ -8,6 +8,7 @@ import {
   type Paginated,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { optionLabel } from "../lib/options";
 import { environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
@@ -220,7 +221,7 @@ export function CredentialsPage() {
                 .filter((env) => env.isActive || env.code === form.environment)
                 .map((env) => (
                   <option key={env.id} value={env.code}>
-                    {env.name} ({env.code})
+                    {optionLabel(t, `${env.name} (${env.code})`, env.isActive)}
                   </option>
                 ))}
             </select>

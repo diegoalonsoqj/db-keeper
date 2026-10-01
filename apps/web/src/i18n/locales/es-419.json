@@ -187,7 +187,8 @@
     "dbRequired": "Selecciona al menos una base de datos.",
     "bucketRequired": "El método gcloud requiere un bucket de destino.",
     "methodCloudSqlExport": "Export de Cloud SQL (.bak a bucket)",
-    "methodCloudSqlExportHint": "La propia instancia Cloud SQL genera un .bak FULL copy-only y lo deja en el bucket; no usa credencial de BD. La service account de la instancia necesita roles/storage.objectCreator sobre el bucket."
+    "methodCloudSqlExportHint": "La propia instancia Cloud SQL genera un .bak FULL copy-only y lo deja en el bucket; no usa credencial de BD. La service account de la instancia necesita roles/storage.objectCreator sobre el bucket.",
+    "retentionBucketNote": "En buckets la app no borra backups: la retención solo aplica al almacenamiento local. Para limpiar el bucket usa su ciclo de vida (lifecycle) en GCS."
   },
   "schedule": {
     "title": "Programar",

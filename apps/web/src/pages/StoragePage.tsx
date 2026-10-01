@@ -12,6 +12,7 @@ import {
   type StorageType,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { optionLabel } from "../lib/options";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -252,7 +253,7 @@ export function StoragePage() {
                     .filter((a) => a.provider === form.provider && (a.isActive || a.id === form.cloudCredentialId))
                     .map((a) => (
                       <option key={a.id} value={a.id}>
-                        {a.name}
+                        {optionLabel(t, a.name, a.isActive)}
                       </option>
                     ))}
                 </select>

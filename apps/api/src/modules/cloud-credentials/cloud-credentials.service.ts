@@ -96,17 +96,34 @@ export async function deleteCredential(id: string): Promise<void> {
 export async function setDefault(id: string): Promise<CloudCredentialDto> {
   const c = await repo.findById(id);
   if (!c) throw HttpError.notFound("Cuenta de servicio no encontrada");
+  if (!c.isActive) throw HttpError.badRequest("Una cuenta inactiva no puede ser la predeterminada");
   await repo.setDefault(id, c.provider);
   return getCredential(id);
 }
 
 /**
- * Clave JSON de una credencial del catálogo. null = autenticar con ADC: es el caso de
- * la cuenta de la VM (`compute`, sin clave) y de una credencial que ya no existe.
+ * Clave JSON de una credencial del catálogo. null = autenticar con ADC (es el caso de
+ * la cuenta de la VM, `compute`, sin clave). Una cuenta **inactiva** no se usa: lanza
+ * un error claro en vez de seguir autenticando con ella.
  */
 export async function getServiceAccountJson(id: string): Promise<string | null> {
+  const c = await repo.findById(id);
+  if (!c) throw HttpError.badRequest("La cuenta de servicio asignada ya no existe");
+  if (!c.isActive) {
+    throw HttpError.badRequest(`La cuenta de servicio '${c.name}' está inactiva; actívala o asigna otra`);
+  }
   const enc = await repo.getSecretEncrypted(id);
   return enc ? decryptSecret(enc) : null;
+}
+
+/** Al asignar una cuenta (destino o instancia): debe existir, ser del proveedor y estar activa. */
+export async function assertAssignable(id: string, provider: CloudProvider): Promise<void> {
+  const c = await repo.findById(id);
+  if (!c) throw HttpError.badRequest("La cuenta de servicio seleccionada no existe");
+  if (c.provider !== provider) {
+    throw HttpError.badRequest(`La cuenta de servicio '${c.name}' no es del proveedor ${provider}`);
+  }
+  if (!c.isActive) throw HttpError.badRequest(`La cuenta de servicio '${c.name}' está inactiva`);
 }
 
 /**

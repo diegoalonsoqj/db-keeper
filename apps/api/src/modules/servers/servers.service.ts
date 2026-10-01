@@ -2,8 +2,7 @@ import type { CloudSqlCheckDto, DbEngine, ServerDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { getInstance } from "../../lib/cloudsql.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
-import * as cloudRepo from "../cloud-credentials/cloud-credentials.repository.js";
-import { resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
+import { assertAssignable, resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import * as repo from "./servers.repository.js";
 import type { ServerFields } from "./servers.repository.js";
 
@@ -38,12 +37,14 @@ async function assertCredentialExists(credentialId: string | null | undefined): 
   }
 }
 
-/** La credencial de nube para la API de Cloud SQL debe existir y ser de GCP. */
-async function assertCloudCredential(id: string | null | undefined): Promise<void> {
-  if (!id) return;
-  const c = await cloudRepo.findById(id);
-  if (!c) throw HttpError.badRequest("La cuenta de servicio seleccionada no existe");
-  if (c.provider !== "gcp") throw HttpError.badRequest("La API de Cloud SQL requiere una cuenta de servicio de GCP");
+/**
+ * La credencial de nube para la API de Cloud SQL debe existir, ser de GCP y estar
+ * activa. Solo se valida si cambia: editar otros campos de una instancia cuya cuenta
+ * se desactivó no debe bloquearse (el backup sí avisará al ejecutar).
+ */
+async function assertCloudCredential(id: string | null | undefined, current: string | null = null): Promise<void> {
+  if (!id || id === current) return;
+  await assertAssignable(id, "gcp");
 }
 
 export async function createServer(data: ServerData): Promise<ServerDto> {
@@ -65,7 +66,7 @@ export async function updateServer(id: string, data: Partial<ServerData>): Promi
     if (dup && dup.id !== id) throw HttpError.conflict("Ya existe una instancia con ese nombre");
   }
   await assertCredentialExists(data.credentialId);
-  await assertCloudCredential(data.cloudCredentialId);
+  await assertCloudCredential(data.cloudCredentialId, existing.cloudCredentialId);
   await repo.updateServerFields(id, data as Partial<ServerFields>);
   return getServer(id);
 }

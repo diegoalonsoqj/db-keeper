@@ -187,7 +187,8 @@
     "dbRequired": "Select at least one database.",
     "bucketRequired": "The gcloud method requires a destination bucket.",
     "methodCloudSqlExport": "Cloud SQL export (.bak to bucket)",
-    "methodCloudSqlExportHint": "The Cloud SQL instance itself writes a FULL copy-only .bak to the bucket; no database credential is used. The instance's service account needs roles/storage.objectCreator on the bucket."
+    "methodCloudSqlExportHint": "The Cloud SQL instance itself writes a FULL copy-only .bak to the bucket; no database credential is used. The instance's service account needs roles/storage.objectCreator on the bucket.",
+    "retentionBucketNote": "The app never deletes backups from buckets: retention only applies to local storage. Use the bucket lifecycle rules in GCS to clean it up."
   },
   "schedule": {
     "title": "Schedule",
