@@ -12,6 +12,7 @@ import {
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { Modal } from "./Modal";
+import { METHOD_LABELS } from "../lib/backup-methods";
 
 interface Props {
   job: BackupJobDto | null; // null = nuevo
@@ -63,7 +64,13 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   // ambos métodos: "Subir a bucket" también ejecuta el dump, solo cambia el destino.
   const selectedServer = servers.find((s) => s.id === serverId);
   const engine = selectedServer?.engine;
-  const dumpOpts = engine ? ENGINE_BACKUP_OPTIONS[engine] : [];
+  // Export de Cloud SQL: solo para SQL Server marcado como Cloud SQL. Lo genera la
+  // instancia en el bucket, así que no aplican las opciones de dump.
+  const exportAvailable = engine === "sqlserver" && !!selectedServer?.isCloudSql;
+  const isExport = method === "cloudsql_export";
+  const methods = BACKUP_METHODS.filter((m) => m !== "cloudsql_export" || exportAvailable);
+  const usesBucket = method === "gcloud" || isExport;
+  const dumpOpts = engine && !isExport ? ENGINE_BACKUP_OPTIONS[engine] : [];
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
@@ -85,6 +92,11 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const defaultLocal = buckets.find((b) => b.type === "local" && b.isDefault);
 
   const [error, setError] = useState<string | null>(null);
+
+  // Si la instancia elegida no admite el export de Cloud SQL, volver al método local.
+  useEffect(() => {
+    if (isExport && selectedServer && !exportAvailable) setMethod("dump");
+  }, [isExport, selectedServer, exportAvailable]);
 
   useEffect(() => {
     Promise.all([
@@ -110,8 +122,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     try {
       // Descubrir con la credencial del evento (override) si se eligió; si no, el
       // backend usa la de la instancia. Permite descubrir instancias sin credencial base.
+      // En el export de Cloud SQL se listan con la API de Cloud SQL (sin conectarse a la BD).
       const found = await api.post<string[]>(`/servers/${serverId}/databases/discover`, {
         credentialId: credentialId || null,
+        via: isExport ? "cloudsql" : "direct",
       });
       setDbOptions((prev) => uniq([...found, ...prev]));
     } catch (e) {
@@ -135,7 +149,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     if (!name.trim()) return setError(t("backups.nameRequired"));
     if (!serverId) return setError(t("backups.serverRequired"));
     if (selected.size === 0) return setError(t("backups.dbRequired"));
-    if (method === "gcloud" && !bucketId) return setError(t("backups.bucketRequired"));
+    if (usesBucket && !bucketId) return setError(t("backups.bucketRequired"));
     if (envMismatch) return setError(t("backups.environmentMismatch", { server: envServer, cred: envCred }));
 
     // Conserva opciones existentes y fija/limpia solo las aplicables al motor.
@@ -172,7 +186,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       serverId,
       credentialId: credentialId || null,
       method,
-      bucketId: bucketId || null,
+      bucketId: usesBucket ? bucketId || null : null,
       options,
       isActive,
       databases: [...selected],
@@ -243,20 +257,21 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       <label>
         {t("backups.method")}
         <select value={method} onChange={(e) => setMethod(e.target.value as BackupMethod)}>
-          {BACKUP_METHODS.map((m) => (
+          {methods.map((m) => (
             <option key={m} value={m}>
-              {t(m === "dump" ? "backups.methodDump" : "backups.methodGcloud")}
+              {t(METHOD_LABELS[m])}
             </option>
           ))}
         </select>
+        {isExport && <small>{t("backups.methodCloudSqlExportHint")}</small>}
       </label>
-      {method === "gcloud" ? (
+      {usesBucket ? (
         <label>
           {t("backups.destination")}
           <select value={bucketId} onChange={(e) => setBucketId(e.target.value)}>
             <option value="">{t("backups.bucketNone")}</option>
             {buckets
-              .filter((b) => b.type === "bucket")
+              .filter((b) => b.type === "bucket" && (!isExport || b.provider === "gcp"))
               .map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -394,7 +409,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             placeholder={t("backups.retentionNoLimit")}
           />
         </label>
-        {engine === "sqlserver" && <small className="muted">{t("backups.retentionSqlNote")}</small>}
+        {engine === "sqlserver" && !isExport && <small className="muted">{t("backups.retentionSqlNote")}</small>}
       </fieldset>
 
       <label className="inline">

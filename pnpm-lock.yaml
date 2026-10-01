@@ -28,6 +28,9 @@ importers:
       express:
         specifier: ^5.1.0
         version: 5.2.1
+      google-auth-library:
+        specifier: ^9.15.1
+        version: 9.15.1
       helmet:
         specifier: ^8.1.0
         version: 8.2.0

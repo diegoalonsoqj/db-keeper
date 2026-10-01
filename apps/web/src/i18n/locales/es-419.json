@@ -185,7 +185,9 @@
     "nameRequired": "El nombre es obligatorio.",
     "serverRequired": "Selecciona una instancia.",
     "dbRequired": "Selecciona al menos una base de datos.",
-    "bucketRequired": "El método gcloud requiere un bucket de destino."
+    "bucketRequired": "El método gcloud requiere un bucket de destino.",
+    "methodCloudSqlExport": "Export de Cloud SQL (.bak a bucket)",
+    "methodCloudSqlExportHint": "La propia instancia Cloud SQL genera un .bak FULL copy-only y lo deja en el bucket; no usa credencial de BD. La service account de la instancia necesita roles/storage.objectCreator sobre el bucket."
   },
   "schedule": {
     "title": "Programar",
@@ -251,7 +253,16 @@
     "credentialNone": "Sin credencial",
     "credentialHint": "Selecciona una credencial del catálogo. Puedes asignarla más tarde.",
     "environmentNone": "Sin ambiente",
-    "environmentHint": "Los ambientes se gestionan en el módulo Ambientes."
+    "environmentHint": "Los ambientes se gestionan en el módulo Ambientes.",
+    "cloudCredential": "Cuenta de servicio GCP (API de Cloud SQL)",
+    "cloudCredentialDefault": "La GCP por defecto (o ADC)",
+    "cloudCredentialHint": "Requiere cloudsql.instances.get, cloudsql.instances.export y cloudsql.databases.list.",
+    "cloudSqlCheck": "Probar Cloud SQL",
+    "cloudSqlChecking": "Probando…",
+    "cloudSqlCheckHint": "Usa la configuración guardada.",
+    "cloudSqlState": "Estado",
+    "cloudSqlSaHint": "Permite que la instancia escriba en el bucket de destino:",
+    "cloudSqlSaveFirst": "Guarda la instancia para poder probar la conexión con Cloud SQL."
   },
   "environments": {
     "intro": "Catálogo de ambientes disponibles para clasificar instancias (se usa en el nombre del backup).",

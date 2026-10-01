@@ -55,6 +55,8 @@ export interface ServerDto {
   isCloudSql: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
+  /** Credencial de nube (GCP) para la API de Cloud SQL; null = la GCP por defecto o ADC. */
+  cloudCredentialId: string | null;
   notes: string | null;
   /** Credencial del catálogo asignada a la instancia (reutilizable). */
   credentialId: string | null;
@@ -342,4 +344,18 @@ export interface SettingsDto {
   general: GeneralSettings;
   ldap: LdapSettings;
   notifications: NotificationSettings;
+}
+
+/** Resultado de "Probar Cloud SQL": datos de la instancia leídos de la API de Cloud SQL Admin. */
+export interface CloudSqlCheckDto {
+  /** Estado de la instancia (`RUNNABLE`, `SUSPENDED`…). Solo `RUNNABLE` admite exports. */
+  state: string;
+  /** Versión del motor (p. ej. `SQLSERVER_2022_STANDARD`). */
+  databaseVersion: string;
+  region: string | null;
+  /**
+   * Service account propia de la instancia: es la que escribe el archivo en el bucket,
+   * por lo que necesita `roles/storage.objectCreator` sobre él.
+   */
+  serviceAccountEmail: string | null;
 }

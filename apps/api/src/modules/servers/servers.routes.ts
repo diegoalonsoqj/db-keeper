@@ -21,6 +21,8 @@ const serverFields = {
   isCloudSql: z.boolean().default(false),
   gcpProject: z.string().max(255).nullish().transform((v) => v ?? null),
   gcpInstance: z.string().max(255).nullish().transform((v) => v ?? null),
+  // Service account GCP para la API de Cloud SQL (null = la GCP por defecto o ADC).
+  cloudCredentialId: z.string().uuid().nullish().transform((v) => v ?? null),
   notes: z.string().max(1000).nullish().transform((v) => v ?? null),
   // Credencial del catálogo (reutilizable). Puede asignarse luego.
   credentialId: z.string().uuid().nullish().transform((v) => v ?? null),
@@ -38,6 +40,7 @@ const updateSchema = z.object({
   isCloudSql: z.boolean().optional(),
   gcpProject: serverFields.gcpProject,
   gcpInstance: serverFields.gcpInstance,
+  cloudCredentialId: serverFields.cloudCredentialId,
   notes: serverFields.notes,
   credentialId: serverFields.credentialId,
 });
@@ -53,6 +56,15 @@ serversRouter.get("/", authorize("servers:read"), async (req, res, next) => {
 serversRouter.get("/:id", authorize("servers:read"), async (req, res, next) => {
   try {
     ok(res, await service.getServer(String(req.params.id)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Prueba la conexión con la API de Cloud SQL Admin (estado, versión, SA de la instancia).
+serversRouter.get("/:id/cloudsql/check", authorize("servers:read"), async (req, res, next) => {
+  try {
+    ok(res, await service.checkCloudSql(String(req.params.id)));
   } catch (err) {
     next(err);
   }

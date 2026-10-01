@@ -12,6 +12,7 @@ interface ServerRow {
   is_cloud_sql: boolean;
   gcp_project: string | null;
   gcp_instance: string | null;
+  cloud_credential_id: string | null;
   notes: string | null;
   credential_id: string | null;
   created_at: Date;
@@ -32,6 +33,7 @@ function toServer(row: ServerRow): ServerDto {
     isCloudSql: row.is_cloud_sql,
     gcpProject: row.gcp_project,
     gcpInstance: row.gcp_instance,
+    cloudCredentialId: row.cloud_credential_id,
     notes: row.notes,
     credentialId: row.credential_id,
     credentialName: row.cred_name,
@@ -85,6 +87,7 @@ export interface ServerFields {
   isCloudSql: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
+  cloudCredentialId: string | null;
   notes: string | null;
   credentialId: string | null;
 }
@@ -92,8 +95,8 @@ export interface ServerFields {
 export async function insertServer(fields: ServerFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
     `INSERT INTO core.servers
-       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id, cloud_credential_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
     [
       fields.name,
       fields.engine,
@@ -106,6 +109,7 @@ export async function insertServer(fields: ServerFields): Promise<string> {
       fields.gcpInstance,
       fields.notes,
       fields.credentialId,
+      fields.cloudCredentialId,
     ],
   );
   return rows[0]!.id;
@@ -122,6 +126,7 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
     isCloudSql: "is_cloud_sql",
     gcpProject: "gcp_project",
     gcpInstance: "gcp_instance",
+    cloudCredentialId: "cloud_credential_id",
     notes: "notes",
     credentialId: "credential_id",
   };

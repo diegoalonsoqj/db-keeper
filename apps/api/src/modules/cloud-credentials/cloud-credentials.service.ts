@@ -1,6 +1,6 @@
 import type { CloudCredentialDto, CloudProvider } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
-import { encryptSecret } from "../../lib/crypto.js";
+import { decryptSecret, encryptSecret } from "../../lib/crypto.js";
 import * as repo from "./cloud-credentials.repository.js";
 
 export async function listCredentials(p: { limit: number; offset: number }) {
@@ -83,7 +83,7 @@ export async function deleteCredential(id: string): Promise<void> {
   if (!c) throw HttpError.notFound("Cuenta de servicio no encontrada");
   const used = await repo.countTargetsUsing(id);
   if (used > 0) {
-    throw HttpError.conflict(`La cuenta está en uso por ${used} destino(s) de almacenamiento`);
+    throw HttpError.conflict(`La cuenta está en uso por ${used} destino(s) de almacenamiento o instancia(s)`);
   }
   await repo.remove(id);
 }
@@ -93,4 +93,15 @@ export async function setDefault(id: string): Promise<CloudCredentialDto> {
   if (!c) throw HttpError.notFound("Cuenta de servicio no encontrada");
   await repo.setDefault(id, c.provider);
   return getCredential(id);
+}
+
+/**
+ * Clave JSON de la service account GCP a usar: la indicada o, si no hay, la GCP
+ * activa por defecto del catálogo. null = Application Default Credentials (ADC).
+ */
+export async function resolveGcpServiceAccountJson(id: string | null): Promise<string | null> {
+  const credId = id ?? (await repo.findDefaultActiveId("gcp"));
+  if (!credId) return null;
+  const enc = await repo.getSecretEncrypted(credId);
+  return enc ? decryptSecret(enc) : null;
 }

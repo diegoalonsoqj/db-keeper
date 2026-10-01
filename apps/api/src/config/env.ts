@@ -30,6 +30,9 @@ const envSchema = z.object({
   MONGODUMP_PATH: z.string().default("mongodump"),
   // Timeout por base de datos para el volcado (ms). Por defecto 30 min.
   BACKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(1_800_000),
+  // Timeout por BD para el export de Cloud SQL (ms): lo genera la instancia y en BDs
+  // grandes tarda bastante más que un dump. Por defecto 6 h.
+  CLOUDSQL_EXPORT_TIMEOUT_MS: z.coerce.number().int().positive().default(21_600_000),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 

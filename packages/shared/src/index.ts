@@ -20,8 +20,11 @@ export type AuthType = (typeof AUTH_TYPES)[number];
 export const DB_ENGINES = ["sqlserver", "mysql", "postgres", "mongo"] as const;
 export type DbEngine = (typeof DB_ENGINES)[number];
 
-/** Método de generación de backup. */
-export const BACKUP_METHODS = ["dump", "gcloud"] as const;
+/**
+ * Método de generación de backup: dump local, dump subido a un bucket (`gcloud`) o
+ * export gestionado por Cloud SQL (`cloudsql_export`: la instancia escribe en GCS).
+ */
+export const BACKUP_METHODS = ["dump", "gcloud", "cloudsql_export"] as const;
 export type BackupMethod = (typeof BACKUP_METHODS)[number];
 
 /** Estado de un evento de backup o de cada ítem (por BD). */

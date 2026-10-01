@@ -5,6 +5,8 @@ import {
   DB_ENGINES,
   DEFAULT_PAGE_SIZE,
   DEFAULT_PORTS,
+  type CloudCredentialDto,
+  type CloudSqlCheckDto,
   type CredentialDto,
   type DbEngine,
   type EnvironmentDto,
@@ -32,6 +34,7 @@ interface FormState {
   isCloudSql: boolean;
   gcpProject: string;
   gcpInstance: string;
+  cloudCredentialId: string;
   notes: string;
   credentialId: string;
 }
@@ -47,6 +50,7 @@ const emptyForm: FormState = {
   isCloudSql: false,
   gcpProject: "",
   gcpInstance: "",
+  cloudCredentialId: "",
   notes: "",
   credentialId: "",
 };
@@ -62,18 +66,24 @@ export function ServersPage() {
   const [data, setData] = useState<Paginated<ServerDto>>({ items: [], total: 0 });
   const [credentials, setCredentials] = useState<CredentialDto[]>([]);
   const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
+  const [cloudCreds, setCloudCreds] = useState<CloudCredentialDto[]>([]);
+  // Resultado de "Probar Cloud SQL" (se limpia al abrir otro formulario).
+  const [cloudCheck, setCloudCheck] = useState<CloudSqlCheckDto | null>(null);
+  const [checking, setChecking] = useState(false);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
 
   async function reload() {
-    const [srv, creds, envs] = await Promise.all([
+    const [srv, creds, envs, clouds] = await Promise.all([
       api.get<Paginated<ServerDto>>(`/servers?limit=${page.limit}&offset=${page.offset}`),
       api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
       api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
+      api.get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100"),
     ]);
     setData(srv);
     setCredentials(creds.items);
     setEnvironments(envs.items);
+    setCloudCreds(clouds.items.filter((c) => c.provider === "gcp"));
   }
   useEffect(() => {
     reload().catch((e) => toast.error(errMsg(e)));
@@ -81,6 +91,7 @@ export function ServersPage() {
   }, [page]);
 
   function startEdit(s: ServerDto) {
+    setCloudCheck(null);
     setForm({
       id: s.id,
       name: s.name,
@@ -92,6 +103,7 @@ export function ServersPage() {
       isCloudSql: s.isCloudSql,
       gcpProject: s.gcpProject ?? "",
       gcpInstance: s.gcpInstance ?? "",
+      cloudCredentialId: s.cloudCredentialId ?? "",
       notes: s.notes ?? "",
       credentialId: s.credentialId ?? "",
     });
@@ -110,6 +122,7 @@ export function ServersPage() {
         isCloudSql: form.isCloudSql,
         gcpProject: form.gcpProject || null,
         gcpInstance: form.gcpInstance || null,
+        cloudCredentialId: form.isCloudSql ? form.cloudCredentialId || null : null,
         notes: form.notes || null,
         credentialId: form.credentialId || null,
       };
@@ -120,6 +133,19 @@ export function ServersPage() {
       toast.success(t("common.saved"));
     } catch (e) {
       toast.error(errMsg(e));
+    }
+  }
+
+  // Prueba la API de Cloud SQL con la configuración guardada de la instancia.
+  async function checkCloudSql(id: string) {
+    setChecking(true);
+    setCloudCheck(null);
+    try {
+      setCloudCheck(await api.get<CloudSqlCheckDto>(`/servers/${id}/cloudsql/check`));
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -137,7 +163,7 @@ export function ServersPage() {
   return (
     <section>
       <div className="page-head">
-        {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("servers.new")}</button>}
+        {canWrite && <button onClick={() => { setCloudCheck(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
       </div>
 
       <div className="table-wrap">
@@ -268,6 +294,49 @@ export function ServersPage() {
                 {t("servers.gcpInstance")}
                 <input value={form.gcpInstance} onChange={(e) => setForm({ ...form, gcpInstance: e.target.value })} />
               </label>
+              <label>
+                {t("servers.cloudCredential")}
+                <select
+                  value={form.cloudCredentialId}
+                  onChange={(e) => setForm({ ...form, cloudCredentialId: e.target.value })}
+                >
+                  <option value="">{t("servers.cloudCredentialDefault")}</option>
+                  {cloudCreds
+                    .filter((c) => c.isActive || c.id === form.cloudCredentialId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+                <small>{t("servers.cloudCredentialHint")}</small>
+              </label>
+              {form.id ? (
+                <div>
+                  <button type="button" className="secondary" onClick={() => checkCloudSql(form.id!)} disabled={checking}>
+                    {checking ? t("servers.cloudSqlChecking") : t("servers.cloudSqlCheck")}
+                  </button>
+                  <small> {t("servers.cloudSqlCheckHint")}</small>
+                  {cloudCheck && (
+                    <div className="muted">
+                      <p>
+                        {t("servers.cloudSqlState")}: <strong>{cloudCheck.state}</strong> · {cloudCheck.databaseVersion}
+                        {cloudCheck.region ? ` · ${cloudCheck.region}` : ""}
+                      </p>
+                      {cloudCheck.serviceAccountEmail && (
+                        <>
+                          <p>{t("servers.cloudSqlSaHint")}</p>
+                          <pre>{`gcloud storage buckets add-iam-policy-binding gs://BUCKET \\
+  --member=serviceAccount:${cloudCheck.serviceAccountEmail} \\
+  --role=roles/storage.objectCreator`}</pre>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <small>{t("servers.cloudSqlSaveFirst")}</small>
+              )}
             </>
           )}
           <label>

@@ -30,6 +30,12 @@ export function gcsReadStream(auth: GcsAuth, objectName: string): Readable {
   return client(auth.serviceAccountJson).bucket(auth.bucket).file(objectName).createReadStream();
 }
 
+/** Peso en bytes de un objeto de GCS (lanza si no existe). */
+export async function getGcsObjectSize(auth: GcsAuth, objectName: string): Promise<number> {
+  const [meta] = await client(auth.serviceAccountJson).bucket(auth.bucket).file(objectName).getMetadata();
+  return Number(meta.size ?? 0);
+}
+
 /** Borra un objeto de GCS. `ignoreNotFound` evita error si ya no existe. */
 export async function deleteGcsObject(auth: GcsAuth, objectName: string): Promise<void> {
   await client(auth.serviceAccountJson)

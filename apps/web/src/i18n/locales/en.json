@@ -185,7 +185,9 @@
     "nameRequired": "Name is required.",
     "serverRequired": "Select an instance.",
     "dbRequired": "Select at least one database.",
-    "bucketRequired": "The gcloud method requires a destination bucket."
+    "bucketRequired": "The gcloud method requires a destination bucket.",
+    "methodCloudSqlExport": "Cloud SQL export (.bak to bucket)",
+    "methodCloudSqlExportHint": "The Cloud SQL instance itself writes a FULL copy-only .bak to the bucket; no database credential is used. The instance's service account needs roles/storage.objectCreator on the bucket."
   },
   "schedule": {
     "title": "Schedule",
@@ -251,7 +253,16 @@
     "credentialNone": "No credential",
     "credentialHint": "Pick a credential from the catalog. You can assign it later.",
     "environmentNone": "No environment",
-    "environmentHint": "Environments are managed in the Environments module."
+    "environmentHint": "Environments are managed in the Environments module.",
+    "cloudCredential": "GCP service account (Cloud SQL API)",
+    "cloudCredentialDefault": "Default GCP account (or ADC)",
+    "cloudCredentialHint": "Requires cloudsql.instances.get, cloudsql.instances.export and cloudsql.databases.list.",
+    "cloudSqlCheck": "Test Cloud SQL",
+    "cloudSqlChecking": "Testing…",
+    "cloudSqlCheckHint": "Uses the saved settings.",
+    "cloudSqlState": "State",
+    "cloudSqlSaHint": "Allow the instance to write to the destination bucket:",
+    "cloudSqlSaveFirst": "Save the instance to test the Cloud SQL connection."
   },
   "environments": {
     "intro": "Catalog of environments to classify instances (used in the backup file name).",

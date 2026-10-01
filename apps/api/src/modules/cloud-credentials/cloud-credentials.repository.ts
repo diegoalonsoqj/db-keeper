@@ -55,6 +55,15 @@ export async function findByName(name: string): Promise<{ id: string } | null> {
   return rows[0] ?? null;
 }
 
+/** Id de la credencial activa marcada por defecto para el proveedor (o null). */
+export async function findDefaultActiveId(provider: CloudProvider): Promise<string | null> {
+  const { rows } = await query<{ id: string }>(
+    "SELECT id FROM secrets.cloud_credentials WHERE provider = $1 AND is_default AND is_active",
+    [provider],
+  );
+  return rows[0]?.id ?? null;
+}
+
 /** Secreto cifrado (clave de la nube) para autenticarse. */
 export async function getSecretEncrypted(id: string): Promise<string | null> {
   const { rows } = await query<{ secret_encrypted: string }>(
@@ -121,10 +130,11 @@ export async function setDefault(id: string, provider: CloudProvider): Promise<v
   }
 }
 
-/** Cuántos destinos usan esta credencial (para avisar antes de borrar). */
+/** Cuántos destinos e instancias (API de Cloud SQL) usan esta credencial (para avisar antes de borrar). */
 export async function countTargetsUsing(id: string): Promise<number> {
   const { rows } = await query<{ count: string }>(
-    "SELECT count(*)::text AS count FROM core.storage_targets WHERE cloud_credential_id = $1",
+    `SELECT ((SELECT count(*) FROM core.storage_targets WHERE cloud_credential_id = $1)
+           + (SELECT count(*) FROM core.servers WHERE cloud_credential_id = $1))::text AS count`,
     [id],
   );
   return Number(rows[0]?.count ?? 0);

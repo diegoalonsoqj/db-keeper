@@ -1,4 +1,4 @@
-import type { BackupJobDto, ExecutionDto } from "@dbkeeper/shared";
+import type { BackupJobDto, BackupMethod, ExecutionDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
@@ -19,7 +19,7 @@ export interface JobData {
   name: string;
   serverId: string;
   credentialId: string | null;
-  method: "dump" | "gcloud";
+  method: BackupMethod;
   bucketId: string | null;
   options: Record<string, unknown>;
   isActive: boolean;
@@ -39,6 +39,28 @@ async function validateRefs(data: Partial<JobData>): Promise<void> {
   }
   if (data.method === "gcloud" && !data.bucketId) {
     throw HttpError.badRequest("El método gcloud requiere un bucket de destino");
+  }
+}
+
+/**
+ * El export de Cloud SQL exige una instancia SQL Server marcada como Cloud SQL (con
+ * proyecto e instancia GCP) y un bucket de GCP: la instancia escribe el .bak allí.
+ */
+async function assertCloudSqlExport(serverId: string, bucketId: string | null): Promise<void> {
+  const server = await serversRepo.findById(serverId);
+  if (!server) throw HttpError.badRequest("La instancia seleccionada no existe");
+  if (server.engine !== "sqlserver") {
+    throw HttpError.badRequest("El export de Cloud SQL solo está disponible para SQL Server");
+  }
+  if (!server.isCloudSql || !server.gcpProject || !server.gcpInstance) {
+    throw HttpError.badRequest("La instancia debe estar marcada como Cloud SQL con proyecto e instancia GCP");
+  }
+  const target = bucketId ? await storageRepo.findById(bucketId) : null;
+  if (!target || target.type !== "bucket" || !target.bucket) {
+    throw HttpError.badRequest("El export de Cloud SQL requiere un bucket de destino");
+  }
+  if (target.provider !== "gcp") {
+    throw HttpError.badRequest("El export de Cloud SQL requiere un bucket de GCP");
   }
 }
 
@@ -95,6 +117,7 @@ function applyRetention(options: Record<string, unknown>): Record<string, unknow
 
 export async function createJob(data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
+  if (data.method === "cloudsql_export") await assertCloudSqlExport(data.serverId, data.bucketId);
   const databases = cleanDatabases(data.databases);
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   const environment = await resolveEnvironment(data.serverId, data.credentialId);
@@ -115,6 +138,9 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   }
   // Recalcula el ambiente con la instancia/credencial resultantes y revalida.
   const serverId = data.serverId ?? current.serverId;
+  if ((data.method ?? current.method) === "cloudsql_export") {
+    await assertCloudSqlExport(serverId, data.bucketId !== undefined ? data.bucketId : current.bucketId);
+  }
   const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;

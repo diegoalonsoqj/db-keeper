@@ -2,6 +2,8 @@ import { HttpError } from "../../lib/http-error.js";
 import { decryptSecret } from "../../lib/crypto.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
+import { listDatabases } from "../../lib/cloudsql.js";
+import { resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import { getDiscoverer } from "./discovery/index.js";
 
 /** Elimina cualquier rastro de la contraseña del mensaje de error del driver. */
@@ -39,5 +41,26 @@ export async function discover(serverId: string, credentialId?: string | null): 
     });
   } catch (err) {
     throw HttpError.badRequest(`No se pudo conectar a la instancia: ${safeMessage(err, password)}`);
+  }
+}
+
+/**
+ * Lista las BDs de una instancia Cloud SQL con la API de Cloud SQL Admin, sin
+ * conectarse a ella ni usar credencial de BD (para el método `cloudsql_export`).
+ */
+export async function discoverCloudSql(serverId: string): Promise<string[]> {
+  const server = await serversRepo.findById(serverId);
+  if (!server) throw HttpError.notFound("Instancia no encontrada");
+  if (!server.isCloudSql || !server.gcpProject || !server.gcpInstance) {
+    throw HttpError.badRequest("La instancia no está configurada como Cloud SQL (proyecto e instancia GCP)");
+  }
+  try {
+    return await listDatabases({
+      serviceAccountJson: await resolveGcpServiceAccountJson(server.cloudCredentialId),
+      project: server.gcpProject,
+      instance: server.gcpInstance,
+    });
+  } catch (err) {
+    throw HttpError.badRequest(err instanceof Error ? err.message : String(err));
   }
 }

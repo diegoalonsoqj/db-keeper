@@ -5,6 +5,7 @@ import { DEFAULT_PAGE_SIZE, type BackupJobDto, type Paginated } from "@dbkeeper/
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useStorageTargets, defaultLocalTarget } from "../lib/storage";
+import { METHOD_LABELS } from "../lib/backup-methods";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -85,10 +86,10 @@ export function BackupsPage() {
                 <td>{j.name}</td>
                 <td>{j.serverName}</td>
                 <td>{environmentLabel(environments, j.environment) ?? t("common.none")}</td>
-                <td>{j.method}</td>
+                <td>{t(METHOD_LABELS[j.method])}</td>
                 <td>{j.databases.length}</td>
                 <td>
-                  {j.method === "gcloud"
+                  {j.method !== "dump"
                     ? (j.bucketName ?? t("backups.bucketNone"))
                     : (localDefault?.name ?? t("storage.type_local"))}
                 </td>
