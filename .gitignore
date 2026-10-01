@@ -41,3 +41,7 @@ Thumbs.db
 # Scripts de referencia/inspiración para DBKeeper (solo locales, nunca versionar).
 docs/*.py
 docs/*.sh
+
+# Configuración local del entorno de desarrollo (no versionar).
+CLAUDE.md
+.claude/

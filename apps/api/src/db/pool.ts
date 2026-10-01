@@ -7,7 +7,7 @@ const { Pool } = pg;
 /**
  * Pool único de conexiones a la BD de metadatos (PostgreSQL 16).
  * Toda capa de datos (repositories) usa este pool. Las queries van
- * SIEMPRE parametrizadas (ver CLAUDE.md §4).
+ * SIEMPRE parametrizadas.
  */
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,

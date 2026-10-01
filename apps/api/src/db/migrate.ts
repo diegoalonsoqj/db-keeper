@@ -6,7 +6,7 @@ import { logger } from "../config/logger.js";
 
 /**
  * Runner de migraciones minimalista basado en archivos `.sql` versionados.
- * Mantiene control total sobre el SQL (ver CLAUDE.md §1). Cada archivo se
+ * Mantiene control total sobre el SQL. Cada archivo se
  * aplica una sola vez, en orden alfabético, dentro de una transacción, y
  * queda registrado en `public._migrations`.
  *

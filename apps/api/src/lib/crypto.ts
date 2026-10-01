@@ -6,7 +6,7 @@ import { env } from "../config/env.js";
  * La clave maestra (32 bytes) llega en base64 por `DBKEEPER_MASTER_KEY`.
  * Formato del token almacenado: base64( iv(12) | authTag(16) | ciphertext ).
  *
- * Nunca se persisten secretos en claro ni se loguean (ver CLAUDE.md §4).
+ * Nunca se persisten secretos en claro ni se loguean.
  */
 const IV_BYTES = 12;
 const TAG_BYTES = 16;

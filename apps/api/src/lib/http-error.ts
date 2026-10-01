@@ -1,7 +1,7 @@
 /**
  * Error HTTP tipado/clasificado. Los servicios lanzan estos errores y el
  * middleware central los traduce a la respuesta uniforme `ApiError`.
- * Evita try/catch vacíos que traguen fallos (CLAUDE.md §3).
+ * Evita try/catch vacíos que traguen fallos.
  */
 export class HttpError extends Error {
   constructor(
