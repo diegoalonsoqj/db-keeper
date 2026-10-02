@@ -305,18 +305,52 @@ export async function finishItem(
 }
 
 /**
+ * Registra la operación de Cloud SQL lanzada para un ítem, junto con su destino y
+ * el log hasta ese momento, para poder retomarla tras un reinicio.
+ */
+export async function setItemOperation(itemId: string, operation: string, fileName: string, log: string | null): Promise<void> {
+  await query(
+    "UPDATE core.execution_items SET cloudsql_operation = $2, file_name = $3, log = $4 WHERE id = $1",
+    [itemId, operation, fileName, log],
+  );
+}
+
+/** Operaciones de Cloud SQL registradas por ítem de una ejecución (itemId → operación). */
+export async function findItemOperations(executionId: string): Promise<Map<string, string>> {
+  const { rows } = await query<{ id: string; cloudsql_operation: string }>(
+    "SELECT id, cloudsql_operation FROM core.execution_items WHERE execution_id = $1 AND cloudsql_operation IS NOT NULL",
+    [executionId],
+  );
+  return new Map(rows.map((r) => [r.id, r.cloudsql_operation]));
+}
+
+/** Ejecuciones de export de Cloud SQL que quedaron en curso: se pueden retomar. */
+export async function findResumableExecutionIds(): Promise<string[]> {
+  const { rows } = await query<{ id: string }>(
+    `SELECT e.id FROM core.executions e
+     JOIN core.backup_jobs j ON j.id = e.job_id
+     WHERE e.status = 'running' AND j.method = 'cloudsql_export'`,
+  );
+  return rows.map((r) => r.id);
+}
+
+/**
  * Recupera ejecuciones huérfanas: en el modelo en-proceso, un reinicio mata
  * cualquier corrida en curso. Marca como `failed` toda ejecución/ítem que haya
- * quedado en `pending`/`running`. Devuelve cuántas ejecuciones se cerraron.
+ * quedado en `pending`/`running`, salvo las de `exceptIds` (se retoman).
+ * Devuelve cuántas ejecuciones se cerraron.
  */
-export async function recoverStaleExecutions(): Promise<number> {
+export async function recoverStaleExecutions(exceptIds: string[] = []): Promise<number> {
   await query(
     "UPDATE core.execution_items SET status = 'failed', finished_at = now(), " +
       "log = COALESCE(log, 'Interrumpida por reinicio del servicio') " +
-      "WHERE status IN ('pending', 'running')",
+      "WHERE status IN ('pending', 'running') AND execution_id <> ALL($1::uuid[])",
+    [exceptIds],
   );
   const { rowCount } = await query(
-    "UPDATE core.executions SET status = 'failed', finished_at = now() WHERE status IN ('pending', 'running')",
+    "UPDATE core.executions SET status = 'failed', finished_at = now() " +
+      "WHERE status IN ('pending', 'running') AND id <> ALL($1::uuid[])",
+    [exceptIds],
   );
   return rowCount ?? 0;
 }
