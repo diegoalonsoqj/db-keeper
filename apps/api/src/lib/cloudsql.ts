@@ -138,6 +138,19 @@ export interface ExportBakInput extends CloudSqlTarget {
   /** Cada cuánto registrar "sigue en curso" mientras el estado no cambia. 0 = nunca. */
   heartbeatMs?: number;
   onLog?: (line: string) => void;
+  /** Se llama (y espera) al lanzar la operación, para registrarla y poder retomarla. */
+  onOperation?: (name: string) => Promise<void>;
+}
+
+export interface ResumeExportInput extends CloudSqlTarget {
+  /** Nombre de la operación devuelto al lanzar el export. */
+  operationName: string;
+  /** Instante (epoch ms) en que empezó el export: base del tiempo transcurrido. */
+  startedAt: number;
+  /** Instante (epoch ms) tope para esperar. */
+  deadline: number;
+  heartbeatMs?: number;
+  onLog?: (line: string) => void;
 }
 
 /**
@@ -173,14 +186,41 @@ export async function exportSqlServerBak(input: ExportBakInput): Promise<void> {
     }
   }
   log(`Export iniciado (operación ${op.name}) → ${input.uri}`);
+  await input.onOperation?.(op.name);
 
-  // Seguir la operación hasta DONE (con error o sin él).
-  const opPath = `/projects/${encodeURIComponent(input.project)}/operations/${encodeURIComponent(op.name)}`;
+  await followOperation(input, op, Date.now(), deadline, input.heartbeatMs ?? 0, log);
+}
+
+/**
+ * Retoma el seguimiento de un export ya lanzado (p. ej. tras reiniciar la API):
+ * consulta la operación y espera a que termine, con las mismas reglas que al lanzarlo.
+ */
+export async function resumeSqlServerExport(input: ResumeExportInput): Promise<void> {
+  const log = input.onLog ?? (() => {});
+  const op = await call<Operation>(input.serviceAccountJson, "GET", operationPath(input, input.operationName));
+  log(`Estado de la operación: ${op.status}`);
+  await followOperation(input, op, input.startedAt, input.deadline, input.heartbeatMs ?? 0, log);
+}
+
+function operationPath(t: CloudSqlTarget, name: string): string {
+  instancePath(t); // valida el proyecto
+  return `/projects/${encodeURIComponent(t.project)}/operations/${encodeURIComponent(name)}`;
+}
+
+/** Sigue la operación hasta DONE y lanza si terminó con error o se agotó el tiempo. */
+async function followOperation(
+  t: CloudSqlTarget,
+  initial: Operation,
+  opStart: number,
+  deadline: number,
+  heartbeatMs: number,
+  log: (line: string) => void,
+): Promise<void> {
+  const opPath = operationPath(t, initial.name);
+  let op = initial;
   let wait = POLL_MIN_MS;
   let lastStatus = op.status;
-  const opStart = Date.now();
-  const heartbeatMs = input.heartbeatMs ?? 0;
-  let nextHeartbeat = opStart + heartbeatMs;
+  let nextHeartbeat = Date.now() + heartbeatMs;
   while (op.status !== "DONE") {
     if (Date.now() + wait > deadline) {
       throw new CloudSqlError(
@@ -190,7 +230,7 @@ export async function exportSqlServerBak(input: ExportBakInput): Promise<void> {
     }
     await sleep(wait);
     wait = Math.min(wait * 2, POLL_MAX_MS);
-    op = await call<Operation>(input.serviceAccountJson, "GET", opPath);
+    op = await call<Operation>(t.serviceAccountJson, "GET", opPath);
     if (op.status !== lastStatus) {
       log(`Estado de la operación: ${op.status}`);
       lastStatus = op.status;
