@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword } from "../../lib/password.js";
 import * as usersRepo from "../users/users.repository.js";
 import type { UserWithSecret } from "../users/users.repository.js";
 import { getLdapRuntimeConfig } from "../settings/settings.service.js";
-import { authenticateLdap } from "./ldap.js";
+import { authenticateLdap, normalizeAdUsername } from "./ldap.js";
 
 function stripSecret(u: UserWithSecret): UserDto {
   const { passwordHash: _omit, ...dto } = u;
@@ -17,9 +17,17 @@ function stripSecret(u: UserWithSecret): UserDto {
  * un admin desde el módulo Usuarios) y se validan contra LDAP.
  */
 export async function login(username: string, password: string): Promise<UserDto> {
-  const user = await usersRepo.findByUsername(username);
   // Mensaje genérico para no revelar si el usuario existe.
   const invalid = HttpError.unauthorized("Usuario o contraseña inválidos");
+  let user = await usersRepo.findByUsername(username);
+  if (!user) {
+    // "DOMINIO\jperez" o "jperez@empresa.com": se busca por la cuenta de AD.
+    const adName = normalizeAdUsername(username);
+    if (adName !== username.trim().toLowerCase()) {
+      user = await usersRepo.findByUsername(adName);
+      if (user && user.authType === "local") throw invalid;
+    }
+  }
 
   if (!user) throw invalid;
   if (!user.isActive) throw HttpError.forbidden("La cuenta está inactiva");

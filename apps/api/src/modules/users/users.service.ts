@@ -1,6 +1,7 @@
 import type { AuthType, Paginated, UserDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { hashPassword } from "../../lib/password.js";
+import { AD_USERNAME_RE, normalizeAdUsername } from "../auth/ldap.js";
 import * as repo from "./users.repository.js";
 
 function toDto(u: repo.UserWithSecret): UserDto {
@@ -30,6 +31,14 @@ export interface CreateUserData {
 }
 
 export async function createUser(data: CreateUserData): Promise<UserDto> {
+  if (data.authType === "ad") {
+    // Se guarda la cuenta sin dominio ("DINTERSEGURO\jperez" → "jperez"): el dominio
+    // lo pone la configuración de AD al autenticar.
+    data = { ...data, username: normalizeAdUsername(data.username) };
+    if (!AD_USERNAME_RE.test(data.username)) {
+      throw HttpError.badRequest("Usuario de red inválido (solo letras, dígitos, punto, guion y guion bajo)");
+    }
+  }
   if (await repo.findByUsername(data.username)) {
     throw HttpError.conflict("Ya existe un usuario con ese nombre");
   }

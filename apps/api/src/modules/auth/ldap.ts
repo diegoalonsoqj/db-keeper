@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+import type { ConnectionOptions } from "node:tls";
 import { Client } from "ldapts";
 import type { LdapMode, LdapSecurity } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
@@ -59,11 +61,41 @@ function attr(value: string | string[] | Buffer | Buffer[] | undefined): string 
 
 /** Abre una conexión y, con StartTLS, la cifra antes de cualquier bind. */
 async function connect(config: LdapConfig): Promise<Client> {
-  const tlsOptions = { rejectUnauthorized: config.tlsRejectUnauthorized };
-  const client = new Client({ url: config.url, tlsOptions, timeout: TIMEOUT_MS, connectTimeout: TIMEOUT_MS });
+  const host = new URL(config.url).hostname;
+  const tlsOptions: ConnectionOptions = {
+    rejectUnauthorized: config.tlsRejectUnauthorized,
+    // Identidad contra la que se valida el certificado (sin esto StartTLS valida contra
+    // "localhost"). SNI no admite IPs: servername solo con nombre de host.
+    host,
+    ...(isIP(host) ? {} : { servername: host }),
+  };
+  const client = new Client({
+    url: config.url,
+    timeout: TIMEOUT_MS,
+    connectTimeout: TIMEOUT_MS,
+    // "DOMINIO\usuario" no es un DN; ldapts >= 8 lo rechazaría antes de enviarlo.
+    strictDN: false,
+    // Solo con ldaps://: ldapts abre TLS si recibe cualquier tlsOptions, aun con
+    // ldap://, y el DC corta la conexión (ECONNRESET) en el puerto 389.
+    ...(/^ldaps:/i.test(config.url) ? { tlsOptions } : {}),
+  });
   if (config.security === "starttls") await client.startTLS(tlsOptions);
   return client;
 }
+
+/**
+ * Nombre de cuenta (sAMAccountName) a partir de lo que se escribe:
+ * "DINTERSEGURO\jperez", "jperez@empresa.com" o "jperez" → "jperez".
+ */
+export function normalizeAdUsername(raw: string): string {
+  const value = raw.trim();
+  const afterDomain = value.slice(value.lastIndexOf("\\") + 1);
+  const at = afterDomain.indexOf("@");
+  return (at >= 0 ? afterDomain.slice(0, at) : afterDomain).toLowerCase();
+}
+
+/** sAMAccountName válido: va dentro del nombre de bind y del filtro de búsqueda. */
+export const AD_USERNAME_RE = /^[a-z0-9._-]{1,64}$/i;
 
 /** Nombre de bind del modo direct: usuario@dominio.com (DNS) o DOMINIO\usuario (NetBIOS). */
 export function directBindName(domain: string, username: string): string {
@@ -77,6 +109,10 @@ function isInvalidCredentials(err: unknown): boolean {
 }
 
 function describe(err: unknown): string {
+  const name = (err as { name?: string })?.name;
+  if (name === "StrongAuthRequiredError" || name === "ConfidentialityRequiredError") {
+    return "El servidor AD exige una conexión cifrada: usa StartTLS o LDAPS";
+  }
   return err instanceof Error ? err.message : String(err);
 }
 
@@ -157,8 +193,10 @@ async function authenticateSearch(username: string, password: string, config: Ld
 /** Autentica y devuelve el detalle (lo usa también "Probar AD" en Configuración). */
 export async function tryAuthenticateLdap(username: string, password: string, config: LdapConfig): Promise<LdapResult> {
   // En AD un bind con contraseña vacía es un bind anónimo y "funciona": nunca aceptarlo.
-  // El usuario no puede traer separadores de dominio (evita autenticarse como otro dominio).
-  if (!password || !username.trim() || /[\\/@\0]/.test(username)) {
+  // Se quita el dominio que traiga ("DOMINIO\x", "x@dominio") y se usa siempre el
+  // configurado: así no se puede autenticar contra otro dominio.
+  username = normalizeAdUsername(username);
+  if (!password || !AD_USERNAME_RE.test(username)) {
     return { ok: false, reason: "invalid", message: "Usuario o contraseña inválidos" };
   }
   const result =
