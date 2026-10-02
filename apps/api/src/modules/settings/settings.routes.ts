@@ -93,6 +93,22 @@ settingsRouter.patch("/security", authorize("settings:write"), async (req, res, 
   }
 });
 
+// 0 = sin heartbeat; tope de 1 día.
+const backupsSchema = z.object({
+  cloudSqlHeartbeatMinutes: z.number().int().min(0).max(1440).optional(),
+});
+
+settingsRouter.patch("/backups", authorize("settings:write"), async (req, res, next) => {
+  try {
+    const data = backupsSchema.parse(req.body);
+    const backups = await service.updateBackupSettings(data);
+    await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "backups", detail: backups });
+    ok(res, backups);
+  } catch (err) {
+    next(err);
+  }
+});
+
 settingsRouter.patch("/general", authorize("settings:write"), async (req, res, next) => {
   try {
     const data = generalSchema.parse(req.body);

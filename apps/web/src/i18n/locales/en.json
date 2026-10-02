@@ -427,6 +427,10 @@
     "maxAttemptsPerIp": "Attempts per IP",
     "maxAttemptsPerIpHint": "Higher than per user: several people may share the same IP.",
     "windowMinutes": "Window (minutes)",
-    "lockMinutes": "Lockout (minutes)"
+    "lockMinutes": "Lockout (minutes)",
+    "navBackups": "Backups",
+    "backups": "Backup execution",
+    "cloudSqlHeartbeatMinutes": "Cloud SQL export progress notice (minutes)",
+    "cloudSqlHeartbeatMinutesHint": "How often \"Export in progress…\" is written to the log while the operation keeps running in GCP. 0 = disabled."
   }
 }

@@ -135,6 +135,8 @@ export interface ExportBakInput extends CloudSqlTarget {
   uri: string;
   /** Tope total (incluida la espera por instancia ocupada). */
   timeoutMs: number;
+  /** Cada cuánto registrar "sigue en curso" mientras el estado no cambia. 0 = nunca. */
+  heartbeatMs?: number;
   onLog?: (line: string) => void;
 }
 
@@ -176,6 +178,9 @@ export async function exportSqlServerBak(input: ExportBakInput): Promise<void> {
   const opPath = `/projects/${encodeURIComponent(input.project)}/operations/${encodeURIComponent(op.name)}`;
   let wait = POLL_MIN_MS;
   let lastStatus = op.status;
+  const opStart = Date.now();
+  const heartbeatMs = input.heartbeatMs ?? 0;
+  let nextHeartbeat = opStart + heartbeatMs;
   while (op.status !== "DONE") {
     if (Date.now() + wait > deadline) {
       throw new CloudSqlError(
@@ -189,6 +194,11 @@ export async function exportSqlServerBak(input: ExportBakInput): Promise<void> {
     if (op.status !== lastStatus) {
       log(`Estado de la operación: ${op.status}`);
       lastStatus = op.status;
+    } else if (heartbeatMs > 0 && op.status !== "DONE" && Date.now() >= nextHeartbeat) {
+      // Sin esto, un export largo no escribe nada en el log mientras sigue en RUNNING.
+      const mins = Math.round((Date.now() - opStart) / 60_000);
+      log(`Export en curso… ${mins} min transcurridos (estado ${op.status}).`);
+      nextHeartbeat = Date.now() + heartbeatMs;
     }
   }
 

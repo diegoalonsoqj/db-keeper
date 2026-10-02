@@ -1,5 +1,6 @@
-import { DEFAULT_SECURITY_SETTINGS } from "@dbkeeper/shared";
+import { DEFAULT_BACKUP_SETTINGS, DEFAULT_SECURITY_SETTINGS } from "@dbkeeper/shared";
 import type {
+  BackupSettings,
   EmailProvider,
   GeneralSettings,
   LdapMode,
@@ -20,6 +21,7 @@ const GENERAL_KEY = "general";
 const LDAP_KEY = "ldap";
 const NOTIF_KEY = "notifications";
 const SECURITY_KEY = "security";
+const BACKUPS_KEY = "backups";
 
 const DEFAULT_GENERAL: GeneralSettings = { timezone: "America/Lima", defaultLanguage: "es-419" };
 
@@ -173,6 +175,18 @@ export async function updateSecurity(patch: Partial<SecuritySettings>): Promise<
   return next;
 }
 
+/** Ajustes de ejecución de backups (con los valores por defecto para claves faltantes). */
+export async function getBackupSettings(): Promise<BackupSettings> {
+  const stored = await repo.getSetting<Partial<BackupSettings>>(BACKUPS_KEY);
+  return { ...DEFAULT_BACKUP_SETTINGS, ...(stored ?? {}) };
+}
+
+export async function updateBackupSettings(patch: Partial<BackupSettings>): Promise<BackupSettings> {
+  const next = { ...(await getBackupSettings()), ...patch };
+  await repo.upsertSetting(BACKUPS_KEY, next);
+  return next;
+}
+
 export async function getGeneral(): Promise<GeneralSettings> {
   return (await repo.getSetting<GeneralSettings>(GENERAL_KEY)) ?? DEFAULT_GENERAL;
 }
@@ -180,7 +194,7 @@ export async function getGeneral(): Promise<GeneralSettings> {
 export async function getSettings(): Promise<SettingsDto> {
   const general = await getGeneral();
   const ldap = ldapToDto((await getStoredLdap()) ?? withLdapDefaults(EMPTY_LDAP));
-  return { general, ldap, notifications: notifToDto(await getStoredNotif()), security: await getSecurity() };
+  return { general, ldap, notifications: notifToDto(await getStoredNotif()), security: await getSecurity(), backups: await getBackupSettings() };
 }
 
 export async function updateGeneral(patch: Partial<GeneralSettings>): Promise<GeneralSettings> {
