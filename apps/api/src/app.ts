@@ -31,7 +31,8 @@ export function createApp(): Express {
   const app = express();
 
   // Detrás de un proxy (Vite en dev, reverse proxy en prod): confiar para obtener IP real.
-  app.set("trust proxy", true);
+  // Con "true" cualquiera podría falsear su IP con X-Forwarded-For: se configura por env.
+  app.set("trust proxy", parseTrustProxy(env.TRUST_PROXY));
   app.disable("x-powered-by");
   app.use(
     helmet({
@@ -110,4 +111,13 @@ export function createApp(): Express {
   app.use(errorHandler);
 
   return app;
+}
+
+/** TRUST_PROXY → valor de Express: "true"/"false", número de saltos, o IPs/subredes. */
+function parseTrustProxy(v: string): boolean | number | string {
+  const s = v.trim().toLowerCase();
+  if (s === "true") return true;
+  if (s === "false" || s === "") return false;
+  if (/^\d+$/.test(s)) return Number(s);
+  return v.trim();
 }
