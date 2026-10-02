@@ -73,13 +73,20 @@ export async function findDue(now: Date): Promise<ScheduleDto[]> {
   return rows.map(toDto);
 }
 
-/** Registra que se disparó: fija last_run_at y el próximo next_run_at (o desactiva). */
-export async function markRan(
+/**
+ * Reserva el disparo de forma atómica: fija last_run_at y el próximo next_run_at
+ * (o desactiva) **solo si** next_run_at sigue siendo el leído. Si otro proceso ya
+ * la disparó, no actualiza nada y devuelve false (evita backups duplicados).
+ */
+export async function claimRun(
   id: string,
+  expectedNextRunAt: Date,
   opts: { lastRunAt: Date; nextRunAt: Date | null; isActive: boolean },
-): Promise<void> {
-  await query(
-    "UPDATE core.backup_schedules SET last_run_at = $2, next_run_at = $3, is_active = $4 WHERE id = $1",
-    [id, opts.lastRunAt, opts.nextRunAt, opts.isActive],
+): Promise<boolean> {
+  const { rowCount } = await query(
+    `UPDATE core.backup_schedules SET last_run_at = $2, next_run_at = $3, is_active = $4
+     WHERE id = $1 AND is_active = true AND date_trunc('milliseconds', next_run_at) = $5`,
+    [id, opts.lastRunAt, opts.nextRunAt, opts.isActive, expectedNextRunAt],
   );
+  return (rowCount ?? 0) > 0;
 }
