@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { APP_LOCALES, EMAIL_PROVIDERS } from "@dbkeeper/shared";
+import { APP_LOCALES, EMAIL_PROVIDERS, LDAP_MODES, LDAP_SECURITY } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
@@ -17,6 +17,9 @@ const generalSchema = z.object({
 
 const ldapSchema = z.object({
   enabled: z.boolean().optional(),
+  mode: z.enum(LDAP_MODES).optional(),
+  domain: z.string().max(253).optional(),
+  security: z.enum(LDAP_SECURITY).optional(),
   url: z.string().max(255).optional(),
   bindDn: z.string().max(512).optional(),
   searchBase: z.string().max(512).optional(),
@@ -70,6 +73,26 @@ settingsRouter.get("/", authorize("settings:read"), async (_req, res, next) => {
   }
 });
 
+// Límites con tope: evita configurar algo que deje la app sin protección o bloquee de más.
+const securitySchema = z.object({
+  loginLimitEnabled: z.boolean().optional(),
+  maxAttemptsPerUser: z.number().int().min(1).max(100).optional(),
+  maxAttemptsPerIp: z.number().int().min(1).max(1000).optional(),
+  windowMinutes: z.number().int().min(1).max(1440).optional(),
+  lockMinutes: z.number().int().min(1).max(1440).optional(),
+});
+
+settingsRouter.patch("/security", authorize("settings:write"), async (req, res, next) => {
+  try {
+    const data = securitySchema.parse(req.body);
+    const security = await service.updateSecurity(data);
+    await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "security", detail: security });
+    ok(res, security);
+  } catch (err) {
+    next(err);
+  }
+});
+
 settingsRouter.patch("/general", authorize("settings:write"), async (req, res, next) => {
   try {
     const data = generalSchema.parse(req.body);
@@ -88,6 +111,23 @@ settingsRouter.patch("/ldap", authorize("settings:write"), async (req, res, next
     // No registrar el cuerpo: puede contener la contraseña de bind.
     await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "ldap" });
     ok(res, ldap);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const ldapTestSchema = z.object({
+  username: z.string().min(1).max(256),
+  password: z.string().min(1).max(1024),
+});
+
+// Prueba de AD con la config guardada. No se audita ni loguea el cuerpo (lleva contraseña).
+settingsRouter.post("/ldap/test", authorize("settings:write"), async (req, res, next) => {
+  try {
+    const { username, password } = ldapTestSchema.parse(req.body);
+    const result = await service.testLdap(username, password);
+    await recordAudit(req, { action: "settings.ldap_test", entityType: "settings", entityId: "ldap", detail: { username, ok: result.ok } });
+    ok(res, result);
   } catch (err) {
     next(err);
   }

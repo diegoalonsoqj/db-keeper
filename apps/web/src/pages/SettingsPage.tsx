@@ -3,9 +3,14 @@ import { useTranslation } from "react-i18next";
 import {
   APP_LOCALES,
   EMAIL_PROVIDERS,
+  LDAP_MODES,
+  LDAP_SECURITY,
   type AppLocale,
   type CloudCredentialDto,
   type EmailProvider,
+  type LdapMode,
+  type LdapSecurity,
+  type LdapTestResultDto,
   type Paginated,
   type SettingsDto,
   type StorageTargetDto,
@@ -30,13 +35,18 @@ export function SettingsPage() {
   const [targets, setTargets] = useState<StorageTargetDto[]>([]);
   const [accounts, setAccounts] = useState<CloudCredentialDto[]>([]);
   const [bindPassword, setBindPassword] = useState("");
+  // "Probar AD": credenciales de prueba (no se guardan) y resultado.
+  const [ldapTestUser, setLdapTestUser] = useState("");
+  const [ldapTestPass, setLdapTestPass] = useState("");
+  const [ldapTest, setLdapTest] = useState<LdapTestResultDto | null>(null);
+  const [ldapTesting, setLdapTesting] = useState(false);
   const [smtpPassword, setSmtpPassword] = useState("");
   const [apiAuth, setApiAuth] = useState("");
   const [botToken, setBotToken] = useState("");
   const [recipientsText, setRecipientsText] = useState("");
   const [testing, setTesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"general" | "storage" | "ldap" | "notifications">("general");
+  const [activeSection, setActiveSection] = useState<"general" | "storage" | "ldap" | "security" | "notifications">("general");
 
   useEffect(() => {
     api
@@ -80,11 +90,17 @@ export function SettingsPage() {
 
   const g = data.general;
   const l = data.ldap;
+  const sec = data.security;
   const n = data.notifications;
 
   async function saveGeneral() {
     const next = await api.patch<SettingsDto["general"]>("/settings/general", g);
     setData((d) => (d ? { ...d, general: next } : d));
+  }
+
+  async function saveSecurity() {
+    const next = await api.patch<SettingsDto["security"]>("/settings/security", data!.security);
+    setData((d) => (d ? { ...d, security: next } : d));
   }
 
   async function saveLdap() {
@@ -93,6 +109,19 @@ export function SettingsPage() {
     const next = await api.patch<SettingsDto["ldap"]>("/settings/ldap", payload);
     setBindPassword("");
     setData((d) => (d ? { ...d, ldap: next } : d));
+  }
+
+  async function testLdap() {
+    setLdapTesting(true);
+    setLdapTest(null);
+    try {
+      setLdapTest(await api.post<LdapTestResultDto>("/settings/ldap/test", { username: ldapTestUser.trim(), password: ldapTestPass }));
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setLdapTestPass("");
+      setLdapTesting(false);
+    }
   }
 
   async function saveNotifications() {
@@ -170,6 +199,9 @@ export function SettingsPage() {
         </button>
         <button className={activeSection === "ldap" ? "active" : ""} onClick={() => setActiveSection("ldap")}>
           {t("settings.navLdap")}
+        </button>
+        <button className={activeSection === "security" ? "active" : ""} onClick={() => setActiveSection("security")}>
+          {t("settings.navSecurity")}
         </button>
         <button
           className={activeSection === "notifications" ? "active" : ""}
@@ -284,42 +316,98 @@ export function SettingsPage() {
           />
           {t("settings.ldapEnabled")}
         </label>
+        <label>
+          {t("settings.ldapMode")}
+          <select
+            value={l.mode}
+            disabled={!canWrite}
+            onChange={(e) => setData({ ...data, ldap: { ...l, mode: e.target.value as LdapMode } })}
+          >
+            {LDAP_MODES.map((m) => (
+              <option key={m} value={m}>
+                {t(`settings.ldapMode_${m}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("settings.ldapSecurity")}
+          <select
+            value={l.security}
+            disabled={!canWrite}
+            onChange={(e) => setData({ ...data, ldap: { ...l, security: e.target.value as LdapSecurity } })}
+          >
+            {LDAP_SECURITY.map((m) => (
+              <option key={m} value={m}>
+                {t(`settings.ldapSecurity_${m}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {l.security === "none" && <p className="error full">{t("settings.ldapSecurityNoneWarn")}</p>}
         <label className="full">
           {t("settings.ldapUrl")}
           <input
             value={l.url}
             disabled={!canWrite}
-            placeholder="ldaps://dc.empresa.com:636"
+            placeholder={l.security === "ldaps" ? "ldaps://126.26.3.151:636" : "ldap://126.26.3.151"}
             onChange={(e) => setData({ ...data, ldap: { ...l, url: e.target.value } })}
           />
         </label>
-        <label className="full">
-          {t("settings.ldapBindDn")}
-          <input
-            value={l.bindDn}
-            disabled={!canWrite}
-            onChange={(e) => setData({ ...data, ldap: { ...l, bindDn: e.target.value } })}
-          />
-        </label>
-        <label>
-          {t("settings.ldapBindPassword")}
-          <input
-            type="password"
-            value={bindPassword}
-            disabled={!canWrite}
-            placeholder={l.hasBindPassword ? "••••••••" : ""}
-            onChange={(e) => setBindPassword(e.target.value)}
-          />
-          <small>{t("settings.ldapBindPasswordHint")}</small>
-        </label>
-        <label className="full">
-          {t("settings.ldapSearchBase")}
-          <input
-            value={l.searchBase}
-            disabled={!canWrite}
-            onChange={(e) => setData({ ...data, ldap: { ...l, searchBase: e.target.value } })}
-          />
-        </label>
+        {l.mode === "direct" ? (
+          <>
+            <label>
+              {t("settings.ldapDomain")}
+              <input
+                value={l.domain}
+                disabled={!canWrite}
+                placeholder="DINTERSEGURO"
+                onChange={(e) => setData({ ...data, ldap: { ...l, domain: e.target.value } })}
+              />
+              <small>{t("settings.ldapDomainHint")}</small>
+            </label>
+            <label>
+              {t("settings.ldapSearchBase")}
+              <input
+                value={l.searchBase}
+                disabled={!canWrite}
+                placeholder="DC=empresa,DC=com"
+                onChange={(e) => setData({ ...data, ldap: { ...l, searchBase: e.target.value } })}
+              />
+              <small>{t("settings.ldapSearchBaseOptional")}</small>
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="full">
+              {t("settings.ldapBindDn")}
+              <input
+                value={l.bindDn}
+                disabled={!canWrite}
+                onChange={(e) => setData({ ...data, ldap: { ...l, bindDn: e.target.value } })}
+              />
+            </label>
+            <label>
+              {t("settings.ldapBindPassword")}
+              <input
+                type="password"
+                value={bindPassword}
+                disabled={!canWrite}
+                placeholder={l.hasBindPassword ? "••••••••" : ""}
+                onChange={(e) => setBindPassword(e.target.value)}
+              />
+              <small>{t("settings.ldapBindPasswordHint")}</small>
+            </label>
+            <label className="full">
+              {t("settings.ldapSearchBase")}
+              <input
+                value={l.searchBase}
+                disabled={!canWrite}
+                onChange={(e) => setData({ ...data, ldap: { ...l, searchBase: e.target.value } })}
+              />
+            </label>
+          </>
+        )}
         <label className="full">
           {t("settings.ldapUserFilter")}
           <input
@@ -328,18 +416,117 @@ export function SettingsPage() {
             onChange={(e) => setData({ ...data, ldap: { ...l, userFilter: e.target.value } })}
           />
         </label>
-        <label className="inline">
-          <input
-            type="checkbox"
-            checked={l.tlsRejectUnauthorized}
-            disabled={!canWrite}
-            onChange={(e) => setData({ ...data, ldap: { ...l, tlsRejectUnauthorized: e.target.checked } })}
-          />
-          {t("settings.ldapTls")}
-        </label>
+        {l.security !== "none" && (
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={l.tlsRejectUnauthorized}
+              disabled={!canWrite}
+              onChange={(e) => setData({ ...data, ldap: { ...l, tlsRejectUnauthorized: e.target.checked } })}
+            />
+            {t("settings.ldapTls")}
+          </label>
+        )}
         {canWrite && (
           <div className="form-actions">
             <button onClick={() => notify(saveLdap)}>{t("common.save")}</button>
+          </div>
+        )}
+        {canWrite && (
+          <fieldset className="full">
+            <legend>{t("settings.ldapTest")}</legend>
+            <small className="muted">{t("settings.ldapTestHint")}</small>
+            <label>
+              {t("settings.ldapTestUser")}
+              <input value={ldapTestUser} autoComplete="off" onChange={(e) => setLdapTestUser(e.target.value)} />
+            </label>
+            <label>
+              {t("settings.ldapTestPassword")}
+              <input
+                type="password"
+                value={ldapTestPass}
+                autoComplete="new-password"
+                onChange={(e) => setLdapTestPass(e.target.value)}
+              />
+            </label>
+            <div className="form-actions">
+              <button
+                className="secondary"
+                onClick={testLdap}
+                disabled={ldapTesting || !ldapTestUser.trim() || !ldapTestPass}
+              >
+                {ldapTesting ? t("settings.ldapTesting") : t("settings.ldapTestBtn")}
+              </button>
+            </div>
+            {ldapTest && (
+              <p className={ldapTest.ok ? "success" : "error"}>
+                {ldapTest.message}
+                {ldapTest.ok && (ldapTest.fullName || ldapTest.email)
+                  ? ` — ${[ldapTest.fullName, ldapTest.email].filter(Boolean).join(" · ")}`
+                  : ""}
+              </p>
+            )}
+          </fieldset>
+        )}
+      </div>
+
+      <div className="card form-card" hidden={activeSection !== "security"}>
+        <h2>{t("settings.security")}</h2>
+        <p className="muted full">{t("settings.securityHint")}</p>
+        <label className="inline full">
+          <input
+            type="checkbox"
+            checked={sec.loginLimitEnabled}
+            disabled={!canWrite}
+            onChange={(e) => setData({ ...data, security: { ...sec, loginLimitEnabled: e.target.checked } })}
+          />
+          {t("settings.loginLimitEnabled")}
+        </label>
+        <label>
+          {t("settings.maxAttemptsPerUser")}
+          <input
+            type="number"
+            min={1}
+            value={sec.maxAttemptsPerUser}
+            disabled={!canWrite || !sec.loginLimitEnabled}
+            onChange={(e) => setData({ ...data, security: { ...sec, maxAttemptsPerUser: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+          />
+          <small>{t("settings.maxAttemptsPerUserHint")}</small>
+        </label>
+        <label>
+          {t("settings.maxAttemptsPerIp")}
+          <input
+            type="number"
+            min={1}
+            value={sec.maxAttemptsPerIp}
+            disabled={!canWrite || !sec.loginLimitEnabled}
+            onChange={(e) => setData({ ...data, security: { ...sec, maxAttemptsPerIp: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+          />
+          <small>{t("settings.maxAttemptsPerIpHint")}</small>
+        </label>
+        <label>
+          {t("settings.windowMinutes")}
+          <input
+            type="number"
+            min={1}
+            value={sec.windowMinutes}
+            disabled={!canWrite || !sec.loginLimitEnabled}
+            onChange={(e) => setData({ ...data, security: { ...sec, windowMinutes: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+          />
+        </label>
+        <label>
+          {t("settings.lockMinutes")}
+          <input
+            type="number"
+            min={1}
+            value={sec.lockMinutes}
+            disabled={!canWrite || !sec.loginLimitEnabled}
+            onChange={(e) => setData({ ...data, security: { ...sec, lockMinutes: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+          />
+        </label>
+        {canWrite && (
+          <div className="form-actions">
+            <button onClick={() => notify(saveSecurity)}>{t("common.save")}</button>
           </div>
         )}
       </div>

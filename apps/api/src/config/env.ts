@@ -34,6 +34,11 @@ const envSchema = z.object({
   // grandes tarda bastante más que un dump. Por defecto 6 h.
   CLOUDSQL_EXPORT_TIMEOUT_MS: z.coerce.number().int().positive().default(21_600_000),
 
+  // Confianza en X-Forwarded-For para obtener la IP real del cliente (auditoría y límite
+  // de intentos). "false" (por defecto) = se usa la IP de la conexión: correcto si la app
+  // se sirve directo. Detrás de un proxy/balanceador: "1" (saltos) o su IP/subred.
+  TRUST_PROXY: z.string().default("false"),
+
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   // --- Servir el front desde la propia API (despliegue de un solo puerto, sin reverse proxy) ---

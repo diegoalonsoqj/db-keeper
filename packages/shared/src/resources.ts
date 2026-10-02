@@ -315,14 +315,37 @@ export interface GeneralSettings {
 }
 
 /** Config de AD/LDAP. La contraseña de bind nunca se devuelve (solo `hasBindPassword`). */
+/**
+ * Modo de autenticación AD: `direct` = bind con DOMINIO\usuario (o usuario@dominio),
+ * sin cuenta de servicio; `search` = cuenta de servicio que busca al usuario y re-bind.
+ */
+export const LDAP_MODES = ["direct", "search"] as const;
+export type LdapMode = (typeof LDAP_MODES)[number];
+
+/** Cifrado de la conexión: StartTLS (389), LDAPS (636) o sin cifrar (contraseña en claro). */
+export const LDAP_SECURITY = ["starttls", "ldaps", "none"] as const;
+export type LdapSecurity = (typeof LDAP_SECURITY)[number];
+
 export interface LdapSettings {
   enabled: boolean;
+  mode: LdapMode;
+  /** Dominio del bind directo: NetBIOS (DINTERSEGURO) o DNS (empresa.com → usuario@empresa.com). */
+  domain: string;
+  security: LdapSecurity;
   url: string;
   bindDn: string;
   searchBase: string;
   userFilter: string;
   tlsRejectUnauthorized: boolean;
   hasBindPassword: boolean;
+}
+
+/** Resultado de "Probar AD" en Configuración. */
+export interface LdapTestResultDto {
+  ok: boolean;
+  message: string;
+  fullName: string | null;
+  email: string | null;
 }
 
 /** Proveedor de envío de correo. */
@@ -348,10 +371,30 @@ export interface NotificationSettings {
   telegram: { enabled: boolean; chatId: string; hasBotToken: boolean };
 }
 
+/** Límite de intentos de inicio de sesión fallidos (locales y AD). */
+export interface SecuritySettings {
+  loginLimitEnabled: boolean;
+  /** Fallos permitidos por usuario dentro de la ventana antes de bloquearlo. */
+  maxAttemptsPerUser: number;
+  /** Fallos permitidos por IP (más alto: varias personas pueden salir por la misma IP). */
+  maxAttemptsPerIp: number;
+  windowMinutes: number;
+  lockMinutes: number;
+}
+
+export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
+  loginLimitEnabled: true,
+  maxAttemptsPerUser: 5,
+  maxAttemptsPerIp: 20,
+  windowMinutes: 15,
+  lockMinutes: 15,
+};
+
 export interface SettingsDto {
   general: GeneralSettings;
   ldap: LdapSettings;
   notifications: NotificationSettings;
+  security: SecuritySettings;
 }
 
 /** Resultado de "Probar Cloud SQL": datos de la instancia leídos de la API de Cloud SQL Admin. */

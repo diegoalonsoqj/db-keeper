@@ -1,24 +1,35 @@
+import { DEFAULT_SECURITY_SETTINGS } from "@dbkeeper/shared";
 import type {
   EmailProvider,
   GeneralSettings,
+  LdapMode,
+  LdapSecurity,
   LdapSettings,
+  LdapTestResultDto,
+  SecuritySettings,
   NotificationSettings,
   SettingsDto,
 } from "@dbkeeper/shared";
 import { env } from "../../config/env.js";
 import { decryptSecret, encryptSecret } from "../../lib/crypto.js";
-import type { LdapConfig } from "../auth/ldap.js";
+import { HttpError } from "../../lib/http-error.js";
+import { tryAuthenticateLdap, type LdapConfig } from "../auth/ldap.js";
 import * as repo from "./settings.repository.js";
 
 const GENERAL_KEY = "general";
 const LDAP_KEY = "ldap";
 const NOTIF_KEY = "notifications";
+const SECURITY_KEY = "security";
 
 const DEFAULT_GENERAL: GeneralSettings = { timezone: "America/Lima", defaultLanguage: "es-419" };
 
 /** Forma cruda almacenada en core.app_settings['ldap'] (con la contraseña cifrada). */
 interface StoredLdap {
   enabled: boolean;
+  /** Ausentes en configuraciones previas: se derivan en `withLdapDefaults`. */
+  mode?: LdapMode;
+  domain?: string;
+  security?: LdapSecurity;
   url: string;
   bindDn: string;
   bindPasswordEncrypted: string | null;
@@ -29,6 +40,9 @@ interface StoredLdap {
 
 const EMPTY_LDAP: StoredLdap = {
   enabled: false,
+  mode: "direct",
+  domain: "",
+  security: "starttls",
   url: "",
   bindDn: "",
   bindPasswordEncrypted: null,
@@ -37,8 +51,44 @@ const EMPTY_LDAP: StoredLdap = {
   tlsRejectUnauthorized: true,
 };
 
-async function getStoredLdap(): Promise<StoredLdap | null> {
-  return repo.getSetting<StoredLdap>(LDAP_KEY);
+/** Seguridad implícita en la URL (configs previas a este campo): ldaps:// → LDAPS. */
+function securityFromUrl(url: string): LdapSecurity {
+  return /^ldaps:\/\//i.test(url) ? "ldaps" : "none";
+}
+
+/**
+ * Completa los campos nuevos de una config guardada antes de existir: una config previa
+ * usaba cuenta de servicio (`search`) y el cifrado lo daba la URL. Así no cambia su
+ * comportamiento al actualizar.
+ */
+function withLdapDefaults(s: StoredLdap): Required<StoredLdap> {
+  return {
+    ...s,
+    mode: s.mode ?? "search",
+    domain: s.domain ?? "",
+    security: s.security ?? securityFromUrl(s.url),
+  };
+}
+
+async function getStoredLdap(): Promise<Required<StoredLdap> | null> {
+  const s = await repo.getSetting<StoredLdap>(LDAP_KEY);
+  return s ? withLdapDefaults(s) : null;
+}
+
+/** DTO público (sin la contraseña de bind, solo si existe). */
+function ldapToDto(s: Required<StoredLdap>): LdapSettings {
+  return {
+    enabled: s.enabled,
+    mode: s.mode,
+    domain: s.domain,
+    security: s.security,
+    url: s.url,
+    bindDn: s.bindDn,
+    searchBase: s.searchBase,
+    userFilter: s.userFilter,
+    tlsRejectUnauthorized: s.tlsRejectUnauthorized,
+    hasBindPassword: Boolean(s.bindPasswordEncrypted),
+  };
 }
 
 /**
@@ -111,23 +161,26 @@ function notifToDto(stored: StoredNotif): NotificationSettings {
   };
 }
 
+/** Límite de intentos de login (con los valores por defecto para claves faltantes). */
+export async function getSecurity(): Promise<SecuritySettings> {
+  const stored = await repo.getSetting<Partial<SecuritySettings>>(SECURITY_KEY);
+  return { ...DEFAULT_SECURITY_SETTINGS, ...(stored ?? {}) };
+}
+
+export async function updateSecurity(patch: Partial<SecuritySettings>): Promise<SecuritySettings> {
+  const next = { ...(await getSecurity()), ...patch };
+  await repo.upsertSetting(SECURITY_KEY, next);
+  return next;
+}
+
 export async function getGeneral(): Promise<GeneralSettings> {
   return (await repo.getSetting<GeneralSettings>(GENERAL_KEY)) ?? DEFAULT_GENERAL;
 }
 
 export async function getSettings(): Promise<SettingsDto> {
   const general = await getGeneral();
-  const stored = (await getStoredLdap()) ?? EMPTY_LDAP;
-  const ldap: LdapSettings = {
-    enabled: stored.enabled,
-    url: stored.url,
-    bindDn: stored.bindDn,
-    searchBase: stored.searchBase,
-    userFilter: stored.userFilter,
-    tlsRejectUnauthorized: stored.tlsRejectUnauthorized,
-    hasBindPassword: Boolean(stored.bindPasswordEncrypted),
-  };
-  return { general, ldap, notifications: notifToDto(await getStoredNotif()) };
+  const ldap = ldapToDto((await getStoredLdap()) ?? withLdapDefaults(EMPTY_LDAP));
+  return { general, ldap, notifications: notifToDto(await getStoredNotif()), security: await getSecurity() };
 }
 
 export async function updateGeneral(patch: Partial<GeneralSettings>): Promise<GeneralSettings> {
@@ -139,6 +192,9 @@ export async function updateGeneral(patch: Partial<GeneralSettings>): Promise<Ge
 
 export interface UpdateLdapInput {
   enabled?: boolean;
+  mode?: LdapMode;
+  domain?: string;
+  security?: LdapSecurity;
   url?: string;
   bindDn?: string;
   searchBase?: string;
@@ -148,34 +204,50 @@ export interface UpdateLdapInput {
   bindPassword?: string;
 }
 
+/** NetBIOS (DINTERSEGURO) o DNS (empresa.com). Sin barras ni espacios. */
+const DOMAIN_RE = /^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/;
+
+/** Coherencia URL ↔ cifrado y campos obligatorios del modo (solo si está habilitado). */
+function validateLdap(s: Required<StoredLdap>): void {
+  const url = s.url.trim();
+  if (url) {
+    if (!/^ldaps?:\/\//i.test(url)) throw HttpError.badRequest("La URL debe empezar con ldap:// o ldaps://");
+    const isLdaps = /^ldaps:\/\//i.test(url);
+    if (s.security === "ldaps" && !isLdaps) throw HttpError.badRequest("Con LDAPS la URL debe empezar con ldaps:// (puerto 636)");
+    if (s.security !== "ldaps" && isLdaps) throw HttpError.badRequest("Con StartTLS o sin cifrar la URL debe empezar con ldap:// (puerto 389)");
+  }
+  if (s.domain && !DOMAIN_RE.test(s.domain)) throw HttpError.badRequest("Dominio inválido (p. ej. DINTERSEGURO o empresa.com)");
+  if (!s.enabled) return;
+  if (!url) throw HttpError.badRequest("Indica la URL del servidor AD");
+  if (s.mode === "direct" && !s.domain) throw HttpError.badRequest("Indica el dominio para el bind directo");
+  if (s.mode === "search" && (!s.bindDn || !s.bindPasswordEncrypted || !s.searchBase)) {
+    throw HttpError.badRequest("Con cuenta de servicio indica Bind DN, su contraseña y la base de búsqueda");
+  }
+}
+
 export async function updateLdap(input: UpdateLdapInput): Promise<LdapSettings> {
-  const current = (await getStoredLdap()) ?? EMPTY_LDAP;
+  const current = (await getStoredLdap()) ?? withLdapDefaults(EMPTY_LDAP);
 
   let bindPasswordEncrypted = current.bindPasswordEncrypted;
   if (input.bindPassword !== undefined) {
     bindPasswordEncrypted = input.bindPassword === "" ? null : encryptSecret(input.bindPassword);
   }
 
-  const next: StoredLdap = {
+  const next: Required<StoredLdap> = {
     enabled: input.enabled ?? current.enabled,
-    url: input.url ?? current.url,
+    mode: input.mode ?? current.mode,
+    domain: (input.domain ?? current.domain).trim(),
+    security: input.security ?? current.security,
+    url: (input.url ?? current.url).trim(),
     bindDn: input.bindDn ?? current.bindDn,
     searchBase: input.searchBase ?? current.searchBase,
     userFilter: input.userFilter ?? current.userFilter,
     tlsRejectUnauthorized: input.tlsRejectUnauthorized ?? current.tlsRejectUnauthorized,
     bindPasswordEncrypted,
   };
+  validateLdap(next);
   await repo.upsertSetting(LDAP_KEY, next);
-
-  return {
-    enabled: next.enabled,
-    url: next.url,
-    bindDn: next.bindDn,
-    searchBase: next.searchBase,
-    userFilter: next.userFilter,
-    tlsRejectUnauthorized: next.tlsRejectUnauthorized,
-    hasBindPassword: Boolean(next.bindPasswordEncrypted),
-  };
+  return ldapToDto(next);
 }
 
 export interface UpdateNotifInput {
@@ -293,21 +365,29 @@ export async function getNotifRuntimeConfig(): Promise<NotifRuntimeConfig> {
  */
 export async function getLdapRuntimeConfig(): Promise<LdapConfig | null> {
   const stored = await getStoredLdap();
-  if (stored?.enabled && stored.url && stored.bindDn && stored.bindPasswordEncrypted && stored.searchBase) {
-    return {
+  if (stored?.enabled && stored.url) {
+    const base = {
+      mode: stored.mode,
       url: stored.url,
-      bindDn: stored.bindDn,
-      bindPassword: decryptSecret(stored.bindPasswordEncrypted),
+      security: stored.security,
+      domain: stored.domain,
       searchBase: stored.searchBase,
       userFilter: stored.userFilter,
       tlsRejectUnauthorized: stored.tlsRejectUnauthorized,
     };
+    if (stored.mode === "direct" && stored.domain) return { ...base, bindDn: "", bindPassword: "" };
+    if (stored.mode === "search" && stored.bindDn && stored.bindPasswordEncrypted && stored.searchBase) {
+      return { ...base, bindDn: stored.bindDn, bindPassword: decryptSecret(stored.bindPasswordEncrypted) };
+    }
   }
 
   // Fallback a env (configuración temporal previa a Settings).
   if (env.LDAP_URL && env.LDAP_BIND_DN && env.LDAP_BIND_PASSWORD && env.LDAP_SEARCH_BASE) {
     return {
+      mode: "search",
       url: env.LDAP_URL,
+      security: securityFromUrl(env.LDAP_URL),
+      domain: "",
       bindDn: env.LDAP_BIND_DN,
       bindPassword: env.LDAP_BIND_PASSWORD,
       searchBase: env.LDAP_SEARCH_BASE,
@@ -317,4 +397,21 @@ export async function getLdapRuntimeConfig(): Promise<LdapConfig | null> {
   }
 
   return null;
+}
+
+/**
+ * "Probar AD": valida usuario y contraseña con la configuración **guardada**. Distingue
+ * credenciales inválidas de errores de conexión/TLS para facilitar el diagnóstico.
+ */
+export async function testLdap(username: string, password: string): Promise<LdapTestResultDto> {
+  const config = await getLdapRuntimeConfig();
+  if (!config) {
+    return { ok: false, message: "AD no está habilitado o le faltan datos: guarda la configuración primero", fullName: null, email: null };
+  }
+  const r = await tryAuthenticateLdap(username, password, config);
+  if (r.ok) {
+    return { ok: true, message: "Autenticación correcta", fullName: r.user.fullName, email: r.user.email };
+  }
+  const message = r.reason === "invalid" ? r.message : `No se pudo conectar o autenticar con AD: ${r.message}`;
+  return { ok: false, message, fullName: null, email: null };
 }

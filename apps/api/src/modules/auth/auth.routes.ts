@@ -6,6 +6,9 @@ import { SESSION_COOKIE, signSession } from "../../lib/jwt.js";
 import { APP_LOCALES } from "@dbkeeper/shared";
 import { authenticate } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { HttpError } from "../../lib/http-error.js";
+import { lockRemainingMs, registerFailure, resetKey } from "../../lib/login-limiter.js";
+import { getSecurity } from "../settings/settings.service.js";
 import { changeOwnPassword, getIdentity, login, updateOwnProfile } from "./auth.service.js";
 
 export const authRouter: Router = Router();
@@ -17,10 +20,26 @@ const loginSchema = z.object({
 
 const COOKIE_MAX_AGE = 8 * 60 * 60 * 1000; // 8h, igual que el TTL del JWT
 
+/** Claves del limitador: por usuario (sin distinguir mayúsculas) y por IP. */
+const userKey = (u: string) => `user:${u.trim().toLowerCase()}`;
+const ipKey = (ip: string | undefined) => `ip:${ip ?? "?"}`;
+
 authRouter.post("/login", async (req, res, next) => {
+  const security = await getSecurity().catch(() => null);
+  const limitOn = security?.loginLimitEnabled === true;
+  let attemptedUser: string | null = null;
   try {
     const { username, password } = loginSchema.parse(req.body);
+    attemptedUser = username;
+    if (limitOn) {
+      const wait = Math.max(lockRemainingMs(userKey(username)), lockRemainingMs(ipKey(req.ip)));
+      if (wait > 0) {
+        const minutes = Math.ceil(wait / 60_000);
+        throw new HttpError(429, "TOO_MANY_ATTEMPTS", `Demasiados intentos fallidos. Vuelve a intentarlo en ${minutes} min.`);
+      }
+    }
     const user = await login(username, password);
+    if (limitOn) resetKey(userKey(username));
     const token = await signSession({ sub: user.id, username: user.username });
 
     res.cookie(SESSION_COOKIE, token, {
@@ -41,6 +60,14 @@ authRouter.post("/login", async (req, res, next) => {
     const identity = await getIdentity(user.id);
     ok(res, identity);
   } catch (err) {
+    // Cuenta solo fallos de credenciales/cuenta (401/403), no bloqueos ni errores internos.
+    const status = err instanceof HttpError ? err.status : 0;
+    if (limitOn && security && attemptedUser && (status === 401 || status === 403)) {
+      const windowMs = security.windowMinutes * 60_000;
+      const lockMs = security.lockMinutes * 60_000;
+      registerFailure(userKey(attemptedUser), { maxAttempts: security.maxAttemptsPerUser, windowMs, lockMs });
+      registerFailure(ipKey(req.ip), { maxAttempts: security.maxAttemptsPerIp, windowMs, lockMs });
+    }
     // Auditar intentos fallidos sin exponer detalles.
     if (req.body && typeof req.body === "object" && "username" in req.body) {
       await recordAudit(req, {
