@@ -11,10 +11,18 @@ import * as service from "./servers.service.js";
 export const serversRouter: Router = Router();
 serversRouter.use(authenticate);
 
+// Host opcional solo en Cloud SQL (lo valida el servicio). Vacío → null; ausente
+// (PATCH) → undefined, para no borrarlo.
+const hostSchema = z
+  .string()
+  .max(255)
+  .nullish()
+  .transform((v) => (v === undefined ? undefined : v?.trim() || null));
+
 const serverFields = {
   name: z.string().min(1).max(120),
   engine: z.enum(DB_ENGINES),
-  host: z.string().min(1).max(255),
+  host: hostSchema,
   port: z.number().int().min(1).max(65535),
   environment: z.string().max(60).nullish().transform((v) => v ?? null),
   useSsl: z.boolean().default(false),
@@ -28,12 +36,12 @@ const serverFields = {
   credentialId: z.string().uuid().nullish().transform((v) => v ?? null),
 };
 
-const createSchema = z.object({ ...serverFields });
+const createSchema = z.object({ ...serverFields, host: hostSchema.transform((v) => v ?? null) });
 
 const updateSchema = z.object({
   name: serverFields.name.optional(),
   engine: serverFields.engine.optional(),
-  host: serverFields.host.optional(),
+  host: serverFields.host,
   port: serverFields.port.optional(),
   environment: serverFields.environment,
   useSsl: z.boolean().optional(),

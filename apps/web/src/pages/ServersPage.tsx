@@ -97,7 +97,7 @@ export function ServersPage() {
       id: s.id,
       name: s.name,
       engine: s.engine,
-      host: s.host,
+      host: s.host ?? "",
       port: s.port,
       environment: s.environment ?? "",
       useSsl: s.useSsl,
@@ -116,7 +116,7 @@ export function ServersPage() {
       const base = {
         name: form.name,
         engine: form.engine,
-        host: form.host,
+        host: form.host.trim() || null,
         port: Number(form.port),
         environment: form.environment || null,
         useSsl: form.useSsl,
@@ -185,7 +185,7 @@ export function ServersPage() {
             <tr key={s.id}>
               <td>{s.name}</td>
               <td>{s.engine}{s.isCloudSql ? " · Cloud SQL" : ""}</td>
-              <td>{s.host}{s.useSsl ? " 🔒" : ""}</td>
+              <td>{s.host ?? "—"}{s.useSsl ? " 🔒" : ""}</td>
               <td>{s.port}</td>
               <td>{environmentLabel(environments, s.environment) ?? t("common.none")}</td>
               <td>{s.credentialName ?? t("common.none")}</td>
@@ -245,7 +245,11 @@ export function ServersPage() {
           </label>
           <label>
             {t("servers.host")}
-            <input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} />
+            <input
+              value={form.host}
+              placeholder={form.isCloudSql ? t("servers.hostOptionalCloudSql") : undefined}
+              onChange={(e) => setForm({ ...form, host: e.target.value })}
+            />
           </label>
           <label>
             {t("servers.port")}

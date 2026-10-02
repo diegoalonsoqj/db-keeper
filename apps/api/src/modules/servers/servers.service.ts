@@ -19,7 +19,7 @@ export async function getServer(id: string): Promise<ServerDto> {
 export interface ServerData {
   name: string;
   engine: DbEngine;
-  host: string;
+  host: string | null;
   port: number;
   environment: string | null;
   useSsl: boolean;
@@ -47,7 +47,13 @@ async function assertCloudCredential(id: string | null | undefined, current: str
   await assertAssignable(id, "gcp");
 }
 
+/** El host solo puede faltar en Cloud SQL: el resto de métodos se conecta a la BD. */
+function assertHost(host: string | null, isCloudSql: boolean): void {
+  if (!host && !isCloudSql) throw HttpError.badRequest("Indica el host o IP de la instancia");
+}
+
 export async function createServer(data: ServerData): Promise<ServerDto> {
+  assertHost(data.host, data.isCloudSql);
   if (await repo.findByName(data.name)) {
     throw HttpError.conflict("Ya existe una instancia con ese nombre");
   }
@@ -60,6 +66,7 @@ export async function createServer(data: ServerData): Promise<ServerDto> {
 export async function updateServer(id: string, data: Partial<ServerData>): Promise<ServerDto> {
   const existing = await repo.findById(id);
   if (!existing) throw HttpError.notFound("Instancia no encontrada");
+  assertHost(data.host !== undefined ? data.host : existing.host, data.isCloudSql ?? existing.isCloudSql);
 
   if (data.name && data.name.toLowerCase() !== existing.name.toLowerCase()) {
     const dup = await repo.findByName(data.name);

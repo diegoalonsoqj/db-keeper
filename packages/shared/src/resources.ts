@@ -48,7 +48,8 @@ export interface ServerDto {
   id: string;
   name: string;
   engine: DbEngine;
-  host: string;
+  /** null solo en instancias Cloud SQL (el export no se conecta a la BD). */
+  host: string | null;
   port: number;
   environment: string | null;
   useSsl: boolean;

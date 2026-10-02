@@ -243,6 +243,7 @@
     "name": "Name",
     "engine": "Engine",
     "host": "Host",
+    "hostOptionalCloudSql": "Optional for Cloud SQL (dump only)",
     "port": "Port",
     "environment": "Environment",
     "useSsl": "Use SSL/TLS",
