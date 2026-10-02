@@ -395,10 +395,13 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
 export interface BackupSettings {
   /** Cada cuántos minutos se registra "sigue en curso" en un export de Cloud SQL. 0 = desactivado. */
   cloudSqlHeartbeatMinutes: number;
+  /** Dumps (procesos en este servidor) a la vez; el resto espera en cola. No cuenta los exports de Cloud SQL. */
+  maxConcurrentDumps: number;
 }
 
 export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   cloudSqlHeartbeatMinutes: 5,
+  maxConcurrentDumps: 1,
 };
 
 export interface SettingsDto {

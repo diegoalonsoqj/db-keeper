@@ -37,6 +37,8 @@ const envSchema = z.object({
   // CLOUDSQL_VERIFY_INTERVAL_MS (def. 5 min) hasta CLOUDSQL_EXPORT_MAX_MS (def. 48 h).
   CLOUDSQL_VERIFY_INTERVAL_MS: z.coerce.number().int().min(60_000).default(300_000),
   CLOUDSQL_EXPORT_MAX_MS: z.coerce.number().int().positive().default(172_800_000),
+  // Prioridad (nice) de los procesos de dump: más alto = cede CPU a la API. 0 = normal.
+  DUMP_PROCESS_NICE: z.coerce.number().int().min(0).max(19).default(10),
 
   // Confianza en X-Forwarded-For para obtener la IP real del cliente (auditoría y límite
   // de intentos). "false" (por defecto) = se usa la IP de la conexión: correcto si la app

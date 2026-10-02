@@ -493,11 +493,34 @@ export function SettingsPage() {
             onChange={(e) =>
               setData({
                 ...data,
-                backups: { cloudSqlHeartbeatMinutes: Math.min(1440, Math.max(0, Math.trunc(Number(e.target.value) || 0))) },
+                backups: {
+                  ...data.backups,
+                  cloudSqlHeartbeatMinutes: Math.min(1440, Math.max(0, Math.trunc(Number(e.target.value) || 0))),
+                },
               })
             }
           />
           <small>{t("settings.cloudSqlHeartbeatMinutesHint")}</small>
+        </label>
+        <label>
+          {t("settings.maxConcurrentDumps")}
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={data.backups.maxConcurrentDumps}
+            disabled={!canWrite}
+            onChange={(e) =>
+              setData({
+                ...data,
+                backups: {
+                  ...data.backups,
+                  maxConcurrentDumps: Math.min(10, Math.max(1, Math.trunc(Number(e.target.value) || 1))),
+                },
+              })
+            }
+          />
+          <small>{t("settings.maxConcurrentDumpsHint")}</small>
         </label>
         {canWrite && (
           <div className="form-actions">

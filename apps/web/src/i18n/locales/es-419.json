@@ -131,7 +131,7 @@
     "next": "Siguiente"
   },
   "status": {
-    "pending": "Pendiente",
+    "pending": "En cola",
     "running": "En ejecución",
     "success": "Éxito",
     "failed": "Fallo"
@@ -432,6 +432,8 @@
     "navBackups": "Backups",
     "backups": "Ejecución de backups",
     "cloudSqlHeartbeatMinutes": "Aviso de progreso del export de Cloud SQL (minutos)",
-    "cloudSqlHeartbeatMinutesHint": "Cada cuánto se escribe \"Export en curso…\" en el log mientras la operación sigue corriendo en GCP. 0 = desactivado."
+    "cloudSqlHeartbeatMinutesHint": "Cada cuánto se escribe \"Export en curso…\" en el log mientras la operación sigue corriendo en GCP. 0 = desactivado.",
+    "maxConcurrentDumps": "Dumps simultáneos",
+    "maxConcurrentDumpsHint": "Cuántos dumps corren a la vez en este servidor; el resto espera en cola. Los exports de Cloud SQL no cuentan. Además, nunca corren dos ejecuciones a la vez sobre la misma instancia."
   }
 }
