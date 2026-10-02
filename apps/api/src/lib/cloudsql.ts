@@ -46,6 +46,14 @@ export class CloudSqlError extends Error {
   }
 }
 
+/** Se agotó la espera, pero la operación puede seguir en curso en GCP. */
+export class CloudSqlTimeoutError extends CloudSqlError {
+  constructor(readonly operationName: string) {
+    super(`Tiempo de espera agotado; la operación ${operationName} puede seguir en curso en GCP`, null);
+    this.name = "CloudSqlTimeoutError";
+  }
+}
+
 // ID de proyecto (admite los de dominio, `empresa.com:proyecto`) y nombre de instancia.
 const PROJECT_RE = /^[a-z0-9.:-]{4,100}$/;
 const INSTANCE_RE = /^[a-z][a-z0-9-]{0,97}$/;
@@ -194,11 +202,12 @@ export async function exportSqlServerBak(input: ExportBakInput): Promise<void> {
 /**
  * Retoma el seguimiento de un export ya lanzado (p. ej. tras reiniciar la API):
  * consulta la operación y espera a que termine, con las mismas reglas que al lanzarlo.
+ * Con `deadline` ya vencido hace una sola consulta: si no terminó, lanza
+ * `CloudSqlTimeoutError`.
  */
 export async function resumeSqlServerExport(input: ResumeExportInput): Promise<void> {
   const log = input.onLog ?? (() => {});
   const op = await call<Operation>(input.serviceAccountJson, "GET", operationPath(input, input.operationName));
-  log(`Estado de la operación: ${op.status}`);
   await followOperation(input, op, input.startedAt, input.deadline, input.heartbeatMs ?? 0, log);
 }
 
@@ -222,12 +231,7 @@ async function followOperation(
   let lastStatus = op.status;
   let nextHeartbeat = Date.now() + heartbeatMs;
   while (op.status !== "DONE") {
-    if (Date.now() + wait > deadline) {
-      throw new CloudSqlError(
-        `Tiempo de espera agotado; la operación ${op.name} puede seguir en curso en GCP`,
-        null,
-      );
-    }
+    if (Date.now() + wait > deadline) throw new CloudSqlTimeoutError(op.name);
     await sleep(wait);
     wait = Math.min(wait * 2, POLL_MAX_MS);
     op = await call<Operation>(t.serviceAccountJson, "GET", opPath);

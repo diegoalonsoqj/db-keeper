@@ -33,6 +33,10 @@ const envSchema = z.object({
   // Timeout por BD para el export de Cloud SQL (ms): lo genera la instancia y en BDs
   // grandes tarda bastante más que un dump. Por defecto 6 h.
   CLOUDSQL_EXPORT_TIMEOUT_MS: z.coerce.number().int().positive().default(21_600_000),
+  // Pasado el timeout el export sigue en GCP: se verifica en segundo plano cada
+  // CLOUDSQL_VERIFY_INTERVAL_MS (def. 5 min) hasta CLOUDSQL_EXPORT_MAX_MS (def. 48 h).
+  CLOUDSQL_VERIFY_INTERVAL_MS: z.coerce.number().int().min(60_000).default(300_000),
+  CLOUDSQL_EXPORT_MAX_MS: z.coerce.number().int().positive().default(172_800_000),
 
   // Confianza en X-Forwarded-For para obtener la IP real del cliente (auditoría y límite
   // de intentos). "false" (por defecto) = se usa la IP de la conexión: correcto si la app

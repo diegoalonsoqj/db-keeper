@@ -315,6 +315,11 @@ export async function setItemOperation(itemId: string, operation: string, fileNa
   );
 }
 
+/** Persiste el log parcial de un ítem que sigue en curso (export en verificación). */
+export async function updateItemLog(itemId: string, log: string | null): Promise<void> {
+  await query("UPDATE core.execution_items SET log = $2 WHERE id = $1", [itemId, log]);
+}
+
 /** Operaciones de Cloud SQL registradas por ítem de una ejecución (itemId → operación). */
 export async function findItemOperations(executionId: string): Promise<Map<string, string>> {
   const { rows } = await query<{ id: string; cloudsql_operation: string }>(
