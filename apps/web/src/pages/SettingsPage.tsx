@@ -46,7 +46,9 @@ export function SettingsPage() {
   const [recipientsText, setRecipientsText] = useState("");
   const [testing, setTesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"general" | "storage" | "ldap" | "security" | "notifications">("general");
+  const [activeSection, setActiveSection] = useState<
+    "general" | "storage" | "backups" | "ldap" | "security" | "notifications"
+  >("general");
 
   useEffect(() => {
     api
@@ -96,6 +98,11 @@ export function SettingsPage() {
   async function saveGeneral() {
     const next = await api.patch<SettingsDto["general"]>("/settings/general", g);
     setData((d) => (d ? { ...d, general: next } : d));
+  }
+
+  async function saveBackups() {
+    const next = await api.patch<SettingsDto["backups"]>("/settings/backups", data!.backups);
+    setData((d) => (d ? { ...d, backups: next } : d));
   }
 
   async function saveSecurity() {
@@ -196,6 +203,9 @@ export function SettingsPage() {
         </button>
         <button className={activeSection === "storage" ? "active" : ""} onClick={() => setActiveSection("storage")}>
           {t("settings.navStorage")}
+        </button>
+        <button className={activeSection === "backups" ? "active" : ""} onClick={() => setActiveSection("backups")}>
+          {t("settings.navBackups")}
         </button>
         <button className={activeSection === "ldap" ? "active" : ""} onClick={() => setActiveSection("ldap")}>
           {t("settings.navLdap")}
@@ -467,6 +477,32 @@ export function SettingsPage() {
               </p>
             )}
           </fieldset>
+        )}
+      </div>
+
+      <div className="card form-card" hidden={activeSection !== "backups"}>
+        <h2>{t("settings.backups")}</h2>
+        <label>
+          {t("settings.cloudSqlHeartbeatMinutes")}
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            value={data.backups.cloudSqlHeartbeatMinutes}
+            disabled={!canWrite}
+            onChange={(e) =>
+              setData({
+                ...data,
+                backups: { cloudSqlHeartbeatMinutes: Math.min(1440, Math.max(0, Math.trunc(Number(e.target.value) || 0))) },
+              })
+            }
+          />
+          <small>{t("settings.cloudSqlHeartbeatMinutesHint")}</small>
+        </label>
+        {canWrite && (
+          <div className="form-actions">
+            <button onClick={() => notify(saveBackups)}>{t("common.save")}</button>
+          </div>
         )}
       </div>
 

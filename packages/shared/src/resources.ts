@@ -390,11 +390,22 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   lockMinutes: 15,
 };
 
+/** Ajustes de ejecución de backups. */
+export interface BackupSettings {
+  /** Cada cuántos minutos se registra "sigue en curso" en un export de Cloud SQL. 0 = desactivado. */
+  cloudSqlHeartbeatMinutes: number;
+}
+
+export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
+  cloudSqlHeartbeatMinutes: 5,
+};
+
 export interface SettingsDto {
   general: GeneralSettings;
   ldap: LdapSettings;
   notifications: NotificationSettings;
   security: SecuritySettings;
+  backups: BackupSettings;
 }
 
 /** Resultado de "Probar Cloud SQL": datos de la instancia leídos de la API de Cloud SQL Admin. */
