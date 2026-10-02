@@ -224,7 +224,15 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       </label>
       <label>
         {t("backups.server")}
-        <select value={serverId} onChange={(e) => setServerId(e.target.value)}>
+        <select
+          value={serverId}
+          onChange={(e) => {
+            setServerId(e.target.value);
+            // Cloud SQL (SQL Server): el export es el método natural (no usa host ni credencial de BD).
+            const s = servers.find((x) => x.id === e.target.value);
+            if (s?.engine === "sqlserver" && s.isCloudSql) setMethod("cloudsql_export");
+          }}
+        >
           <option value="">{t("backups.pickServer")}</option>
           {servers.map((s) => (
             <option key={s.id} value={s.id}>
