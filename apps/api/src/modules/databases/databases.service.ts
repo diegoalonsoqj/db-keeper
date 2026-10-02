@@ -21,6 +21,10 @@ function safeMessage(err: unknown, password: string): string {
 export async function discover(serverId: string, credentialId?: string | null): Promise<string[]> {
   const server = await serversRepo.findById(serverId);
   if (!server) throw HttpError.notFound("Instancia no encontrada");
+  if (!server.host) {
+    throw HttpError.badRequest("La instancia no tiene host/IP: lista sus BDs por la API de Cloud SQL");
+  }
+  const host = server.host;
   const effectiveCredId = credentialId ?? server.credentialId;
   if (!effectiveCredId) {
     throw HttpError.badRequest("No hay credencial: asígnala a la instancia o elígela en el evento");
@@ -33,7 +37,7 @@ export async function discover(serverId: string, credentialId?: string | null): 
   const discoverer = getDiscoverer(server.engine);
   try {
     return await discoverer({
-      host: server.host,
+      host,
       port: server.port,
       user: cred.username,
       password,

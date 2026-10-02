@@ -5,7 +5,7 @@ interface ServerRow {
   id: string;
   name: string;
   engine: DbEngine;
-  host: string;
+  host: string | null;
   port: number;
   environment: string | null;
   use_ssl: boolean;
@@ -80,7 +80,7 @@ export async function findByName(name: string): Promise<{ id: string } | null> {
 export interface ServerFields {
   name: string;
   engine: DbEngine;
-  host: string;
+  host: string | null;
   port: number;
   environment: string | null;
   useSsl: boolean;
