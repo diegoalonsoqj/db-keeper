@@ -2,7 +2,7 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { closePool } from "./db/pool.js";
-import { recoverStaleExecutions } from "./modules/backups/engine/runner.js";
+import { recoverStaleExecutions, startCloudSqlVerifier } from "./modules/backups/engine/runner.js";
 import { startScheduler } from "./modules/backups/scheduler.js";
 
 const app = createApp();
@@ -11,6 +11,8 @@ const server = app.listen(env.APP_PORT, () => {
   logger.info(`DBKeeper API escuchando en http://localhost:${env.APP_PORT} [${env.APP_ENV}]`);
   // El modelo de ejecución es en-proceso: un reinicio mata las corridas en curso.
   void recoverStaleExecutions();
+  // Exports de Cloud SQL que superaron el timeout: se verifican en segundo plano.
+  startCloudSqlVerifier();
   // Poller de programaciones (agendadas/recurrentes).
   startScheduler();
 });
