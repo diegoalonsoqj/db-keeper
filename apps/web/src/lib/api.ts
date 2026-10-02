@@ -1,6 +1,19 @@
 import type { ApiResponse } from "@dbkeeper/shared";
 
 /** Error con el código y mensaje devueltos por la API. */
+/** En errores de validación añade los campos inválidos ("Entrada inválida: host, port"). */
+function withInvalidFields(code: string, message: string, details: unknown): string {
+  if (code !== "VALIDATION_ERROR" || !Array.isArray(details)) return message;
+  const fields = [
+    ...new Set(
+      details
+        .map((d: { path?: unknown[] }) => (Array.isArray(d.path) ? d.path.join(".") : ""))
+        .filter(Boolean),
+    ),
+  ];
+  return fields.length ? `${message}: ${fields.join(", ")}` : message;
+}
+
 export class ApiClientError extends Error {
   constructor(
     public readonly code: string,
@@ -29,7 +42,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
 
   if (!payload.ok) {
-    throw new ApiClientError(payload.error.code, payload.error.message, res.status, payload.error.details);
+    const { code, message, details } = payload.error;
+    throw new ApiClientError(code, withInvalidFields(code, message, details), res.status, details);
   }
   return payload.data;
 }
