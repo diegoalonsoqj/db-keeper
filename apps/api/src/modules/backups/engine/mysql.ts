@@ -9,6 +9,7 @@ import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
+import { lowerPriority } from "./priority.js";
 
 const GZIP_LEVEL = 6;
 
@@ -88,6 +89,7 @@ async function runMysqldump(
     timeout: env.BACKUP_TIMEOUT_MS,
     windowsHide: true,
   });
+  lowerPriority(child);
 
   const getStderr = pipeStderrLines(child.stderr, (line) => opts.onLog?.(line), NATIVE_CLIENT_STDERR_ENCODING);
 

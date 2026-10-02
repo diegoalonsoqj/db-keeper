@@ -4,6 +4,7 @@ import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
 import { pipeStderrLines } from "./log-lines.js";
+import { lowerPriority } from "./priority.js";
 
 /**
  * Vuelca una BD MongoDB con `mongodump --archive` (un solo archivo), con `--gzip`
@@ -59,6 +60,7 @@ function runMongodump(
       timeout: env.BACKUP_TIMEOUT_MS,
       windowsHide: true,
     });
+    lowerPriority(child);
 
     const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line));
 

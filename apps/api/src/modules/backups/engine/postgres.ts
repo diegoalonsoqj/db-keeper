@@ -4,6 +4,7 @@ import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
+import { lowerPriority } from "./priority.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
 const GZIP_LEVEL = 6;
@@ -74,6 +75,7 @@ function runPgDump(
       timeout: env.BACKUP_TIMEOUT_MS,
       windowsHide: true,
     });
+    lowerPriority(child);
 
     const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line), NATIVE_CLIENT_STDERR_ENCODING);
 

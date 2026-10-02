@@ -96,6 +96,7 @@ settingsRouter.patch("/security", authorize("settings:write"), async (req, res, 
 // 0 = sin heartbeat; tope de 1 día.
 const backupsSchema = z.object({
   cloudSqlHeartbeatMinutes: z.number().int().min(0).max(1440).optional(),
+  maxConcurrentDumps: z.number().int().min(1).max(10).optional(),
 });
 
 settingsRouter.patch("/backups", authorize("settings:write"), async (req, res, next) => {

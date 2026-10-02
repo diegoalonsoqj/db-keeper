@@ -341,23 +341,58 @@ export async function findResumableExecutionIds(): Promise<string[]> {
 
 /**
  * Recupera ejecuciones huérfanas: en el modelo en-proceso, un reinicio mata
- * cualquier corrida en curso. Marca como `failed` toda ejecución/ítem que haya
- * quedado en `pending`/`running`, salvo las de `exceptIds` (se retoman).
- * Devuelve cuántas ejecuciones se cerraron.
+ * cualquier corrida en curso. Marca como `failed` las ejecuciones `running` (y sus
+ * ítems sin cerrar), salvo las de `exceptIds` (se retoman). Las `pending` no se
+ * tocan: son la cola y se lanzan al arrancar. Devuelve cuántas se cerraron.
  */
 export async function recoverStaleExecutions(exceptIds: string[] = []): Promise<number> {
-  await query(
-    "UPDATE core.execution_items SET status = 'failed', finished_at = now(), " +
-      "log = COALESCE(log, 'Interrumpida por reinicio del servicio') " +
-      "WHERE status IN ('pending', 'running') AND execution_id <> ALL($1::uuid[])",
+  const { rows } = await query<{ count: string }>(
+    `WITH failed AS (
+       UPDATE core.executions SET status = 'failed', finished_at = now()
+       WHERE status = 'running' AND id <> ALL($1::uuid[])
+       RETURNING id
+     ), items AS (
+       UPDATE core.execution_items SET status = 'failed', finished_at = now(),
+         log = COALESCE(log, 'Interrumpida por reinicio del servicio')
+       WHERE status IN ('pending', 'running') AND execution_id IN (SELECT id FROM failed)
+       RETURNING 1
+     )
+     SELECT count(*)::text AS count FROM failed`,
     [exceptIds],
   );
-  const { rowCount } = await query(
-    "UPDATE core.executions SET status = 'failed', finished_at = now() " +
-      "WHERE status IN ('pending', 'running') AND id <> ALL($1::uuid[])",
-    [exceptIds],
+  return Number(rows[0]?.count ?? 0);
+}
+
+export interface QueuedExecution {
+  id: string;
+  /** null si el evento ya no existe (la ejecución fallará al lanzarse). */
+  serverId: string | null;
+  method: string | null;
+}
+
+/** Cola: ejecuciones `pending` por orden de llegada, con su instancia y método. */
+export async function listQueuedExecutions(limit = 200): Promise<QueuedExecution[]> {
+  const { rows } = await query<{ id: string; server_id: string | null; method: string | null }>(
+    `SELECT e.id, j.server_id, j.method
+     FROM core.executions e
+     LEFT JOIN core.backup_jobs j ON j.id = e.job_id
+     WHERE e.status = 'pending'
+     ORDER BY e.created_at
+     LIMIT $1`,
+    [limit],
   );
-  return rowCount ?? 0;
+  return rows.map((r) => ({ id: r.id, serverId: r.server_id, method: r.method }));
+}
+
+/** Instancias con alguna ejecución en curso (incluidos exports en verificación). */
+export async function findBusyServerIds(): Promise<string[]> {
+  const { rows } = await query<{ server_id: string }>(
+    `SELECT DISTINCT j.server_id
+     FROM core.executions e
+     JOIN core.backup_jobs j ON j.id = e.job_id
+     WHERE e.status = 'running'`,
+  );
+  return rows.map((r) => r.server_id);
 }
 
 export async function listExecutions(p: {

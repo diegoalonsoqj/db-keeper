@@ -6,10 +6,9 @@ import * as storageRepo from "../storage/storage.repository.js";
 import { getServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import { access } from "node:fs/promises";
 import path from "node:path";
-import { logger } from "../../config/logger.js";
 import * as repo from "./backups.repository.js";
 import type { JobFields } from "./backups.repository.js";
-import { runExecution } from "./engine/runner.js";
+import { enqueueExecution } from "./engine/queue.js";
 import { resolveBackupFile } from "./engine/files.js";
 import { parseGcsUri } from "./engine/gcs.js";
 import { normalizeRetention } from "./retention.js";
@@ -171,17 +170,18 @@ export async function deleteJob(id: string): Promise<void> {
 
 /**
  * Lanza el evento ahora: crea la ejecución (origen manual) con un ítem por BD en
- * estado `pending` y dispara el motor en segundo plano. Devuelve la ejecución
- * recién creada (aún `pending`); el front refresca para ver el progreso.
+ * estado `pending` y la pone en cola (arranca en cuanto haya hueco y la instancia
+ * esté libre). Devuelve la ejecución recién creada (aún `pending`); el front
+ * refresca para ver el progreso.
  */
 export async function runNow(jobId: string): Promise<ExecutionDto> {
   const job = await getJob(jobId);
   const execId = await repo.createExecution(jobId, job.name, job.environment, job.databases);
   const exec = await repo.findExecutionById(execId);
   if (!exec) throw HttpError.notFound("Ejecución no encontrada");
-  // Fire-and-forget: el motor actualiza los estados en la BD; los errores se
-  // reflejan en la propia ejecución y se loguean dentro del runner.
-  void runExecution(execId).catch((err) => logger.error({ err, execId }, "Error al disparar el motor"));
+  // El motor actualiza los estados en la BD; los errores se reflejan en la propia
+  // ejecución y se loguean dentro del runner.
+  enqueueExecution();
   return exec;
 }
 
@@ -193,7 +193,7 @@ export async function listExecutions(p: { limit: number; offset: number; jobId?:
 export async function runScheduled(jobId: string): Promise<void> {
   const job = await getJob(jobId);
   const execId = await repo.createExecution(jobId, job.name, job.environment, job.databases, "scheduled");
-  void runExecution(execId).catch((err) => logger.error({ err, execId }, "Error al disparar el motor"));
+  enqueueExecution();
 }
 
 /**
@@ -210,7 +210,7 @@ export async function retryExecution(executionId: string): Promise<ExecutionDto>
   const newId = await repo.createExecution(exec.jobId, exec.label, job.environment, databases);
   const created = await repo.findExecutionById(newId);
   if (!created) throw HttpError.notFound("Ejecución no encontrada");
-  void runExecution(newId).catch((err) => logger.error({ err, newId }, "Error al disparar el motor"));
+  enqueueExecution();
   return created;
 }
 
