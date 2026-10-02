@@ -63,6 +63,19 @@ async function assertCloudSqlExport(serverId: string, bucketId: string | null): 
 }
 
 /**
+ * Dump y "subir a bucket" se conectan a la BD: la instancia necesita host. (Una
+ * Cloud SQL sin host solo admite el export; mejor avisarlo al guardar que al ejecutar.)
+ */
+async function assertDumpable(serverId: string): Promise<void> {
+  const server = await serversRepo.findById(serverId);
+  if (server && !server.host) {
+    throw HttpError.badRequest(
+      "La instancia no tiene host/IP: este método se conecta a la BD. Usa 'Export Cloud SQL' o indica el host en la instancia",
+    );
+  }
+}
+
+/**
  * Consolida el ambiente del evento a partir de la instancia y la credencial
  * efectiva (override o la heredada de la instancia). Si ambos tienen ambiente y
  * **no coinciden**, lanza error: respaldar una instancia de un ambiente con una
@@ -128,6 +141,7 @@ export async function createJob(data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
   await assertActiveBucket(data.bucketId);
   if (data.method === "cloudsql_export") await assertCloudSqlExport(data.serverId, data.bucketId);
+  else await assertDumpable(data.serverId);
   const databases = cleanDatabases(data.databases);
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   const environment = await resolveEnvironment(data.serverId, data.credentialId);
@@ -151,6 +165,8 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   const serverId = data.serverId ?? current.serverId;
   if ((data.method ?? current.method) === "cloudsql_export") {
     await assertCloudSqlExport(serverId, data.bucketId !== undefined ? data.bucketId : current.bucketId);
+  } else {
+    await assertDumpable(serverId);
   }
   const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
   const environment = await resolveEnvironment(serverId, credentialId);
