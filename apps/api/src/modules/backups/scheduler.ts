@@ -15,22 +15,26 @@ async function tick(): Promise<void> {
   const now = new Date();
   const due = await repo.findDue(now);
   for (const s of due) {
-    try {
-      await runScheduled(s.jobId);
-    } catch (err) {
-      logger.error({ err, jobId: s.jobId }, "No se pudo disparar el backup programado");
-    }
-    if (s.mode === "once") {
-      // Una sola vez: desactivar tras disparar.
-      await repo.markRan(s.id, { lastRunAt: now, nextRunAt: null, isActive: false });
-    } else {
-      let next: Date | null = null;
+    // Próximo disparo: una sola vez → se desactiva; recurrente → siguiente del cron.
+    let next: Date | null = null;
+    if (s.mode !== "once") {
       try {
         next = nextRunForCron(s.cron!, s.timezone, now);
       } catch (err) {
         logger.error({ err, scheduleId: s.id }, "Cron inválido: se desactiva la programación");
       }
-      await repo.markRan(s.id, { lastRunAt: now, nextRunAt: next, isActive: next !== null });
+    }
+    // Reservar antes de disparar: si otro proceso ya la tomó, no se duplica el backup.
+    const claimed = await repo.claimRun(s.id, new Date(s.nextRunAt!), {
+      lastRunAt: now,
+      nextRunAt: next,
+      isActive: next !== null,
+    });
+    if (!claimed) continue;
+    try {
+      await runScheduled(s.jobId);
+    } catch (err) {
+      logger.error({ err, jobId: s.jobId }, "No se pudo disparar el backup programado");
     }
   }
 
