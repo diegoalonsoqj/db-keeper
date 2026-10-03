@@ -450,6 +450,18 @@
     "cloudSqlHeartbeatMinutes": "Cloud SQL export progress notice (minutes)",
     "cloudSqlHeartbeatMinutesHint": "How often \"Export in progress…\" is written to the log while the operation keeps running in GCP. 0 = disabled.",
     "maxConcurrentDumps": "Concurrent dumps",
-    "maxConcurrentDumpsHint": "How many dumps run at once on this server; the rest wait in the queue. Cloud SQL exports do not count. Two executions never run at once on the same instance."
+    "maxConcurrentDumpsHint": "How many dumps run at once on this server; the rest wait in the queue. Cloud SQL exports do not count. Two executions never run at once on the same instance.",
+    "backupsDumpGroup": "Dumps (PostgreSQL, MySQL, MongoDB, SQL Server)",
+    "backupsCloudSqlGroup": "Cloud SQL export",
+    "dumpInactivityMinutes": "Stop if no progress (minutes)",
+    "dumpInactivityMinutesHint": "A dump stops only if, during this time, the file does not grow and there is no output. A large dump that keeps progressing is never cut, however long it takes.",
+    "dumpMaxHours": "Maximum duration per database (hours)",
+    "dumpMaxHoursHint": "Safety net: total cap even if it keeps progressing. For SQL Server (the server writes the .bak) it is the only limit.",
+    "cloudSqlExportTimeoutHours": "Active follow-up (hours)",
+    "cloudSqlExportTimeoutHoursHint": "Time following the export live. After that it does not fail: it keeps being checked in the background.",
+    "cloudSqlVerifyIntervalMinutes": "Check in the background every (minutes)",
+    "cloudSqlVerifyIntervalMinutesHint": "How often exports past the active follow-up are checked.",
+    "cloudSqlExportMaxHours": "Absolute cap (hours)",
+    "cloudSqlExportMaxHoursHint": "After this time the export is marked failed (it may continue in GCP). Must be at least the active follow-up."
   }
 }

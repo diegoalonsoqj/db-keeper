@@ -1,3 +1,5 @@
+import type { DumpLimits } from "./supervise.js";
+
 /** Datos de conexión + destino para volcar una base de datos. */
 export interface DumpInput {
   host: string;
@@ -24,6 +26,8 @@ export interface DumpInput {
   onLog?: (line: string) => void;
   /** Ruta absoluta del archivo de salida (sin extensión; el dumper la añade). */
   destPathNoExt: string;
+  /** Corte por inactividad y tope total del proceso de dump. */
+  limits: DumpLimits;
 }
 
 /** Resultado de un volcado correcto. */

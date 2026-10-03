@@ -176,13 +176,31 @@ export async function updateSecurity(patch: Partial<SecuritySettings>): Promise<
 }
 
 /** Ajustes de ejecución de backups (con los valores por defecto para claves faltantes). */
+/**
+ * Valor inicial de los tiempos: el del .env (así no se pierde lo ya configurado
+ * allí); lo guardado desde Configuración tiene prioridad. BACKUP_TIMEOUT_MS ahora
+ * es el tope total del dump: nunca por debajo de 24 h (el corte real es por inactividad).
+ */
+function envBackupDefaults(): Partial<BackupSettings> {
+  const hours = (ms: number) => Math.max(1, Math.round(ms / 3_600_000));
+  return {
+    dumpMaxHours: Math.max(DEFAULT_BACKUP_SETTINGS.dumpMaxHours, Math.ceil(env.BACKUP_TIMEOUT_MS / 3_600_000)),
+    cloudSqlExportTimeoutHours: hours(env.CLOUDSQL_EXPORT_TIMEOUT_MS),
+    cloudSqlVerifyIntervalMinutes: Math.max(1, Math.round(env.CLOUDSQL_VERIFY_INTERVAL_MS / 60_000)),
+    cloudSqlExportMaxHours: hours(env.CLOUDSQL_EXPORT_MAX_MS),
+  };
+}
+
 export async function getBackupSettings(): Promise<BackupSettings> {
   const stored = await repo.getSetting<Partial<BackupSettings>>(BACKUPS_KEY);
-  return { ...DEFAULT_BACKUP_SETTINGS, ...(stored ?? {}) };
+  return { ...DEFAULT_BACKUP_SETTINGS, ...envBackupDefaults(), ...(stored ?? {}) };
 }
 
 export async function updateBackupSettings(patch: Partial<BackupSettings>): Promise<BackupSettings> {
   const next = { ...(await getBackupSettings()), ...patch };
+  if (next.cloudSqlExportMaxHours < next.cloudSqlExportTimeoutHours) {
+    throw HttpError.badRequest("El tope absoluto del export de Cloud SQL no puede ser menor que su tiempo de seguimiento");
+  }
   await repo.upsertSetting(BACKUPS_KEY, next);
   return next;
 }

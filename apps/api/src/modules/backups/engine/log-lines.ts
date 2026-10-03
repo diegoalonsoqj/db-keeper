@@ -1,4 +1,5 @@
 import { StringDecoder } from "node:string_decoder";
+import type { DumpLimits, StopReason } from "./supervise.js";
 
 /** Tope de texto acumulado para el mensaje de error (no crece sin límite). */
 const MAX_ACC = 8000;
@@ -47,6 +48,45 @@ export function pipeStderrLines(
     if (buf) emit(buf);
   });
   return () => acc;
+}
+
+/**
+ * Mensaje de un dump que terminó mal. Distingue el corte del supervisor (sin
+ * avance o tope total: sin esto el mensaje era la última salida de --verbose, sin
+ * ninguna pista) de otras señales y de los errores del cliente.
+ */
+export function describeDumpExit(e: {
+  tool: string;
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  /** Por qué lo detuvo el supervisor (null = no lo detuvo él). */
+  stopReason: StopReason | null;
+  limits: DumpLimits;
+  stderr: string;
+}): string {
+  const errors = summarizeErrorLines(e.stderr);
+  if (e.stopReason) {
+    const why =
+      e.stopReason === "inactivity"
+        ? `no avanzó en ${Math.round(e.limits.inactivityMs / 60_000)} min (ni creció el archivo ni hubo salida); se detuvo`
+        : `superó la duración máxima por base (${Math.round(e.limits.maxMs / 3_600_000)} h); se detuvo`;
+    return [`${e.tool} ${why}. Ajusta los tiempos en Configuración → Backups.`, errors].filter(Boolean).join("\n");
+  }
+  if (e.signal) {
+    const hint = e.signal === "SIGKILL" ? " (posible falta de memoria en el servidor)" : "";
+    return [`${e.tool} terminó por la señal ${e.signal}${hint}`, errors].filter(Boolean).join("\n");
+  }
+  return summarizeStderr(e.stderr) || `${e.tool} terminó con código ${e.code}`;
+}
+
+/** Solo las líneas de error reconocibles (sin caer al final del texto). */
+function summarizeErrorLines(stderr: string): string {
+  return stderr
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && ERROR_LINE_RE.test(l))
+    .slice(-20)
+    .join("\n");
 }
 
 /** Líneas de error de los clientes: "pg_dump: error:/detail:/hint:", "mysqldump: Got error:", "Failed:". */

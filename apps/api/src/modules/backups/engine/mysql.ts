@@ -8,8 +8,9 @@ import { createGzip } from "node:zlib";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines, summarizeStderr, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
+import { pipeStderrLines, describeDumpExit, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
+import { superviseDump, type DumpLimits } from "./supervise.js";
 
 const GZIP_LEVEL = 6;
 
@@ -44,6 +45,7 @@ export async function dumpMysql(input: DumpInput): Promise<DumpResult> {
     await runMysqldump(args, input.password, filePath, {
       cleanDefiners,
       compress: input.compress,
+      limits: input.limits,
       onLog: input.onLog,
     });
     const { size } = await stat(filePath);
@@ -82,19 +84,26 @@ async function runMysqldump(
   args: string[],
   password: string,
   filePath: string,
-  opts: { cleanDefiners: boolean; compress: boolean; onLog?: (line: string) => void },
+  opts: { cleanDefiners: boolean; compress: boolean; limits: DumpLimits; onLog?: (line: string) => void },
 ): Promise<void> {
   const child = spawn(env.MYSQLDUMP_PATH, args, {
     env: { ...process.env, MYSQL_PWD: password },
-    timeout: env.BACKUP_TIMEOUT_MS,
     windowsHide: true,
   });
   lowerPriority(child);
+  const sup = superviseDump(child, filePath, opts.limits);
 
-  const getStderr = pipeStderrLines(child.stderr, (line) => opts.onLog?.(line), NATIVE_CLIENT_STDERR_ENCODING);
+  const getStderr = pipeStderrLines(
+    child.stderr,
+    (line) => {
+      sup.activity();
+      opts.onLog?.(line);
+    },
+    NATIVE_CLIENT_STDERR_ENCODING,
+  );
 
-  const closed = new Promise<number | null>((resolve, reject) => {
-    child.on("close", (code) => resolve(code));
+  const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+    child.on("close", (code, signal) => resolve({ code, signal }));
     child.on("error", (err) =>
       reject(
         new Error(
@@ -115,10 +124,23 @@ async function runMysqldump(
     ...transforms,
     createWriteStream(filePath),
   ];
-  const [, code] = await Promise.all([pipeline(streams), closed]);
+  let code: number | null;
+  let signal: NodeJS.Signals | null;
+  try {
+    [, { code, signal }] = await Promise.all([pipeline(streams), closed]);
+  } finally {
+    sup.stop();
+  }
 
   if (code !== 0) {
-    const detail = summarizeStderr(getStderr()) || `mysqldump terminó con código ${code}`;
+    const detail = describeDumpExit({
+      tool: "mysqldump",
+      code,
+      signal,
+      stopReason: sup.reason(),
+      limits: opts.limits,
+      stderr: getStderr(),
+    });
     throw new Error(password ? detail.split(password).join("***") : detail);
   }
 }

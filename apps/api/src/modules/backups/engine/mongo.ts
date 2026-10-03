@@ -4,8 +4,9 @@ import { env } from "../../../config/env.js";
 import { buildMongoUri } from "../../../lib/mongo-uri.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines, summarizeStderr } from "./log-lines.js";
+import { pipeStderrLines, describeDumpExit } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
+import { superviseDump, type DumpLimits } from "./supervise.js";
 
 /**
  * Vuelca una BD MongoDB con `mongodump --archive` (un solo archivo), con `--gzip`
@@ -28,7 +29,7 @@ export async function dumpMongo(input: DumpInput): Promise<DumpResult> {
   ];
 
   try {
-    await runMongodump(args, input.password, input.onLog);
+    await runMongodump(args, input.password, filePath, input.limits, input.onLog);
     const { size } = await stat(filePath);
     if (size === 0) throw new Error("El dump quedó vacío");
     if (input.compress) await verifyGzip(filePath);
@@ -47,31 +48,45 @@ function buildUri(input: DumpInput): string {
 function runMongodump(
   args: string[],
   password: string,
+  filePath: string,
+  limits: DumpLimits,
   onLog?: (line: string) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(env.MONGODUMP_PATH, args, {
       env: process.env,
-      timeout: env.BACKUP_TIMEOUT_MS,
       windowsHide: true,
     });
     lowerPriority(child);
+    const sup = superviseDump(child, filePath, limits);
 
-    const getStderr = pipeStderrLines(child.stderr, (line) => onLog?.(line));
+    const getStderr = pipeStderrLines(child.stderr, (line) => {
+      sup.activity();
+      onLog?.(line);
+    });
 
-    child.on("error", (err) =>
+    child.on("error", (err) => {
+      sup.stop();
       reject(
         new Error(
           err.message.includes("ENOENT")
             ? `No se encontró mongodump (${env.MONGODUMP_PATH}). Instálalo o ajusta MONGODUMP_PATH.`
             : err.message,
         ),
-      ),
-    );
+      );
+    });
 
     child.on("close", (code, signal) => {
+      sup.stop();
       if (code === 0) return resolve();
-      const detail = summarizeStderr(getStderr()) || (signal ? `terminado por señal ${signal}` : `código ${code}`);
+      const detail = describeDumpExit({
+        tool: "mongodump",
+        code,
+        signal,
+        stopReason: sup.reason(),
+        limits,
+        stderr: getStderr(),
+      });
       reject(new Error(password ? detail.split(password).join("***") : detail));
     });
   });

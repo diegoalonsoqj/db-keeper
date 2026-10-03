@@ -450,6 +450,18 @@
     "cloudSqlHeartbeatMinutes": "Aviso de progreso del export de Cloud SQL (minutos)",
     "cloudSqlHeartbeatMinutesHint": "Cada cuánto se escribe \"Export en curso…\" en el log mientras la operación sigue corriendo en GCP. 0 = desactivado.",
     "maxConcurrentDumps": "Dumps simultáneos",
-    "maxConcurrentDumpsHint": "Cuántos dumps corren a la vez en este servidor; el resto espera en cola. Los exports de Cloud SQL no cuentan. Además, nunca corren dos ejecuciones a la vez sobre la misma instancia."
+    "maxConcurrentDumpsHint": "Cuántos dumps corren a la vez en este servidor; el resto espera en cola. Los exports de Cloud SQL no cuentan. Además, nunca corren dos ejecuciones a la vez sobre la misma instancia.",
+    "backupsDumpGroup": "Dumps (PostgreSQL, MySQL, MongoDB, SQL Server)",
+    "backupsCloudSqlGroup": "Export de Cloud SQL",
+    "dumpInactivityMinutes": "Cortar si no avanza (minutos)",
+    "dumpInactivityMinutesHint": "Un dump se detiene solo si en este tiempo no crece el archivo ni hay salida. Un dump grande que avanza no se corta, dure lo que dure.",
+    "dumpMaxHours": "Duración máxima por base (horas)",
+    "dumpMaxHoursHint": "Red de seguridad: tope total aunque siga avanzando. En SQL Server (el .bak lo genera el servidor) es el único límite.",
+    "cloudSqlExportTimeoutHours": "Seguimiento activo (horas)",
+    "cloudSqlExportTimeoutHoursHint": "Tiempo siguiendo el export en vivo. Después no falla: se sigue verificando en segundo plano.",
+    "cloudSqlVerifyIntervalMinutes": "Verificar en segundo plano cada (minutos)",
+    "cloudSqlVerifyIntervalMinutesHint": "Frecuencia con que se revisan los exports que superaron el seguimiento activo.",
+    "cloudSqlExportMaxHours": "Tope absoluto (horas)",
+    "cloudSqlExportMaxHoursHint": "Pasado este tiempo el export se marca fallido (puede seguir en GCP). Debe ser mayor o igual que el seguimiento activo."
   }
 }
