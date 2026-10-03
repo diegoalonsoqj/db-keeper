@@ -343,10 +343,10 @@ export async function findResumableExecutionIds(): Promise<string[]> {
  * Recupera ejecuciones huérfanas: en el modelo en-proceso, un reinicio mata
  * cualquier corrida en curso. Marca como `failed` las ejecuciones `running` (y sus
  * ítems sin cerrar), salvo las de `exceptIds` (se retoman). Las `pending` no se
- * tocan: son la cola y se lanzan al arrancar. Devuelve cuántas se cerraron.
+ * tocan: son la cola y se lanzan al arrancar. Devuelve los ids cerrados.
  */
-export async function recoverStaleExecutions(exceptIds: string[] = []): Promise<number> {
-  const { rows } = await query<{ count: string }>(
+export async function recoverStaleExecutions(exceptIds: string[] = []): Promise<string[]> {
+  const { rows } = await query<{ id: string }>(
     `WITH failed AS (
        UPDATE core.executions SET status = 'failed', finished_at = now()
        WHERE status = 'running' AND id <> ALL($1::uuid[])
@@ -357,10 +357,10 @@ export async function recoverStaleExecutions(exceptIds: string[] = []): Promise<
        WHERE status IN ('pending', 'running') AND execution_id IN (SELECT id FROM failed)
        RETURNING 1
      )
-     SELECT count(*)::text AS count FROM failed`,
+     SELECT id FROM failed`,
     [exceptIds],
   );
-  return Number(rows[0]?.count ?? 0);
+  return rows.map((r) => r.id);
 }
 
 export interface QueuedExecution {
