@@ -17,7 +17,8 @@ module.exports = {
       instances: 1, // el motor/scheduler corre in-proceso: una sola instancia.
       autorestart: true,
       max_restarts: 10,
-      max_memory_restart: "512M",
+      // Al superarlo PM2 reinicia y mata los backups en curso: holgado a propósito.
+      max_memory_restart: "2G",
       // Logs con timestamp (PM2 los guarda en ~/.pm2/logs por defecto).
       time: true,
     },
