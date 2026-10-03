@@ -33,3 +33,20 @@ async function shutdown(signal: string): Promise<void> {
 
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
+
+// Una promesa sin catch no debe tumbar el proceso (mataría los backups en curso):
+// se registra y se sigue.
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason }, "Promesa rechazada sin manejar");
+});
+
+// Tras una excepción no capturada el estado es incierto: se registra y se sale
+// para que el gestor de procesos reinicie limpio.
+process.on("uncaughtException", (err, origin) => {
+  logger.fatal({ err, origin }, "Excepción no capturada; la API se cierra");
+  process.exit(1);
+});
+
+process.on("exit", (code) => {
+  logger.info({ code }, "Proceso de la API finalizado");
+});
