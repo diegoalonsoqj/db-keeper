@@ -89,8 +89,11 @@ function summarizeErrorLines(stderr: string): string {
     .join("\n");
 }
 
-/** Líneas de error de los clientes: "pg_dump: error:/detail:/hint:", "mysqldump: Got error:", "Failed:". */
-const ERROR_LINE_RE = /(^|\s)(error|fatal|failed|detail|hint)\s*:/i;
+/**
+ * Líneas de error de los clientes: "pg_dump: error:/detail:/hint:", "mysqldump: Got error:",
+ * "Failed:", y las de mysqldump sin "error:" ("Couldn't execute '…': Access denied … (1044)").
+ */
+const ERROR_LINE_RE = /(^|\s)(error|fatal|failed|detail|hint)\s*:|couldn't execute|access denied|\(\d{4}\)\s*$/i;
 
 /**
  * Mensaje de error a partir del stderr de un dump fallido: solo las líneas de error
