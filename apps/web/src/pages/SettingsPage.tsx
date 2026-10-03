@@ -18,6 +18,7 @@ import {
   type StorageTargetDto,
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
+import { NumberInput } from "../components/NumberInput";
 import { optionLabel } from "../lib/options";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
@@ -501,21 +502,12 @@ export function SettingsPage() {
               return (
                 <label key={key}>
                   {t(`settings.${key}`)}
-                  <input
-                    type="number"
+                  <NumberInput
                     min={min}
                     max={max}
                     value={data.backups[key]}
                     disabled={!canWrite}
-                    onChange={(e) =>
-                      setData({
-                        ...data,
-                        backups: {
-                          ...data.backups,
-                          [key]: Math.min(max, Math.max(min, Math.trunc(Number(e.target.value) || min))),
-                        },
-                      })
-                    }
+                    onChange={(v) => setData((d) => (d ? { ...d, backups: { ...d.backups, [key]: v } } : d))}
                   />
                   <small>{t(`settings.${key}Hint`)}</small>
                 </label>
@@ -544,44 +536,40 @@ export function SettingsPage() {
         </label>
         <label>
           {t("settings.maxAttemptsPerUser")}
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={sec.maxAttemptsPerUser}
             disabled={!canWrite || !sec.loginLimitEnabled}
-            onChange={(e) => setData({ ...data, security: { ...sec, maxAttemptsPerUser: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+            onChange={(v) => setData((d) => (d ? { ...d, security: { ...d.security, maxAttemptsPerUser: v } } : d))}
           />
           <small>{t("settings.maxAttemptsPerUserHint")}</small>
         </label>
         <label>
           {t("settings.maxAttemptsPerIp")}
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={sec.maxAttemptsPerIp}
             disabled={!canWrite || !sec.loginLimitEnabled}
-            onChange={(e) => setData({ ...data, security: { ...sec, maxAttemptsPerIp: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+            onChange={(v) => setData((d) => (d ? { ...d, security: { ...d.security, maxAttemptsPerIp: v } } : d))}
           />
           <small>{t("settings.maxAttemptsPerIpHint")}</small>
         </label>
         <label>
           {t("settings.windowMinutes")}
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={sec.windowMinutes}
             disabled={!canWrite || !sec.loginLimitEnabled}
-            onChange={(e) => setData({ ...data, security: { ...sec, windowMinutes: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+            onChange={(v) => setData((d) => (d ? { ...d, security: { ...d.security, windowMinutes: v } } : d))}
           />
         </label>
         <label>
           {t("settings.lockMinutes")}
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={sec.lockMinutes}
             disabled={!canWrite || !sec.loginLimitEnabled}
-            onChange={(e) => setData({ ...data, security: { ...sec, lockMinutes: Math.max(1, Math.trunc(Number(e.target.value) || 1)) } })}
+            onChange={(v) => setData((d) => (d ? { ...d, security: { ...d.security, lockMinutes: v } } : d))}
           />
         </label>
         {canWrite && (
