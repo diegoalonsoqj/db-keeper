@@ -8,7 +8,7 @@ import { createGzip } from "node:zlib";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
+import { pipeStderrLines, summarizeStderr, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
 
 const GZIP_LEVEL = 6;
@@ -118,7 +118,7 @@ async function runMysqldump(
   const [, code] = await Promise.all([pipeline(streams), closed]);
 
   if (code !== 0) {
-    const detail = getStderr().trim() || `mysqldump terminó con código ${code}`;
+    const detail = summarizeStderr(getStderr()) || `mysqldump terminó con código ${code}`;
     throw new Error(password ? detail.split(password).join("***") : detail);
   }
 }
