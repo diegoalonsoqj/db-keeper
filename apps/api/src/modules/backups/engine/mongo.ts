@@ -3,7 +3,7 @@ import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines } from "./log-lines.js";
+import { pipeStderrLines, summarizeStderr } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
 
 /**
@@ -76,7 +76,7 @@ function runMongodump(
 
     child.on("close", (code, signal) => {
       if (code === 0) return resolve();
-      const detail = getStderr().trim() || (signal ? `terminado por señal ${signal}` : `código ${code}`);
+      const detail = summarizeStderr(getStderr()) || (signal ? `terminado por señal ${signal}` : `código ${code}`);
       reject(new Error(password ? detail.split(password).join("***") : detail));
     });
   });

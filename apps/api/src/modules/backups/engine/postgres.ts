@@ -3,7 +3,7 @@ import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
-import { pipeStderrLines, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
+import { pipeStderrLines, summarizeStderr, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
@@ -91,7 +91,7 @@ function runPgDump(
 
     child.on("close", (code, signal) => {
       if (code === 0) return resolve();
-      const detail = getStderr().trim() || (signal ? `terminado por señal ${signal}` : `código ${code}`);
+      const detail = summarizeStderr(getStderr()) || (signal ? `terminado por señal ${signal}` : `código ${code}`);
       reject(new Error(detail));
     });
   });

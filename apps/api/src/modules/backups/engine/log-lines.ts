@@ -32,7 +32,9 @@ export function pipeStderrLines(
   };
   stream.on("data", (chunk: Buffer) => {
     const text = decoder.write(chunk);
-    if (acc.length < MAX_ACC) acc += text;
+    // Se conserva el final: el error va al final (con --verbose, el principio son
+    // cientos de líneas informativas).
+    acc = (acc + text).slice(-MAX_ACC);
     buf += text;
     let nl: number;
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -45,4 +47,17 @@ export function pipeStderrLines(
     if (buf) emit(buf);
   });
   return () => acc;
+}
+
+/** Líneas de error de los clientes: "pg_dump: error:/detail:/hint:", "mysqldump: Got error:", "Failed:". */
+const ERROR_LINE_RE = /(^|\s)(error|fatal|failed|detail|hint)\s*:/i;
+
+/**
+ * Mensaje de error a partir del stderr de un dump fallido: solo las líneas de error
+ * (sin la salida de --verbose); si no hay ninguna reconocible, el final del texto.
+ */
+export function summarizeStderr(stderr: string): string {
+  const lines = stderr.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const errors = lines.filter((l) => ERROR_LINE_RE.test(l));
+  return (errors.length > 0 ? errors.slice(-20) : lines.slice(-10)).join("\n");
 }
