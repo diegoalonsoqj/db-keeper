@@ -1,3 +1,4 @@
+import type { DiscoveredDatabase } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { decryptSecret } from "../../lib/crypto.js";
 import * as serversRepo from "../servers/servers.repository.js";
@@ -47,7 +48,7 @@ async function resolveConn(serverId: string, credentialId?: string | null) {
 }
 
 /** Conecta a la instancia y lista sus BDs reales. */
-export async function discover(serverId: string, credentialId?: string | null): Promise<string[]> {
+export async function discover(serverId: string, credentialId?: string | null): Promise<DiscoveredDatabase[]> {
   const { engine, conn } = await resolveConn(serverId, credentialId);
   try {
     return await getDiscoverer(engine)(conn);
@@ -69,20 +70,22 @@ export async function listSchemas(serverId: string, dbName: string, credentialId
 
 /**
  * Lista las BDs de una instancia Cloud SQL con la API de Cloud SQL Admin, sin
- * conectarse a ella ni usar credencial de BD (para el método `cloudsql_export`).
+ * conectarse a ella ni usar credencial de BD (para el método `cloudsql_export`). La
+ * API no informa el tamaño de cada BD: va como null.
  */
-export async function discoverCloudSql(serverId: string): Promise<string[]> {
+export async function discoverCloudSql(serverId: string): Promise<DiscoveredDatabase[]> {
   const server = await serversRepo.findById(serverId);
   if (!server) throw HttpError.notFound("Instancia no encontrada");
   if (!server.isCloudSql || !server.gcpProject || !server.gcpInstance) {
     throw HttpError.badRequest("La instancia no está configurada como Cloud SQL (proyecto e instancia GCP)");
   }
   try {
-    return await listDatabases({
+    const names = await listDatabases({
       serviceAccountJson: await resolveGcpServiceAccountJson(server.cloudCredentialId),
       project: server.gcpProject,
       instance: server.gcpInstance,
     });
+    return names.map((name) => ({ name, bytes: null }));
   } catch (err) {
     throw HttpError.badRequest(err instanceof Error ? err.message : String(err));
   }

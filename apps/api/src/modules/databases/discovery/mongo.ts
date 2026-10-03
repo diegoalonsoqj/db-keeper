@@ -1,10 +1,11 @@
 import { MongoClient } from "mongodb";
+import type { DiscoveredDatabase } from "@dbkeeper/shared";
 import { buildMongoUri } from "../../../lib/mongo-uri.js";
 import { DISCOVER_TIMEOUT_MS, type ConnInfo } from "./types.js";
 
 const SYSTEM = new Set(["admin", "local", "config"]);
 
-export async function discoverMongo(conn: ConnInfo): Promise<string[]> {
+export async function discoverMongo(conn: ConnInfo): Promise<DiscoveredDatabase[]> {
   // Misma URI que el dump (SRV y opciones de la instancia), más timeouts cortos.
   const uri = buildMongoUri({
     ...conn,
@@ -18,11 +19,18 @@ export async function discoverMongo(conn: ConnInfo): Promise<string[]> {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const { databases } = await client.db().admin().listDatabases({ nameOnly: true });
+    const admin = client.db().admin();
+    // Con tamaño (sizeOnDisk) si el usuario puede; si no, solo los nombres.
+    let databases: { name: string; sizeOnDisk?: number }[];
+    try {
+      databases = (await admin.listDatabases()).databases;
+    } catch {
+      databases = (await admin.listDatabases({ nameOnly: true })).databases;
+    }
     return databases
-      .map((d) => d.name)
-      .filter((n) => !SYSTEM.has(n))
-      .sort();
+      .filter((d) => !SYSTEM.has(d.name))
+      .map((d) => ({ name: d.name, bytes: typeof d.sizeOnDisk === "number" ? d.sizeOnDisk : null }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   } finally {
     await client.close();
   }
