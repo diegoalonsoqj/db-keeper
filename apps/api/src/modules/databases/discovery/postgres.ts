@@ -1,4 +1,5 @@
 import pg from "pg";
+import type { DiscoveredDatabase } from "@dbkeeper/shared";
 import { DISCOVER_TIMEOUT_MS, type ConnInfo } from "./types.js";
 
 /**
@@ -35,7 +36,7 @@ export async function listPostgresSchemas(conn: ConnInfo, dbName: string): Promi
   }
 }
 
-export async function discoverPostgres(conn: ConnInfo): Promise<string[]> {
+export async function discoverPostgres(conn: ConnInfo): Promise<DiscoveredDatabase[]> {
   const client = new pg.Client({
     host: conn.host,
     port: conn.port,
@@ -48,10 +49,15 @@ export async function discoverPostgres(conn: ConnInfo): Promise<string[]> {
   });
   await client.connect();
   try {
-    const { rows } = await client.query<{ datname: string }>(
-      "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn ORDER BY datname",
+    // pg_database_size exige CONNECT sobre la BD: sin ese permiso el tamaño queda null.
+    const { rows } = await client.query<{ datname: string; bytes: string | null }>(
+      `SELECT datname,
+              CASE WHEN has_database_privilege(datname, 'CONNECT') THEN pg_database_size(datname) END AS bytes
+       FROM pg_database WHERE datistemplate = false AND datallowconn ORDER BY datname`,
     );
-    return rows.map((r) => r.datname).filter((n) => !PROVIDER_INTERNAL.has(n));
+    return rows
+      .filter((r) => !PROVIDER_INTERNAL.has(r.datname))
+      .map((r) => ({ name: r.datname, bytes: r.bytes === null ? null : Number(r.bytes) }));
   } finally {
     await client.end();
   }

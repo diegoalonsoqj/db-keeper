@@ -471,3 +471,23 @@ export interface ComputeIdentityDto {
   /** Id de la entrada del catálogo que ya la representa (null = aún no agregada). */
   credentialId: string | null;
 }
+
+/** BD encontrada al descubrir una instancia, con su tamaño si el motor lo informa. */
+export interface DiscoveredDatabase {
+  name: string;
+  /** Tamaño en disco (bytes); null si no se pudo obtener (permisos o API de Cloud SQL). */
+  bytes: number | null;
+}
+
+/** Formatea bytes a la unidad legible más cercana (B, KB, MB, …). */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}

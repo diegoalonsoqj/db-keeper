@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next";
 import {
   BACKUP_METHODS,
   ENGINE_BACKUP_OPTIONS,
+  formatBytes,
   type BackupJobDto,
   type BackupMethod,
+  type DiscoveredDatabase,
   type StorageTargetDto,
   type CredentialDto,
   type Paginated,
@@ -62,6 +64,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [schemaOptions, setSchemaOptions] = useState<Record<string, string[]>>({});
   const [loadingSchemas, setLoadingSchemas] = useState<string | null>(null);
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
+  // Tamaño de cada BD descubierta (null = el motor/permiso no lo informa).
+  const [dbSizes, setDbSizes] = useState<Record<string, number | null>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set(job?.databases ?? []));
   const [discovering, setDiscovering] = useState(false);
 
@@ -128,11 +132,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       // Descubrir con la credencial del evento (override) si se eligió; si no, el
       // backend usa la de la instancia. Permite descubrir instancias sin credencial base.
       // En el export de Cloud SQL se listan con la API de Cloud SQL (sin conectarse a la BD).
-      const found = await api.post<string[]>(`/servers/${serverId}/databases/discover`, {
+      const found = await api.post<DiscoveredDatabase[]>(`/servers/${serverId}/databases/discover`, {
         credentialId: credentialId || null,
         via: isExport ? "cloudsql" : "direct",
       });
-      setDbOptions((prev) => uniq([...found, ...prev]));
+      setDbOptions((prev) => uniq([...found.map((d) => d.name), ...prev]));
+      setDbSizes(Object.fromEntries(found.map((d) => [d.name, d.bytes])));
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : String(e));
     } finally {
@@ -359,6 +364,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
                 <label className="inline">
                   <input type="checkbox" checked={selected.has(db)} onChange={() => toggle(db)} />
                   {db}
+                  {dbSizes[db] != null && <span className="muted">({formatBytes(dbSizes[db])})</span>}
                 </label>
               </li>
             ))}

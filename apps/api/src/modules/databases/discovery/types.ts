@@ -1,3 +1,5 @@
+import type { DiscoveredDatabase } from "@dbkeeper/shared";
+
 /** Datos de conexión para descubrir las BDs de una instancia. */
 export interface ConnInfo {
   host: string;
@@ -11,8 +13,8 @@ export interface ConnInfo {
   connOptions?: Record<string, string>;
 }
 
-/** Lista los nombres de bases de datos de la instancia (sin las del sistema). */
-export type Discoverer = (conn: ConnInfo) => Promise<string[]>;
+/** Lista las bases de datos de la instancia (sin las del sistema), con su tamaño si se puede. */
+export type Discoverer = (conn: ConnInfo) => Promise<DiscoveredDatabase[]>;
 
 /** Timeout de conexión/consulta para el descubrimiento (ms). */
 export const DISCOVER_TIMEOUT_MS = 8000;
