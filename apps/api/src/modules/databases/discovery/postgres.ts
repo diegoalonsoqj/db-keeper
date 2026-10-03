@@ -1,8 +1,11 @@
 import pg from "pg";
 import { DISCOVER_TIMEOUT_MS, type ConnInfo } from "./types.js";
 
-/** Bases que nunca se ofrecen para respaldo. */
-const SYSTEM = new Set(["postgres"]);
+/**
+ * BDs internas de servicios gestionados (Cloud SQL, RDS, Azure): el usuario no
+ * puede leerlas y su dump fallaría siempre. La BD `postgres` sí se ofrece.
+ */
+const PROVIDER_INTERNAL = new Set(["cloudsqladmin", "rdsadmin", "azure_maintenance", "azure_sys"]);
 
 /**
  * Esquemas de usuario de una BD (sin los de sistema: pg_catalog, information_schema,
@@ -46,9 +49,9 @@ export async function discoverPostgres(conn: ConnInfo): Promise<string[]> {
   await client.connect();
   try {
     const { rows } = await client.query<{ datname: string }>(
-      "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
+      "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn ORDER BY datname",
     );
-    return rows.map((r) => r.datname).filter((n) => !SYSTEM.has(n));
+    return rows.map((r) => r.datname).filter((n) => !PROVIDER_INTERNAL.has(n));
   } finally {
     await client.end();
   }
