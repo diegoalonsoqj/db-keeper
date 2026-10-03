@@ -5,6 +5,10 @@ export interface ConnInfo {
   user: string;
   password: string;
   ssl: boolean;
+  /** MongoDB: conexión SRV (Atlas). */
+  mongoSrv?: boolean;
+  /** MongoDB: opciones de conexión de la instancia. */
+  connOptions?: Record<string, string>;
 }
 
 /** Lista los nombres de bases de datos de la instancia (sin las del sistema). */

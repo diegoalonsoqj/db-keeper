@@ -29,7 +29,6 @@ export type BackupOptionKey =
   /** PostgreSQL: esquemas que NO se respaldan, por BD (`options.excludeSchemas[db]`). */
   | "excludeSchemas"
   | "cleanDefiners"
-  | "mongoSrv"
   | "verbose"
   | "sqlBackupDir";
 
@@ -41,7 +40,7 @@ export type BackupOptionKey =
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
   postgres: ["compress", "excludeTables", "excludeSchemas", "verbose"],
   mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
-  mongo: ["compress", "mongoSrv", "verbose"],
+  mongo: ["compress", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],
 };
 
@@ -55,6 +54,10 @@ export interface ServerDto {
   port: number;
   environment: string | null;
   useSsl: boolean;
+  /** MongoDB: conexión SRV (`mongodb+srv://`, Atlas): sin puerto y con TLS. */
+  mongoSrv: boolean;
+  /** MongoDB: opciones de conexión admitidas (ver MONGO_CONN_OPTION_KEYS). */
+  connOptions: Record<string, string>;
   isCloudSql: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
