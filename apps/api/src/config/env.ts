@@ -28,13 +28,11 @@ const envSchema = z.object({
   PG_DUMP_PATH: z.string().default("pg_dump"),
   MYSQLDUMP_PATH: z.string().default("mysqldump"),
   MONGODUMP_PATH: z.string().default("mongodump"),
-  // Timeout por base de datos para el volcado (ms). Por defecto 30 min.
+  // Tiempos de backup: solo el VALOR INICIAL; se editan en Configuración → Backups
+  // (lo guardado allí tiene prioridad). BACKUP_TIMEOUT_MS = tope total del dump (mín.
+  // efectivo 24 h: el corte real es por inactividad).
   BACKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(1_800_000),
-  // Timeout por BD para el export de Cloud SQL (ms): lo genera la instancia y en BDs
-  // grandes tarda bastante más que un dump. Por defecto 6 h.
   CLOUDSQL_EXPORT_TIMEOUT_MS: z.coerce.number().int().positive().default(21_600_000),
-  // Pasado el timeout el export sigue en GCP: se verifica en segundo plano cada
-  // CLOUDSQL_VERIFY_INTERVAL_MS (def. 5 min) hasta CLOUDSQL_EXPORT_MAX_MS (def. 48 h).
   CLOUDSQL_VERIFY_INTERVAL_MS: z.coerce.number().int().min(60_000).default(300_000),
   CLOUDSQL_EXPORT_MAX_MS: z.coerce.number().int().positive().default(172_800_000),
   // Prioridad (nice) de los procesos de dump: más alto = cede CPU a la API. 0 = normal.

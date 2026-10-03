@@ -1,5 +1,4 @@
 import sql from "mssql";
-import { env } from "../../../config/env.js";
 
 export interface SqlServerBackupInput {
   host: string;
@@ -13,6 +12,8 @@ export interface SqlServerBackupInput {
   /** Nombre base del archivo (sin extensión). */
   fileBase: string;
   compress: boolean;
+  /** Tope total del BACKUP (corre en el servidor: no hay archivo local que vigilar). */
+  maxMs: number;
 }
 
 /**
@@ -34,7 +35,7 @@ export async function backupSqlServer(
     database: "master",
     options: { encrypt: input.ssl, trustServerCertificate: true },
     connectionTimeout: 15_000,
-    requestTimeout: env.BACKUP_TIMEOUT_MS,
+    requestTimeout: input.maxMs,
   });
   await pool.connect();
   try {

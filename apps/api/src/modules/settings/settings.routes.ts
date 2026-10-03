@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { APP_LOCALES, EMAIL_PROVIDERS, LDAP_MODES, LDAP_SECURITY } from "@dbkeeper/shared";
+import { APP_LOCALES, BACKUP_SETTINGS_LIMITS, EMAIL_PROVIDERS, LDAP_MODES, LDAP_SECURITY } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
@@ -93,11 +93,12 @@ settingsRouter.patch("/security", authorize("settings:write"), async (req, res, 
   }
 });
 
-// 0 = sin heartbeat; tope de 1 día.
-const backupsSchema = z.object({
-  cloudSqlHeartbeatMinutes: z.number().int().min(0).max(1440).optional(),
-  maxConcurrentDumps: z.number().int().min(1).max(10).optional(),
-});
+// Cada campo con sus límites (los mismos que muestra el formulario); heartbeat 0 = desactivado.
+const backupsSchema = z.object(
+  Object.fromEntries(
+    Object.entries(BACKUP_SETTINGS_LIMITS).map(([k, l]) => [k, z.number().int().min(l.min).max(l.max).optional()]),
+  ) as Record<keyof typeof BACKUP_SETTINGS_LIMITS, z.ZodOptional<z.ZodNumber>>,
+);
 
 settingsRouter.patch("/backups", authorize("settings:write"), async (req, res, next) => {
   try {

@@ -402,11 +402,38 @@ export interface BackupSettings {
   cloudSqlHeartbeatMinutes: number;
   /** Dumps (procesos en este servidor) a la vez; el resto espera en cola. No cuenta los exports de Cloud SQL. */
   maxConcurrentDumps: number;
+  /** Dump: se corta si no avanza (ni el archivo crece ni hay salida) durante estos minutos. */
+  dumpInactivityMinutes: number;
+  /** Dump: duración máxima por BD (red de seguridad), aunque siga avanzando. */
+  dumpMaxHours: number;
+  /** Export de Cloud SQL: horas de seguimiento activo; después se verifica en segundo plano. */
+  cloudSqlExportTimeoutHours: number;
+  /** Export de Cloud SQL: cada cuántos minutos se verifica en segundo plano. */
+  cloudSqlVerifyIntervalMinutes: number;
+  /** Export de Cloud SQL: tope absoluto; pasado esto se marca fallido. */
+  cloudSqlExportMaxHours: number;
 }
 
+/** Límites de los ajustes de backups (formulario y API). */
+export const BACKUP_SETTINGS_LIMITS = {
+  cloudSqlHeartbeatMinutes: { min: 0, max: 1440 },
+  maxConcurrentDumps: { min: 1, max: 10 },
+  dumpInactivityMinutes: { min: 1, max: 1440 },
+  dumpMaxHours: { min: 1, max: 168 },
+  cloudSqlExportTimeoutHours: { min: 1, max: 48 },
+  cloudSqlVerifyIntervalMinutes: { min: 1, max: 60 },
+  cloudSqlExportMaxHours: { min: 1, max: 168 },
+} as const satisfies Record<keyof BackupSettings, { min: number; max: number }>;
+
+/** Valores por defecto (en la API, los de tiempo toman como base las variables del .env). */
 export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   cloudSqlHeartbeatMinutes: 5,
   maxConcurrentDumps: 1,
+  dumpInactivityMinutes: 15,
+  dumpMaxHours: 24,
+  cloudSqlExportTimeoutHours: 6,
+  cloudSqlVerifyIntervalMinutes: 5,
+  cloudSqlExportMaxHours: 48,
 };
 
 export interface SettingsDto {

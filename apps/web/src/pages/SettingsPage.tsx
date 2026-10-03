@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   APP_LOCALES,
+  BACKUP_SETTINGS_LIMITS,
   EMAIL_PROVIDERS,
   LDAP_MODES,
   LDAP_SECURITY,
   type AppLocale,
+  type BackupSettings,
   type CloudCredentialDto,
   type EmailProvider,
   type LdapMode,
@@ -21,6 +23,15 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
+
+/** Campos de Configuración → Backups, agrupados (límites en BACKUP_SETTINGS_LIMITS). */
+const BACKUP_SETTING_GROUPS: { title: string; fields: (keyof BackupSettings)[] }[] = [
+  { title: "settings.backupsDumpGroup", fields: ["maxConcurrentDumps", "dumpInactivityMinutes", "dumpMaxHours"] },
+  {
+    title: "settings.backupsCloudSqlGroup",
+    fields: ["cloudSqlHeartbeatMinutes", "cloudSqlExportTimeoutHours", "cloudSqlVerifyIntervalMinutes", "cloudSqlExportMaxHours"],
+  },
+];
 
 type ChannelTest = { ok: boolean | null; error?: string };
 type NotifTestResult = { email: ChannelTest; telegram: ChannelTest };
@@ -482,46 +493,36 @@ export function SettingsPage() {
 
       <div className="card form-card" hidden={activeSection !== "backups"}>
         <h2>{t("settings.backups")}</h2>
-        <label>
-          {t("settings.cloudSqlHeartbeatMinutes")}
-          <input
-            type="number"
-            min={0}
-            max={1440}
-            value={data.backups.cloudSqlHeartbeatMinutes}
-            disabled={!canWrite}
-            onChange={(e) =>
-              setData({
-                ...data,
-                backups: {
-                  ...data.backups,
-                  cloudSqlHeartbeatMinutes: Math.min(1440, Math.max(0, Math.trunc(Number(e.target.value) || 0))),
-                },
-              })
-            }
-          />
-          <small>{t("settings.cloudSqlHeartbeatMinutesHint")}</small>
-        </label>
-        <label>
-          {t("settings.maxConcurrentDumps")}
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={data.backups.maxConcurrentDumps}
-            disabled={!canWrite}
-            onChange={(e) =>
-              setData({
-                ...data,
-                backups: {
-                  ...data.backups,
-                  maxConcurrentDumps: Math.min(10, Math.max(1, Math.trunc(Number(e.target.value) || 1))),
-                },
-              })
-            }
-          />
-          <small>{t("settings.maxConcurrentDumpsHint")}</small>
-        </label>
+        {BACKUP_SETTING_GROUPS.map((group) => (
+          <Fragment key={group.title}>
+            <h3 className="full">{t(group.title)}</h3>
+            {group.fields.map((key) => {
+              const { min, max } = BACKUP_SETTINGS_LIMITS[key];
+              return (
+                <label key={key}>
+                  {t(`settings.${key}`)}
+                  <input
+                    type="number"
+                    min={min}
+                    max={max}
+                    value={data.backups[key]}
+                    disabled={!canWrite}
+                    onChange={(e) =>
+                      setData({
+                        ...data,
+                        backups: {
+                          ...data.backups,
+                          [key]: Math.min(max, Math.max(min, Math.trunc(Number(e.target.value) || min))),
+                        },
+                      })
+                    }
+                  />
+                  <small>{t(`settings.${key}Hint`)}</small>
+                </label>
+              );
+            })}
+          </Fragment>
+        ))}
         {canWrite && (
           <div className="form-actions">
             <button onClick={() => notify(saveBackups)}>{t("common.save")}</button>
