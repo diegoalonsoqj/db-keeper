@@ -5,6 +5,8 @@ import * as credsRepo from "../credentials/credentials.repository.js";
 import { listDatabases } from "../../lib/cloudsql.js";
 import { resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import { getDiscoverer } from "./discovery/index.js";
+import { listPostgresSchemas } from "./discovery/postgres.js";
+import type { ConnInfo } from "./discovery/types.js";
 
 /** Elimina cualquier rastro de la contraseña del mensaje de error del driver. */
 function safeMessage(err: unknown, password: string): string {
@@ -14,17 +16,16 @@ function safeMessage(err: unknown, password: string): string {
 }
 
 /**
- * Conecta a la instancia y lista sus BDs reales. Usa la credencial recibida
- * (override del evento) y, si no se pasa, la asignada a la instancia. Así se puede
- * descubrir una instancia sin credencial base usando una credencial existente.
+ * Datos de conexión a la instancia: usa la credencial recibida (override del
+ * evento) y, si no se pasa, la asignada a la instancia. Así se puede descubrir una
+ * instancia sin credencial base usando una credencial existente.
  */
-export async function discover(serverId: string, credentialId?: string | null): Promise<string[]> {
+async function resolveConn(serverId: string, credentialId?: string | null) {
   const server = await serversRepo.findById(serverId);
   if (!server) throw HttpError.notFound("Instancia no encontrada");
   if (!server.host) {
     throw HttpError.badRequest("La instancia no tiene host/IP: lista sus BDs por la API de Cloud SQL");
   }
-  const host = server.host;
   const effectiveCredId = credentialId ?? server.credentialId;
   if (!effectiveCredId) {
     throw HttpError.badRequest("No hay credencial: asígnala a la instancia o elígela en el evento");
@@ -32,19 +33,29 @@ export async function discover(serverId: string, credentialId?: string | null): 
   const cred = await credsRepo.findById(effectiveCredId);
   const enc = await credsRepo.getEncrypted(effectiveCredId);
   if (!cred || !enc) throw HttpError.badRequest("La credencial indicada no existe");
-
   const password = decryptSecret(enc.passwordEncrypted);
-  const discoverer = getDiscoverer(server.engine);
+  const conn: ConnInfo = { host: server.host, port: server.port, user: cred.username, password, ssl: server.useSsl };
+  return { engine: server.engine, conn };
+}
+
+/** Conecta a la instancia y lista sus BDs reales. */
+export async function discover(serverId: string, credentialId?: string | null): Promise<string[]> {
+  const { engine, conn } = await resolveConn(serverId, credentialId);
   try {
-    return await discoverer({
-      host,
-      port: server.port,
-      user: cred.username,
-      password,
-      ssl: server.useSsl,
-    });
+    return await getDiscoverer(engine)(conn);
   } catch (err) {
-    throw HttpError.badRequest(`No se pudo conectar a la instancia: ${safeMessage(err, password)}`);
+    throw HttpError.badRequest(`No se pudo conectar a la instancia: ${safeMessage(err, conn.password)}`);
+  }
+}
+
+/** Esquemas de una BD de PostgreSQL (para elegir cuáles excluir del dump). */
+export async function listSchemas(serverId: string, dbName: string, credentialId?: string | null): Promise<string[]> {
+  const { engine, conn } = await resolveConn(serverId, credentialId);
+  if (engine !== "postgres") throw HttpError.badRequest("Los esquemas solo aplican a PostgreSQL");
+  try {
+    return await listPostgresSchemas(conn, dbName);
+  } catch (err) {
+    throw HttpError.badRequest(`No se pudieron listar los esquemas de ${dbName}: ${safeMessage(err, conn.password)}`);
   }
 }
 

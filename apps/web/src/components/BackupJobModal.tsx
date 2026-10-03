@@ -57,6 +57,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [retKeep, setRetKeep] = useState(ret?.keepLast != null ? String(ret.keepLast) : "");
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
+  // PostgreSQL: esquemas a excluir por BD ({ bd: [esquemas] }) y los cargados de cada BD.
+  const [excludeSchemas, setExcludeSchemas] = useState<Record<string, string[]>>(
+    (job?.options?.excludeSchemas as Record<string, string[]> | undefined) ?? {},
+  );
+  const [schemaOptions, setSchemaOptions] = useState<Record<string, string[]>>({});
+  const [loadingSchemas, setLoadingSchemas] = useState<string | null>(null);
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
   const [selected, setSelected] = useState<Set<string>>(new Set(job?.databases ?? []));
   const [discovering, setDiscovering] = useState(false);
@@ -74,6 +80,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const dumpOpts = engine && !isExport ? ENGINE_BACKUP_OPTIONS[engine] : [];
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
+  const showExcludeSchemas = dumpOpts.includes("excludeSchemas");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
   const showMongoSrv = dumpOpts.includes("mongoSrv");
   const showVerbose = dumpOpts.includes("verbose");
@@ -136,6 +143,34 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     }
   }
 
+  async function loadSchemas(db: string) {
+    setError(null);
+    setLoadingSchemas(db);
+    try {
+      const found = await api.post<string[]>(`/servers/${serverId}/databases/schemas`, {
+        dbName: db,
+        credentialId: credentialId || null,
+      });
+      setSchemaOptions((prev) => ({ ...prev, [db]: found }));
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : String(e));
+    } finally {
+      setLoadingSchemas(null);
+    }
+  }
+
+  function toggleSchema(db: string, schema: string) {
+    setExcludeSchemas((prev) => {
+      const current = new Set(prev[db] ?? []);
+      if (current.has(schema)) current.delete(schema);
+      else current.add(schema);
+      const next = { ...prev };
+      if (current.size > 0) next[db] = [...current].sort();
+      else delete next[db];
+      return next;
+    });
+  }
+
   function toggle(db: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -163,6 +198,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         .map((t) => t.trim())
         .filter(Boolean);
     else delete options.excludeTables;
+    // Solo de las BDs seleccionadas (el backend vuelve a validarlo).
+    const schemasToExclude = Object.fromEntries(
+      Object.entries(excludeSchemas).filter(([db, list]) => selected.has(db) && list.length > 0),
+    );
+    if (showExcludeSchemas && Object.keys(schemasToExclude).length > 0) options.excludeSchemas = schemasToExclude;
+    else delete options.excludeSchemas;
     if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
     else delete options.cleanDefiners;
     if (showMongoSrv) options.mongoSrv = mongoSrv;
@@ -328,6 +369,48 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           </ul>
         )}
       </fieldset>
+
+      {showExcludeSchemas && selected.size > 0 && (
+        <fieldset>
+          <legend>{t("backups.excludeSchemas")}</legend>
+          <p className="muted">{t("backups.excludeSchemasHint")}</p>
+          {[...selected].sort().map((db) => {
+            const excluded = excludeSchemas[db] ?? [];
+            // Los ya excluidos se muestran aunque aún no se hayan cargado los de la BD.
+            const options = uniq([...(schemaOptions[db] ?? []), ...excluded]).sort();
+            return (
+              <div key={db} className="schema-group">
+                <div className="db-toolbar">
+                  <strong>{db}</strong>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => loadSchemas(db)}
+                    disabled={loadingSchemas !== null}
+                  >
+                    {loadingSchemas === db ? t("backups.loadingSchemas") : t("backups.loadSchemas")}
+                  </button>
+                  {excluded.length > 0 && (
+                    <span className="muted">{t("backups.excludedCount", { count: excluded.length })}</span>
+                  )}
+                </div>
+                {options.length > 0 && (
+                  <ul className="db-list">
+                    {options.map((s) => (
+                      <li key={s}>
+                        <label className="inline">
+                          <input type="checkbox" checked={excluded.includes(s)} onChange={() => toggleSchema(db, s)} />
+                          {s}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </fieldset>
+      )}
 
       {showExclude && (
         <label>

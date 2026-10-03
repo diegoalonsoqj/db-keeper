@@ -38,6 +38,9 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     "--no-password", // nunca prompt interactivo: si falta auth, falla rápido
     ...(input.verbose ? ["--verbose"] : []), // progreso por objeto a stderr
     ...input.excludeTables.flatMap((t) => ["--exclude-table", t]),
+    // Entre comillas dobles el patrón es literal (sin comodines * ? y respetando
+    // mayúsculas); las comillas internas se duplican.
+    ...(input.excludeSchemas ?? []).map((s) => `--exclude-schema="${s.replace(/"/g, '""')}"`),
     "-f",
     filePath,
   ];

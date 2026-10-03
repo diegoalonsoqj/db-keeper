@@ -26,6 +26,8 @@ export const DEFAULT_PORTS: Record<DbEngine, number> = {
 export type BackupOptionKey =
   | "compress"
   | "excludeTables"
+  /** PostgreSQL: esquemas que NO se respaldan, por BD (`options.excludeSchemas[db]`). */
+  | "excludeSchemas"
   | "cleanDefiners"
   | "mongoSrv"
   | "verbose"
@@ -37,7 +39,7 @@ export type BackupOptionKey =
  * opciones propias.
  */
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
-  postgres: ["compress", "excludeTables", "verbose"],
+  postgres: ["compress", "excludeTables", "excludeSchemas", "verbose"],
   mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
   mongo: ["compress", "mongoSrv", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],
