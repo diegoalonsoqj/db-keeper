@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { rm, stat } from "node:fs/promises";
-import { StringDecoder } from "node:string_decoder";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -58,23 +57,61 @@ export async function dumpMysql(input: DumpInput): Promise<DumpResult> {
   }
 }
 
-/** Transform que elimina las cláusulas `DEFINER=...` respetando límites de línea. */
+/**
+ * Transform que elimina las cláusulas `DEFINER=...` de las líneas DDL (vistas,
+ * triggers, rutinas, eventos). Las líneas `INSERT` pasan sin tocar y sin
+ * acumularse: una sola puede pesar cientos de MB (blobs en hex) y bufferearla
+ * disparaba la memoria del proceso; además, filtrarlas alteraría los datos.
+ */
 function definerStripper(): Transform {
-  const decoder = new StringDecoder("utf8");
   const re = /\s*DEFINER\s*=\s*\S+/gi;
-  let buf = "";
+  const INSERT = Buffer.from("INSERT ");
+  let pending: Buffer[] = []; // línea en curso aún no emitida (DDL o sin decidir)
+  let pendingLen = 0;
+  let decided = false; // ya se sabe si la línea en curso es INSERT
+  let passthrough = false; // dentro de una línea INSERT: se emite tal cual
+
+  const isInsert = (line: Buffer): boolean => line.subarray(0, INSERT.length).equals(INSERT);
+  const strip = (line: Buffer): Buffer =>
+    isInsert(line) ? line : Buffer.from(line.toString("utf8").replace(re, ""), "utf8");
+  const takePending = (): Buffer => {
+    const b = Buffer.concat(pending, pendingLen);
+    pending = [];
+    pendingLen = 0;
+    decided = false;
+    return b;
+  };
+
   return new Transform({
     transform(chunk: Buffer, _enc, cb) {
-      buf += decoder.write(chunk);
-      const nl = buf.lastIndexOf("\n");
-      if (nl < 0) return cb();
-      const ready = buf.slice(0, nl + 1);
-      buf = buf.slice(nl + 1);
-      cb(null, ready.replace(re, ""));
+      const out: Buffer[] = [];
+      let pos = 0;
+      while (pos < chunk.length) {
+        const nl = chunk.indexOf(10, pos);
+        const end = nl < 0 ? chunk.length : nl + 1;
+        if (passthrough) {
+          out.push(chunk.subarray(pos, end));
+          if (nl >= 0) passthrough = false;
+          pos = end;
+          continue;
+        }
+        pending.push(chunk.subarray(pos, end));
+        pendingLen += end - pos;
+        pos = end;
+        if (nl >= 0) {
+          out.push(strip(takePending()));
+        } else if (!decided && pendingLen >= INSERT.length) {
+          decided = true;
+          if (isInsert(Buffer.concat(pending, pendingLen))) {
+            out.push(takePending());
+            passthrough = true;
+          }
+        }
+      }
+      cb(null, out.length ? Buffer.concat(out) : undefined);
     },
     flush(cb) {
-      buf += decoder.end();
-      cb(null, buf.replace(re, ""));
+      cb(null, pendingLen ? strip(takePending()) : undefined);
     },
   });
 }
