@@ -9,6 +9,8 @@ interface ServerRow {
   port: number;
   environment: string | null;
   use_ssl: boolean;
+  mongo_srv: boolean;
+  conn_options: Record<string, string>;
   is_cloud_sql: boolean;
   gcp_project: string | null;
   gcp_instance: string | null;
@@ -30,6 +32,8 @@ function toServer(row: ServerRow): ServerDto {
     port: row.port,
     environment: row.environment,
     useSsl: row.use_ssl,
+    mongoSrv: row.mongo_srv,
+    connOptions: row.conn_options ?? {},
     isCloudSql: row.is_cloud_sql,
     gcpProject: row.gcp_project,
     gcpInstance: row.gcp_instance,
@@ -84,6 +88,8 @@ export interface ServerFields {
   port: number;
   environment: string | null;
   useSsl: boolean;
+  mongoSrv: boolean;
+  connOptions: Record<string, string>;
   isCloudSql: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
@@ -95,8 +101,8 @@ export interface ServerFields {
 export async function insertServer(fields: ServerFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
     `INSERT INTO core.servers
-       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id, cloud_credential_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id, cloud_credential_id, mongo_srv, conn_options)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
     [
       fields.name,
       fields.engine,
@@ -110,6 +116,8 @@ export async function insertServer(fields: ServerFields): Promise<string> {
       fields.notes,
       fields.credentialId,
       fields.cloudCredentialId,
+      fields.mongoSrv,
+      JSON.stringify(fields.connOptions),
     ],
   );
   return rows[0]!.id;
@@ -123,6 +131,8 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
     port: "port",
     environment: "environment",
     useSsl: "use_ssl",
+    mongoSrv: "mongo_srv",
+    connOptions: "conn_options",
     isCloudSql: "is_cloud_sql",
     gcpProject: "gcp_project",
     gcpInstance: "gcp_instance",
@@ -134,7 +144,8 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
   const params: unknown[] = [];
   let i = 1;
   for (const [k, col] of Object.entries(map)) {
-    const v = (fields as Record<string, unknown>)[k];
+    let v = (fields as Record<string, unknown>)[k];
+    if (k === "connOptions" && v !== undefined) v = JSON.stringify(v); // jsonb
     if (v !== undefined) (sets.push(`${col} = $${i++}`), params.push(v));
   }
   if (sets.length === 0) return;

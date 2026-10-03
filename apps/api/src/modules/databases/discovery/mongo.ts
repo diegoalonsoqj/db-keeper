@@ -1,17 +1,20 @@
 import { MongoClient } from "mongodb";
+import { buildMongoUri } from "../../../lib/mongo-uri.js";
 import { DISCOVER_TIMEOUT_MS, type ConnInfo } from "./types.js";
 
 const SYSTEM = new Set(["admin", "local", "config"]);
 
 export async function discoverMongo(conn: ConnInfo): Promise<string[]> {
-  const auth = `${encodeURIComponent(conn.user)}:${encodeURIComponent(conn.password)}`;
-  const timeouts = `serverSelectionTimeoutMS=${DISCOVER_TIMEOUT_MS}&connectTimeoutMS=${DISCOVER_TIMEOUT_MS}`;
-  // Atlas usa SRV (host .mongodb.net): sin puerto y con TLS, igual que el dumper.
-  const isSrv = conn.host.endsWith(".mongodb.net");
-  const uri = isSrv
-    ? `mongodb+srv://${auth}@${conn.host}/?authSource=admin&tls=true&${timeouts}`
-    : `mongodb://${auth}@${conn.host}:${conn.port}/?authSource=admin&${timeouts}` +
-      (conn.ssl ? "&tls=true" : "");
+  // Misma URI que el dump (SRV y opciones de la instancia), más timeouts cortos.
+  const uri = buildMongoUri({
+    ...conn,
+    srv: conn.mongoSrv === true || conn.host.endsWith(".mongodb.net"),
+    options: conn.connOptions,
+    extra: {
+      serverSelectionTimeoutMS: String(DISCOVER_TIMEOUT_MS),
+      connectTimeoutMS: String(DISCOVER_TIMEOUT_MS),
+    },
+  });
   const client = new MongoClient(uri);
   try {
     await client.connect();

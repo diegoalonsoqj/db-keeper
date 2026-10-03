@@ -34,7 +34,15 @@ async function resolveConn(serverId: string, credentialId?: string | null) {
   const enc = await credsRepo.getEncrypted(effectiveCredId);
   if (!cred || !enc) throw HttpError.badRequest("La credencial indicada no existe");
   const password = decryptSecret(enc.passwordEncrypted);
-  const conn: ConnInfo = { host: server.host, port: server.port, user: cred.username, password, ssl: server.useSsl };
+  const conn: ConnInfo = {
+    host: server.host,
+    port: server.port,
+    user: cred.username,
+    password,
+    ssl: server.useSsl,
+    mongoSrv: server.mongoSrv,
+    connOptions: server.connOptions,
+  };
   return { engine: server.engine, conn };
 }
 

@@ -5,6 +5,10 @@ import {
   DB_ENGINES,
   DEFAULT_PAGE_SIZE,
   DEFAULT_PORTS,
+  MONGO_SRV_DEFAULT_READ_PREFERENCE,
+  mongoOptionsFromText,
+  mongoOptionsToText,
+  parseMongoConnectionString,
   type CloudCredentialDto,
   type CloudSqlCheckDto,
   type CredentialDto,
@@ -32,6 +36,9 @@ interface FormState {
   port: number;
   environment: string;
   useSsl: boolean;
+  /** MongoDB: conexión SRV (Atlas) y opciones como texto de query. */
+  mongoSrv: boolean;
+  connOptionsText: string;
   isCloudSql: boolean;
   gcpProject: string;
   gcpInstance: string;
@@ -48,6 +55,8 @@ const emptyForm: FormState = {
   port: DEFAULT_PORTS.postgres,
   environment: "",
   useSsl: false,
+  mongoSrv: false,
+  connOptionsText: "",
   isCloudSql: false,
   gcpProject: "",
   gcpInstance: "",
@@ -73,6 +82,9 @@ export function ServersPage() {
   const [checking, setChecking] = useState(false);
   const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
   const [form, setForm] = useState<FormState | null>(null);
+  // MongoDB: cadena pegada (transitoria: no se guarda) y aviso de lo aplicado.
+  const [connString, setConnString] = useState("");
+  const [connNotice, setConnNotice] = useState<string | null>(null);
 
   async function reload() {
     const [srv, creds, envs, clouds] = await Promise.all([
@@ -93,6 +105,8 @@ export function ServersPage() {
 
   function startEdit(s: ServerDto) {
     setCloudCheck(null);
+    setConnString("");
+    setConnNotice(null);
     setForm({
       id: s.id,
       name: s.name,
@@ -101,6 +115,8 @@ export function ServersPage() {
       port: s.port,
       environment: s.environment ?? "",
       useSsl: s.useSsl,
+      mongoSrv: s.mongoSrv,
+      connOptionsText: mongoOptionsToText(s.connOptions),
       isCloudSql: s.isCloudSql,
       gcpProject: s.gcpProject ?? "",
       gcpInstance: s.gcpInstance ?? "",
@@ -110,8 +126,41 @@ export function ServersPage() {
     });
   }
 
+  /**
+   * MongoDB: desarma la cadena pegada (p. ej. la de Atlas) en tipo, host, puerto y
+   * opciones. La contraseña se descarta (va en Credenciales) y el campo se vacía.
+   */
+  function applyConnString() {
+    if (!form) return;
+    try {
+      const p = parseMongoConnectionString(connString);
+      setForm({
+        ...form,
+        mongoSrv: p.srv,
+        host: p.host,
+        port: p.port ?? form.port,
+        connOptionsText: mongoOptionsToText(p.options),
+      });
+      const notes = [t("servers.connApplied")];
+      if (p.username) notes.push(t("servers.connUserDetected", { user: p.username }));
+      if (p.hadPassword) notes.push(t("servers.connPasswordDiscarded"));
+      if (p.rejected.length > 0) notes.push(t("servers.connRejected", { keys: p.rejected.join(", ") }));
+      setConnNotice(notes.join(" "));
+      setConnString("");
+    } catch (e) {
+      setConnNotice(null);
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function submit() {
     if (!form) return;
+    const isMongo = form.engine === "mongo";
+    const conn = mongoOptionsFromText(isMongo ? form.connOptionsText : "");
+    if (conn.errors.length > 0) {
+      toast.error(`${t("servers.connOptions")}: ${conn.errors.join("; ")}`);
+      return;
+    }
     try {
       const base = {
         name: form.name,
@@ -120,6 +169,8 @@ export function ServersPage() {
         port: Number(form.port),
         environment: form.environment || null,
         useSsl: form.useSsl,
+        mongoSrv: isMongo && form.mongoSrv,
+        connOptions: conn.options,
         isCloudSql: form.isCloudSql,
         gcpProject: form.gcpProject || null,
         gcpInstance: form.gcpInstance || null,
@@ -164,7 +215,7 @@ export function ServersPage() {
   return (
     <section>
       <div className="page-head">
-        {canWrite && <button onClick={() => { setCloudCheck(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
+        {canWrite && <button onClick={() => { setCloudCheck(null); setConnString(""); setConnNotice(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
       </div>
 
       <div className="table-wrap">
@@ -243,22 +294,76 @@ export function ServersPage() {
               ))}
             </select>
           </label>
+          {form.engine === "mongo" && (
+            <>
+              <label className="full">
+                {t("servers.connString")}
+                <div className="db-toolbar">
+                  <input
+                    value={connString}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="mongodb+srv://usuario@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority"
+                    onChange={(e) => setConnString(e.target.value)}
+                  />
+                  <button type="button" className="secondary" onClick={applyConnString} disabled={!connString.trim()}>
+                    {t("servers.connApply")}
+                  </button>
+                </div>
+                <small>{connNotice ?? t("servers.connStringHint")}</small>
+              </label>
+              <label>
+                {t("servers.mongoConnType")}
+                <select
+                  value={form.mongoSrv ? "srv" : "standard"}
+                  onChange={(e) => setForm({ ...form, mongoSrv: e.target.value === "srv" })}
+                >
+                  <option value="standard">{t("servers.mongoConnStandard")}</option>
+                  <option value="srv">{t("servers.mongoConnSrv")}</option>
+                </select>
+              </label>
+            </>
+          )}
           <label>
             {t("servers.host")}
             <input
               value={form.host}
-              placeholder={form.isCloudSql ? t("servers.hostOptionalCloudSql") : undefined}
+              placeholder={
+                form.isCloudSql
+                  ? t("servers.hostOptionalCloudSql")
+                  : form.engine === "mongo" && form.mongoSrv
+                    ? "cluster0.xxxxx.mongodb.net"
+                    : undefined
+              }
               onChange={(e) => setForm({ ...form, host: e.target.value })}
             />
           </label>
-          <label>
-            {t("servers.port")}
-            <input
-              type="number"
-              value={form.port}
-              onChange={(e) => setForm({ ...form, port: Number(e.target.value) })}
-            />
-          </label>
+          {/* Con SRV el puerto lo resuelve el DNS: no se pide. */}
+          {!(form.engine === "mongo" && form.mongoSrv) && (
+            <label>
+              {t("servers.port")}
+              <input
+                type="number"
+                value={form.port}
+                onChange={(e) => setForm({ ...form, port: Number(e.target.value) })}
+              />
+            </label>
+          )}
+          {form.engine === "mongo" && (
+            <label className="full">
+              {t("servers.connOptions")}
+              <input
+                value={form.connOptionsText}
+                spellCheck={false}
+                placeholder="retryWrites=true&w=majority&appName=Cluster0"
+                onChange={(e) => setForm({ ...form, connOptionsText: e.target.value })}
+              />
+              <small>
+                {t("servers.connOptionsHint")}
+                {form.mongoSrv && ` ${t("servers.connSrvDefaults", { readPreference: MONGO_SRV_DEFAULT_READ_PREFERENCE })}`}
+              </small>
+            </label>
+          )}
           <label>
             {t("servers.environment")}
             <select
@@ -281,10 +386,13 @@ export function ServersPage() {
             </select>
             <small>{t("servers.environmentHint")}</small>
           </label>
-          <label className="inline">
-            <input type="checkbox" checked={form.useSsl} onChange={(e) => setForm({ ...form, useSsl: e.target.checked })} />
-            {t("servers.useSsl")}
-          </label>
+          {/* Con SRV (Atlas) el TLS va siempre activo. */}
+          {!(form.engine === "mongo" && form.mongoSrv) && (
+            <label className="inline">
+              <input type="checkbox" checked={form.useSsl} onChange={(e) => setForm({ ...form, useSsl: e.target.checked })} />
+              {t("servers.useSsl")}
+            </label>
+          )}
           <label className="inline">
             <input type="checkbox" checked={form.isCloudSql} onChange={(e) => setForm({ ...form, isCloudSql: e.target.checked })} />
             {t("servers.isCloudSql")}

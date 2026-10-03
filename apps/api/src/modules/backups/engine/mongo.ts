@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
+import { buildMongoUri } from "../../../lib/mongo-uri.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, summarizeStderr } from "./log-lines.js";
@@ -38,15 +39,9 @@ export async function dumpMongo(input: DumpInput): Promise<DumpResult> {
   }
 }
 
-/** Construye la URI de conexión según sea Atlas (SRV) o un servidor estándar. */
+/** URI de conexión (Atlas SRV o estándar) con las opciones de la instancia. */
 function buildUri(input: DumpInput): string {
-  const auth = `${encodeURIComponent(input.user)}:${encodeURIComponent(input.password)}`;
-  const db = encodeURIComponent(input.dbName);
-  if (input.mongoSrv) {
-    return `mongodb+srv://${auth}@${input.host}/${db}?authSource=admin&retryWrites=true&w=majority&tls=true`;
-  }
-  const tls = input.ssl ? "&tls=true" : "";
-  return `mongodb://${auth}@${input.host}:${input.port}/${db}?authSource=admin${tls}`;
+  return buildMongoUri({ ...input, srv: input.mongoSrv === true, options: input.connOptions });
 }
 
 function runMongodump(

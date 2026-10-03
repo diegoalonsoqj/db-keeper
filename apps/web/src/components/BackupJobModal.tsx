@@ -43,8 +43,6 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   );
   // MySQL: quitar DEFINER por defecto.
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
-  // MongoDB: forzar conexión SRV (Atlas).
-  const [mongoSrv, setMongoSrv] = useState(job?.options?.mongoSrv === true);
   // Modo detallado: añade --verbose y muestra la consola en vivo.
   const [verbose, setVerbose] = useState(job?.options?.verbose === true);
   // SQL Server: carpeta de backup en el host de la instancia.
@@ -82,7 +80,6 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExclude = dumpOpts.includes("excludeTables");
   const showExcludeSchemas = dumpOpts.includes("excludeSchemas");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
-  const showMongoSrv = dumpOpts.includes("mongoSrv");
   const showVerbose = dumpOpts.includes("verbose");
   const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
@@ -206,8 +203,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.excludeSchemas;
     if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
     else delete options.cleanDefiners;
-    if (showMongoSrv) options.mongoSrv = mongoSrv;
-    else delete options.mongoSrv;
+    delete options.mongoSrv; // pasó a la instancia (conexión SRV)
     if (showVerbose) options.verbose = verbose;
     else delete options.verbose;
     if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
@@ -460,15 +456,6 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         </>
       )}
 
-      {showMongoSrv && (
-        <>
-          <label className="inline">
-            <input type="checkbox" checked={mongoSrv} onChange={(e) => setMongoSrv(e.target.checked)} />
-            {t("backups.mongoSrv")}
-          </label>
-          <small>{t("backups.mongoSrvHint")}</small>
-        </>
-      )}
 
       {showVerbose && (
         <>

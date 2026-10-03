@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { DB_ENGINES } from "@dbkeeper/shared";
+import { DB_ENGINES, validateMongoOption } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationSchema } from "../../lib/pagination.js";
@@ -19,6 +19,14 @@ const hostSchema = z
   .nullish()
   .transform((v) => (v === undefined ? undefined : v?.trim() || null));
 
+// MongoDB: opciones de conexión de una lista cerrada (sin parámetros arbitrarios en la URI).
+const connOptionsSchema = z.record(z.string().max(100)).superRefine((opts, ctx) => {
+  for (const [k, v] of Object.entries(opts)) {
+    const err = validateMongoOption(k, v);
+    if (err) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [k], message: err });
+  }
+});
+
 const serverFields = {
   name: z.string().min(1).max(120),
   engine: z.enum(DB_ENGINES),
@@ -26,6 +34,8 @@ const serverFields = {
   port: z.number().int().min(1).max(65535),
   environment: z.string().max(60).nullish().transform((v) => v ?? null),
   useSsl: z.boolean().default(false),
+  mongoSrv: z.boolean().default(false),
+  connOptions: connOptionsSchema.default({}),
   isCloudSql: z.boolean().default(false),
   gcpProject: z.string().max(255).nullish().transform((v) => v ?? null),
   gcpInstance: z.string().max(255).nullish().transform((v) => v ?? null),
@@ -45,6 +55,8 @@ const updateSchema = z.object({
   port: serverFields.port.optional(),
   environment: serverFields.environment,
   useSsl: z.boolean().optional(),
+  mongoSrv: z.boolean().optional(),
+  connOptions: connOptionsSchema.optional(),
   isCloudSql: z.boolean().optional(),
   gcpProject: serverFields.gcpProject,
   gcpInstance: serverFields.gcpInstance,
