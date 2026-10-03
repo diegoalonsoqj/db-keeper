@@ -17,6 +17,22 @@ const discoverBodySchema = z.object({
 
 // Descubrimiento en vivo: lista las BDs reales de la instancia (reutilizado por el
 // asistente de eventos de backup). La selección se persiste en el evento, no aquí.
+const schemasBodySchema = z.object({
+  dbName: z.string().min(1).max(255),
+  credentialId: z.string().uuid().nullish().transform((v) => v ?? null),
+});
+
+// Esquemas de una BD de PostgreSQL, para elegir cuáles excluir del dump.
+databasesRouter.post("/schemas", authorize("servers:read"), async (req, res, next) => {
+  try {
+    const serverId = idSchema.parse(req.params.serverId);
+    const { dbName, credentialId } = schemasBodySchema.parse(req.body ?? {});
+    ok(res, await service.listSchemas(serverId, dbName, credentialId));
+  } catch (err) {
+    next(err);
+  }
+});
+
 databasesRouter.post("/discover", authorize("servers:read"), async (req, res, next) => {
   try {
     const serverId = idSchema.parse(req.params.serverId);

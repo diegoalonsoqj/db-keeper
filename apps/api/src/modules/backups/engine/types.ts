@@ -10,6 +10,8 @@ export interface DumpInput {
   compress: boolean;
   /** Tablas a excluir del dump (patrones de `--exclude-table` / `--ignore-table`). */
   excludeTables: string[];
+  /** PostgreSQL: esquemas que NO se respaldan (nombres exactos, `--exclude-schema`). */
+  excludeSchemas?: string[];
   /** MySQL: quitar cláusulas `DEFINER` (compat. Cloud SQL). */
   cleanDefiners?: boolean;
   /** MongoDB: conexión SRV (Atlas) en vez de `mongodb://host:port`. */

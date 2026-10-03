@@ -553,6 +553,12 @@ pre.log.log-modal {
   align-items: center;
   gap: 0.5rem;
 }
+/* Esquemas a excluir: un bloque por BD seleccionada. */
+.schema-group + .schema-group {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
 
 /* ---- Pagination ---- */
 .pagination {
