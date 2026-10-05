@@ -7,6 +7,7 @@ import {
   type BackupJobDto,
   type BackupMethod,
   type DiscoveredDatabase,
+  type PgEventTrigger,
   type PgExtension,
   type StorageTargetDto,
   type CredentialDto,
@@ -15,6 +16,7 @@ import {
 } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { Modal } from "./Modal";
+import { ExcludeByDbSection, useDbExclusions } from "./ExcludeByDbSection";
 import { METHOD_LABELS } from "../lib/backup-methods";
 import { optionLabel } from "../lib/options";
 
@@ -59,17 +61,29 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [retKeep, setRetKeep] = useState(ret?.keepLast != null ? String(ret.keepLast) : "");
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
-  // PostgreSQL: esquemas a excluir por BD ({ bd: [esquemas] }) y los cargados de cada BD.
-  const [excludeSchemas, setExcludeSchemas] = useState<Record<string, string[]>>(
-    (job?.options?.excludeSchemas as Record<string, string[]> | undefined) ?? {},
-  );
-  const [schemaOptions, setSchemaOptions] = useState<Record<string, string[]>>({});
-  const [loadingSchemas, setLoadingSchemas] = useState<string | null>(null);
-  const [excludeExtensions, setExcludeExtensions] = useState<Record<string, string[]>>(
-    (job?.options?.excludeExtensions as Record<string, string[]> | undefined) ?? {},
-  );
-  const [extensionOptions, setExtensionOptions] = useState<Record<string, PgExtension[]>>({});
-  const [loadingExtensions, setLoadingExtensions] = useState<string | null>(null);
+  // PostgreSQL: esquemas, extensiones y event triggers a excluir por BD ({ bd: [nombres] }).
+  const exclusionCtx = { serverId, credentialId, onError: (m: string | null) => setError(m) };
+  const schemas = useDbExclusions<string>({
+    ...exclusionCtx,
+    initial: job?.options?.excludeSchemas,
+    path: "schemas",
+    toItem: (s) => ({ name: s, label: s }),
+  });
+  const extensions = useDbExclusions<PgExtension>({
+    ...exclusionCtx,
+    initial: job?.options?.excludeExtensions,
+    path: "extensions",
+    toItem: (e) => ({ name: e.name, label: `${e.name} (${e.version})` }),
+  });
+  const eventTriggers = useDbExclusions<PgEventTrigger>({
+    ...exclusionCtx,
+    initial: job?.options?.excludeEventTriggers,
+    path: "event-triggers",
+    toItem: (e) => ({
+      name: e.name,
+      label: `${e.name} (${e.event}${e.enabled === "D" ? `, ${t("backups.eventTriggerDisabled")}` : ""})`,
+    }),
+  });
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
   // Tamaño de cada BD descubierta (null = el motor/permiso no lo informa).
   const [dbSizes, setDbSizes] = useState<Record<string, number | null>>({});
@@ -91,6 +105,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExclude = dumpOpts.includes("excludeTables");
   const showExcludeSchemas = dumpOpts.includes("excludeSchemas");
   const showExcludeExtensions = dumpOpts.includes("excludeExtensions");
+  const showExcludeEventTriggers = dumpOpts.includes("excludeEventTriggers");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
   const showPgCompat = dumpOpts.includes("pgCompat");
   const showVerbose = dumpOpts.includes("verbose");
@@ -154,51 +169,6 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     }
   }
 
-  async function loadSchemas(db: string) {
-    setError(null);
-    setLoadingSchemas(db);
-    try {
-      const found = await api.post<string[]>(`/servers/${serverId}/databases/schemas`, {
-        dbName: db,
-        credentialId: credentialId || null,
-      });
-      setSchemaOptions((prev) => ({ ...prev, [db]: found }));
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
-    } finally {
-      setLoadingSchemas(null);
-    }
-  }
-
-  async function loadExtensions(db: string) {
-    setError(null);
-    setLoadingExtensions(db);
-    try {
-      const found = await api.post<PgExtension[]>(`/servers/${serverId}/databases/extensions`, {
-        dbName: db,
-        credentialId: credentialId || null,
-      });
-      setExtensionOptions((prev) => ({ ...prev, [db]: found }));
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : String(e));
-    } finally {
-      setLoadingExtensions(null);
-    }
-  }
-
-  /** Marca/desmarca un nombre excluido de una BD en un mapa { bd: [nombres] }. */
-  function toggleExcluded(setter: typeof setExcludeSchemas, db: string, name: string) {
-    setter((prev) => {
-      const current = new Set(prev[db] ?? []);
-      if (current.has(name)) current.delete(name);
-      else current.add(name);
-      const next = { ...prev };
-      if (current.size > 0) next[db] = [...current].sort();
-      else delete next[db];
-      return next;
-    });
-  }
-
   function toggle(db: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -227,17 +197,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         .filter(Boolean);
     else delete options.excludeTables;
     // Solo de las BDs seleccionadas (el backend vuelve a validarlo).
-    const schemasToExclude = Object.fromEntries(
-      Object.entries(excludeSchemas).filter(([db, list]) => selected.has(db) && list.length > 0),
-    );
-    if (showExcludeSchemas && Object.keys(schemasToExclude).length > 0) options.excludeSchemas = schemasToExclude;
-    else delete options.excludeSchemas;
-    const extensionsToExclude = Object.fromEntries(
-      Object.entries(excludeExtensions).filter(([db, list]) => selected.has(db) && list.length > 0),
-    );
-    if (showExcludeExtensions && Object.keys(extensionsToExclude).length > 0) {
-      options.excludeExtensions = extensionsToExclude;
-    } else delete options.excludeExtensions;
+    const exclusions = [
+      ["excludeSchemas", showExcludeSchemas, schemas],
+      ["excludeExtensions", showExcludeExtensions, extensions],
+      ["excludeEventTriggers", showExcludeEventTriggers, eventTriggers],
+    ] as const;
+    for (const [key, show, ex] of exclusions) {
+      const value = show ? ex.forSave(selected) : undefined;
+      if (value) options[key] = value;
+      else delete options[key];
+    }
     if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
     else delete options.cleanDefiners;
     if (showPgCompat) options.pgCompat = pgCompat;
@@ -407,97 +376,48 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       </fieldset>
 
       {showExcludeSchemas && selected.size > 0 && (
-        <fieldset>
-          <legend>{t("backups.excludeSchemas")}</legend>
-          <p className="muted">{t("backups.excludeSchemasHint")}</p>
-          {[...selected].sort().map((db) => {
-            const excluded = excludeSchemas[db] ?? [];
-            // Los ya excluidos se muestran aunque aún no se hayan cargado los de la BD.
-            const options = uniq([...(schemaOptions[db] ?? []), ...excluded]).sort();
-            return (
-              <div key={db} className="schema-group">
-                <div className="db-toolbar">
-                  <strong>{db}</strong>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => loadSchemas(db)}
-                    disabled={loadingSchemas !== null}
-                  >
-                    {loadingSchemas === db ? t("backups.loadingSchemas") : t("backups.loadSchemas")}
-                  </button>
-                  {excluded.length > 0 && (
-                    <span className="muted">{t("backups.excludedCount", { count: excluded.length })}</span>
-                  )}
-                </div>
-                {options.length > 0 && (
-                  <ul className="db-list">
-                    {options.map((s) => (
-                      <li key={s}>
-                        <label className="inline">
-                          <input
-                            type="checkbox"
-                            checked={excluded.includes(s)}
-                            onChange={() => toggleExcluded(setExcludeSchemas, db, s)}
-                          />
-                          {s}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </fieldset>
+        <ExcludeByDbSection
+          legend={t("backups.excludeSchemas")}
+          hint={t("backups.excludeSchemasHint")}
+          loadLabel={t("backups.loadSchemas")}
+          loadingLabel={t("backups.loadingSchemas")}
+          databases={[...selected]}
+          loaded={schemas.loaded}
+          excluded={schemas.excluded}
+          loadingDb={schemas.loadingDb}
+          onLoad={schemas.load}
+          onToggle={schemas.toggle}
+        />
       )}
 
       {showExcludeExtensions && selected.size > 0 && (
-        <fieldset>
-          <legend>{t("backups.excludeExtensions")}</legend>
-          {[...selected].sort().map((db) => {
-            const excluded = excludeExtensions[db] ?? [];
-            const loaded = extensionOptions[db] ?? [];
-            // Los ya excluidos se muestran aunque aún no se hayan cargado los de la BD.
-            const versions = new Map(loaded.map((e) => [e.name, e.version]));
-            const names = uniq([...loaded.map((e) => e.name), ...excluded]).sort();
-            return (
-              <div key={db} className="schema-group">
-                <div className="db-toolbar">
-                  <strong>{db}</strong>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => loadExtensions(db)}
-                    disabled={loadingExtensions !== null}
-                  >
-                    {loadingExtensions === db ? t("backups.loadingExtensions") : t("backups.loadExtensions")}
-                  </button>
-                  {excluded.length > 0 && (
-                    <span className="muted">{t("backups.excludedCount", { count: excluded.length })}</span>
-                  )}
-                </div>
-                {names.length > 0 && (
-                  <ul className="db-list">
-                    {names.map((n) => (
-                      <li key={n}>
-                        <label className="inline">
-                          <input
-                            type="checkbox"
-                            checked={excluded.includes(n)}
-                            onChange={() => toggleExcluded(setExcludeExtensions, db, n)}
-                          />
-                          {versions.has(n) ? `${n} (${versions.get(n)})` : n}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-          <p className="muted">{t("backups.excludeExtensionsHint")}</p>
-        </fieldset>
+        <ExcludeByDbSection
+          legend={t("backups.excludeExtensions")}
+          warning={t("backups.excludeExtensionsHint")}
+          loadLabel={t("backups.loadExtensions")}
+          loadingLabel={t("backups.loadingExtensions")}
+          databases={[...selected]}
+          loaded={extensions.loaded}
+          excluded={extensions.excluded}
+          loadingDb={extensions.loadingDb}
+          onLoad={extensions.load}
+          onToggle={extensions.toggle}
+        />
+      )}
+
+      {showExcludeEventTriggers && selected.size > 0 && (
+        <ExcludeByDbSection
+          legend={t("backups.excludeEventTriggers")}
+          warning={t("backups.excludeEventTriggersHint")}
+          loadLabel={t("backups.loadEventTriggers")}
+          loadingLabel={t("backups.loadingEventTriggers")}
+          databases={[...selected]}
+          loaded={eventTriggers.loaded}
+          excluded={eventTriggers.excluded}
+          loadingDb={eventTriggers.loadingDb}
+          onLoad={eventTriggers.load}
+          onToggle={eventTriggers.toggle}
+        />
       )}
 
       {showExclude && (

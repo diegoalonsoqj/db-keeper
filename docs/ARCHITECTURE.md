@@ -123,9 +123,13 @@ segundo plano (in-proceso, sin cola todavía) vuelca cada BD y actualiza los est
 `pg_dump -Fp` (`--no-owner --no-privileges --serializable-deferrable`, `--exclude-table`
 por `options.excludeTables`, y por BD `--exclude-schema` / `--exclude-extension` según
 `options.excludeSchemas` / `options.excludeExtensions`; esta última exige pg_dump ≥ 17 y
-se valida antes de lanzar el dump). La salida pasa por stdout → filtro `pgCompat` (quita
-`SET transaction_timeout` y `\restrict`/`\unrestrict` para restaurar en PG ≤ 16) → gzip,
-generando `backups/<motor>/{db}_{ambiente}_{timestamp}.sql[.gz]`
+se valida antes de lanzar el dump). La salida pasa por stdout → filtro (`engine/pg-filter.ts`)
+→ gzip. El filtro, en streaming y sin tocar los datos de los `COPY … FROM stdin;`, quita con
+`pgCompat` `SET transaction_timeout` y `\restrict`/`\unrestrict` (restaurable en PG ≤ 16), y
+las sentencias completas (multilínea, nombres entre comillas) `CREATE`/`ALTER`/`COMMENT ON
+EVENT TRIGGER` de `options.excludeEventTriggers` (pg_dump no tiene `--exclude-event-trigger`;
+crearlos exige superuser, que Cloud SQL no da). Avisa en el log si un trigger marcado no
+aparecía en el dump. Genera `backups/<motor>/{db}_{ambiente}_{timestamp}.sql[.gz]`
 (gzip configurable por `options.compress`), con validación de integridad del `.gz` y
 borrado del parcial si falla. El archivo se descarga desde *Ejecuciones* y el `log` por
 BD queda disponible; una corrida fallida se puede **reintentar**. Las contraseñas viajan por `PGPASSWORD` y los argumentos como

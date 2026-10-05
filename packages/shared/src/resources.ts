@@ -30,6 +30,8 @@ export type BackupOptionKey =
   | "excludeSchemas"
   /** PostgreSQL: extensiones que NO se respaldan, por BD (`options.excludeExtensions[db]`). */
   | "excludeExtensions"
+  /** PostgreSQL: event triggers que NO se respaldan, por BD (`options.excludeEventTriggers[db]`). */
+  | "excludeEventTriggers"
   | "cleanDefiners"
   /** PostgreSQL: dump restaurable en versiones anteriores (import de Cloud SQL). */
   | "pgCompat"
@@ -42,7 +44,15 @@ export type BackupOptionKey =
  * opciones propias.
  */
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
-  postgres: ["compress", "excludeTables", "excludeSchemas", "excludeExtensions", "pgCompat", "verbose"],
+  postgres: [
+    "compress",
+    "excludeTables",
+    "excludeSchemas",
+    "excludeExtensions",
+    "excludeEventTriggers",
+    "pgCompat",
+    "verbose",
+  ],
   mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
   mongo: ["compress", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],
@@ -487,6 +497,15 @@ export interface DiscoveredDatabase {
 export interface PgExtension {
   name: string;
   version: string;
+}
+
+/** Event trigger de una BD de PostgreSQL (para excluirlo del dump). */
+export interface PgEventTrigger {
+  name: string;
+  /** Evento que lo dispara: ddl_command_start, ddl_command_end, sql_drop, table_rewrite… */
+  event: string;
+  /** `pg_event_trigger.evtenabled`: O (activo), D (deshabilitado), R (réplica), A (siempre). */
+  enabled: string;
 }
 
 /** Formatea bytes a la unidad legible más cercana (B, KB, MB, …). */

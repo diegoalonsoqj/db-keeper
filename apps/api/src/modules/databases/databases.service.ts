@@ -1,4 +1,4 @@
-import type { DiscoveredDatabase, PgExtension } from "@dbkeeper/shared";
+import type { DiscoveredDatabase, PgEventTrigger, PgExtension } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { decryptSecret } from "../../lib/crypto.js";
 import * as serversRepo from "../servers/servers.repository.js";
@@ -6,7 +6,7 @@ import * as credsRepo from "../credentials/credentials.repository.js";
 import { listDatabases } from "../../lib/cloudsql.js";
 import { resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import { getDiscoverer } from "./discovery/index.js";
-import { listPostgresExtensions, listPostgresSchemas } from "./discovery/postgres.js";
+import { listPostgresEventTriggers, listPostgresExtensions, listPostgresSchemas } from "./discovery/postgres.js";
 import type { ConnInfo } from "./discovery/types.js";
 
 /** Elimina cualquier rastro de la contraseña del mensaje de error del driver. */
@@ -80,6 +80,23 @@ export async function listExtensions(
     return await listPostgresExtensions(conn, dbName);
   } catch (err) {
     throw HttpError.badRequest(`No se pudieron listar las extensiones de ${dbName}: ${safeMessage(err, conn.password)}`);
+  }
+}
+
+/** Event triggers de una BD de PostgreSQL (para elegir cuáles excluir del dump). */
+export async function listEventTriggers(
+  serverId: string,
+  dbName: string,
+  credentialId?: string | null,
+): Promise<PgEventTrigger[]> {
+  const { engine, conn } = await resolveConn(serverId, credentialId);
+  if (engine !== "postgres") throw HttpError.badRequest("Los event triggers solo aplican a PostgreSQL");
+  try {
+    return await listPostgresEventTriggers(conn, dbName);
+  } catch (err) {
+    throw HttpError.badRequest(
+      `No se pudieron listar los event triggers de ${dbName}: ${safeMessage(err, conn.password)}`,
+    );
   }
 }
 

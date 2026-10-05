@@ -44,6 +44,17 @@ databasesRouter.post("/extensions", authorize("servers:read"), async (req, res, 
   }
 });
 
+// Event triggers de una BD de PostgreSQL, para elegir cuáles excluir del dump.
+databasesRouter.post("/event-triggers", authorize("servers:read"), async (req, res, next) => {
+  try {
+    const serverId = idSchema.parse(req.params.serverId);
+    const { dbName, credentialId } = schemasBodySchema.parse(req.body ?? {});
+    ok(res, await service.listEventTriggers(serverId, dbName, credentialId));
+  } catch (err) {
+    next(err);
+  }
+});
+
 databasesRouter.post("/discover", authorize("servers:read"), async (req, res, next) => {
   try {
     const serverId = idSchema.parse(req.params.serverId);

@@ -32,7 +32,10 @@ export function normalizePerDbNames(
   return next;
 }
 
-/** Esquemas y extensiones excluidos por BD (`options.excludeSchemas` / `excludeExtensions`). */
+/** Opciones `{ bd: [nombres] }` de exclusión del dump de PostgreSQL. */
+const EXCLUSION_KEYS = ["excludeSchemas", "excludeExtensions", "excludeEventTriggers"] as const;
+
+/** Esquemas, extensiones y event triggers excluidos por BD. */
 export function normalizeExclusions(options: Record<string, unknown>, databases: string[]): Record<string, unknown> {
-  return normalizePerDbNames(normalizePerDbNames(options, "excludeSchemas", databases), "excludeExtensions", databases);
+  return EXCLUSION_KEYS.reduce((opts, key) => normalizePerDbNames(opts, key, databases), options);
 }
