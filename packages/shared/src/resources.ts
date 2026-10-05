@@ -29,6 +29,8 @@ export type BackupOptionKey =
   /** PostgreSQL: esquemas que NO se respaldan, por BD (`options.excludeSchemas[db]`). */
   | "excludeSchemas"
   | "cleanDefiners"
+  /** PostgreSQL: dump restaurable en versiones anteriores (import de Cloud SQL). */
+  | "pgCompat"
   | "verbose"
   | "sqlBackupDir";
 
@@ -38,7 +40,7 @@ export type BackupOptionKey =
  * opciones propias.
  */
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
-  postgres: ["compress", "excludeTables", "excludeSchemas", "verbose"],
+  postgres: ["compress", "excludeTables", "excludeSchemas", "pgCompat", "verbose"],
   mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
   mongo: ["compress", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],

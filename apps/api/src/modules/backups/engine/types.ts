@@ -16,6 +16,8 @@ export interface DumpInput {
   excludeSchemas?: string[];
   /** MySQL: quitar cláusulas `DEFINER` (compat. Cloud SQL). */
   cleanDefiners?: boolean;
+  /** PostgreSQL: quitar líneas que versiones anteriores rechazan (ver pg-compat.ts). */
+  pgCompat?: boolean;
   /** MongoDB: conexión SRV (Atlas) en vez de `mongodb://host:port`. */
   mongoSrv?: boolean;
   /** MongoDB: opciones de conexión de la instancia. */
