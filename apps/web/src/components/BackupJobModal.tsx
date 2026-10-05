@@ -45,6 +45,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   );
   // MySQL: quitar DEFINER por defecto.
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
+  const [pgCompat, setPgCompat] = useState(job?.options?.pgCompat !== false);
   // Modo detallado: añade --verbose y muestra la consola en vivo.
   const [verbose, setVerbose] = useState(job?.options?.verbose === true);
   // SQL Server: carpeta de backup en el host de la instancia.
@@ -84,6 +85,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExclude = dumpOpts.includes("excludeTables");
   const showExcludeSchemas = dumpOpts.includes("excludeSchemas");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
+  const showPgCompat = dumpOpts.includes("pgCompat");
   const showVerbose = dumpOpts.includes("verbose");
   const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
@@ -208,6 +210,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.excludeSchemas;
     if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
     else delete options.cleanDefiners;
+    if (showPgCompat) options.pgCompat = pgCompat;
+    else delete options.pgCompat;
     delete options.mongoSrv; // pasó a la instancia (conexión SRV)
     if (showVerbose) options.verbose = verbose;
     else delete options.verbose;
@@ -459,6 +463,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             {t("backups.cleanDefiners")}
           </label>
           <small>{t("backups.cleanDefinersHint")}</small>
+        </>
+      )}
+
+      {showPgCompat && (
+        <>
+          <label className="inline">
+            <input type="checkbox" checked={pgCompat} onChange={(e) => setPgCompat(e.target.checked)} />
+            {t("backups.pgCompat")}
+          </label>
+          <small>{t("backups.pgCompatHint")}</small>
         </>
       )}
 

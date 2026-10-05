@@ -171,6 +171,8 @@
     "compressHint": "If disabled, the dump is saved as plain .sql.",
     "cleanDefiners": "Strip DEFINER clauses (MySQL)",
     "cleanDefinersHint": "Removes DEFINER from the dump to restore on Cloud SQL or another server.",
+    "pgCompat": "Backward compatible (PostgreSQL)",
+    "pgCompatHint": "Strips SET transaction_timeout and \\restrict/\\unrestrict emitted by pg_dump 17+, to restore on PostgreSQL 16 or older (e.g. Cloud SQL import). Data is not altered.",
     "verbose": "Verbose mode (--verbose)",
     "verboseHint": "Adds --verbose to the engine and shows its live output (console) during the run. Useful for diagnostics; produces a lot of output on large databases.",
     "sqlBackupDir": "Backup folder (on the instance)",
