@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Cloud,
   Database,
-  DatabaseBackup,
   HardDrive,
   History,
   KeyRound,
@@ -19,6 +18,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 import type { PermissionKey } from "@dbkeeper/shared";
 import { useAuth } from "../auth/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
@@ -70,9 +70,7 @@ export function AppLayout() {
     <div className={`app-shell${collapsed ? " collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-head">
-          <span className="brand-badge" aria-hidden>
-            <DatabaseBackup size={20} strokeWidth={1.9} />
-          </span>
+          <BrandLogo size={36} className="brand-badge" />
           {!collapsed && <span className="brand-name">{t("app.name")}</span>}
         </div>
         <nav>
