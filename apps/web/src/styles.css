@@ -247,14 +247,7 @@ a {
 }
 .brand-badge {
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--accent), #6366f1);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
 }
 .brand-name {
   font-weight: 700;
@@ -763,6 +756,11 @@ pre.log.log-modal {
 }
 .login-card h1 {
   margin: 0;
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 .login-card button[type="submit"] {
   margin-top: 0.5rem;

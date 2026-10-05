@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../lib/api";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { BrandLogo } from "../components/BrandLogo";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -32,7 +33,10 @@ export function LoginPage() {
   return (
     <div className="login-screen">
       <form className="card login-card" onSubmit={onSubmit}>
-        <h1>{t("app.name")}</h1>
+        <h1 className="login-brand">
+          <BrandLogo size={36} />
+          {t("app.name")}
+        </h1>
         <p className="tagline">{t("app.tagline")}</p>
         <label>
           {t("login.username")}
