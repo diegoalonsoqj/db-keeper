@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { rm, stat } from "node:fs/promises";
 import type { Transform } from "node:stream";
@@ -11,6 +11,7 @@ import { pipeStderrLines, describeDumpExit, NATIVE_CLIENT_STDERR_ENCODING } from
 import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
 import { pgCompatFilter } from "./pg-compat.js";
+import { quotedPatternArgs } from "./pg-args.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
 const GZIP_LEVEL = 6;
@@ -43,11 +44,12 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     "--no-password", // nunca prompt interactivo: si falta auth, falla rápido
     ...(input.verbose ? ["--verbose"] : []), // progreso por objeto a stderr
     ...input.excludeTables.flatMap((t) => ["--exclude-table", t]),
-    // Entre comillas dobles el patrón es literal (sin comodines * ? y respetando
-    // mayúsculas); las comillas internas se duplican.
-    ...(input.excludeSchemas ?? []).map((s) => `--exclude-schema="${s.replace(/"/g, '""')}"`),
+    ...quotedPatternArgs("--exclude-schema", input.excludeSchemas ?? []),
+    // Requiere pg_dump ≥ 17.
+    ...quotedPatternArgs("--exclude-extension", input.excludeExtensions ?? []),
   ];
 
+  if ((input.excludeExtensions ?? []).length > 0) await assertExcludeExtensionSupported();
   try {
     await runPgDump(
       args,
@@ -72,6 +74,28 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     // Limpiar el archivo parcial/corrupto para no dejar dumps inválidos.
     await rm(filePath, { force: true });
     throw err;
+  }
+}
+
+/** Versión mayor de pg_dump (cacheada; cambia solo si se reinstala y reinicia la app). */
+let pgDumpMajor: Promise<number | null> | null = null;
+function getPgDumpMajor(): Promise<number | null> {
+  pgDumpMajor ??= new Promise((resolve) => {
+    execFile(env.PG_DUMP_PATH, ["--version"], { windowsHide: true, timeout: 10_000 }, (err, stdout) => {
+      const m = /(\d+)(?:\.\d+)?/.exec(String(stdout));
+      resolve(err || !m ? null : Number(m[1]));
+    });
+  });
+  return pgDumpMajor;
+}
+
+/** `--exclude-extension` existe desde pg_dump 17; con uno anterior, fallar con un mensaje claro. */
+async function assertExcludeExtensionSupported(): Promise<void> {
+  const major = await getPgDumpMajor();
+  if (major !== null && major < 17) {
+    throw new Error(
+      `Excluir extensiones requiere pg_dump 17 o superior; el configurado (PG_DUMP_PATH=${env.PG_DUMP_PATH}) es ${major}.`,
+    );
   }
 }
 

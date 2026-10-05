@@ -7,6 +7,7 @@ import {
   type BackupJobDto,
   type BackupMethod,
   type DiscoveredDatabase,
+  type PgExtension,
   type StorageTargetDto,
   type CredentialDto,
   type Paginated,
@@ -64,6 +65,11 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   );
   const [schemaOptions, setSchemaOptions] = useState<Record<string, string[]>>({});
   const [loadingSchemas, setLoadingSchemas] = useState<string | null>(null);
+  const [excludeExtensions, setExcludeExtensions] = useState<Record<string, string[]>>(
+    (job?.options?.excludeExtensions as Record<string, string[]> | undefined) ?? {},
+  );
+  const [extensionOptions, setExtensionOptions] = useState<Record<string, PgExtension[]>>({});
+  const [loadingExtensions, setLoadingExtensions] = useState<string | null>(null);
   const [dbOptions, setDbOptions] = useState<string[]>(job?.databases ?? []);
   // Tamaño de cada BD descubierta (null = el motor/permiso no lo informa).
   const [dbSizes, setDbSizes] = useState<Record<string, number | null>>({});
@@ -84,6 +90,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
   const showExcludeSchemas = dumpOpts.includes("excludeSchemas");
+  const showExcludeExtensions = dumpOpts.includes("excludeExtensions");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
   const showPgCompat = dumpOpts.includes("pgCompat");
   const showVerbose = dumpOpts.includes("verbose");
@@ -163,11 +170,28 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     }
   }
 
-  function toggleSchema(db: string, schema: string) {
-    setExcludeSchemas((prev) => {
+  async function loadExtensions(db: string) {
+    setError(null);
+    setLoadingExtensions(db);
+    try {
+      const found = await api.post<PgExtension[]>(`/servers/${serverId}/databases/extensions`, {
+        dbName: db,
+        credentialId: credentialId || null,
+      });
+      setExtensionOptions((prev) => ({ ...prev, [db]: found }));
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : String(e));
+    } finally {
+      setLoadingExtensions(null);
+    }
+  }
+
+  /** Marca/desmarca un nombre excluido de una BD en un mapa { bd: [nombres] }. */
+  function toggleExcluded(setter: typeof setExcludeSchemas, db: string, name: string) {
+    setter((prev) => {
       const current = new Set(prev[db] ?? []);
-      if (current.has(schema)) current.delete(schema);
-      else current.add(schema);
+      if (current.has(name)) current.delete(name);
+      else current.add(name);
       const next = { ...prev };
       if (current.size > 0) next[db] = [...current].sort();
       else delete next[db];
@@ -208,6 +232,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     );
     if (showExcludeSchemas && Object.keys(schemasToExclude).length > 0) options.excludeSchemas = schemasToExclude;
     else delete options.excludeSchemas;
+    const extensionsToExclude = Object.fromEntries(
+      Object.entries(excludeExtensions).filter(([db, list]) => selected.has(db) && list.length > 0),
+    );
+    if (showExcludeExtensions && Object.keys(extensionsToExclude).length > 0) {
+      options.excludeExtensions = extensionsToExclude;
+    } else delete options.excludeExtensions;
     if (showCleanDefiners) options.cleanDefiners = cleanDefiners;
     else delete options.cleanDefiners;
     if (showPgCompat) options.pgCompat = pgCompat;
@@ -405,7 +435,11 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
                     {options.map((s) => (
                       <li key={s}>
                         <label className="inline">
-                          <input type="checkbox" checked={excluded.includes(s)} onChange={() => toggleSchema(db, s)} />
+                          <input
+                            type="checkbox"
+                            checked={excluded.includes(s)}
+                            onChange={() => toggleExcluded(setExcludeSchemas, db, s)}
+                          />
                           {s}
                         </label>
                       </li>
@@ -415,6 +449,54 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
               </div>
             );
           })}
+        </fieldset>
+      )}
+
+      {showExcludeExtensions && selected.size > 0 && (
+        <fieldset>
+          <legend>{t("backups.excludeExtensions")}</legend>
+          {[...selected].sort().map((db) => {
+            const excluded = excludeExtensions[db] ?? [];
+            const loaded = extensionOptions[db] ?? [];
+            // Los ya excluidos se muestran aunque aún no se hayan cargado los de la BD.
+            const versions = new Map(loaded.map((e) => [e.name, e.version]));
+            const names = uniq([...loaded.map((e) => e.name), ...excluded]).sort();
+            return (
+              <div key={db} className="schema-group">
+                <div className="db-toolbar">
+                  <strong>{db}</strong>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => loadExtensions(db)}
+                    disabled={loadingExtensions !== null}
+                  >
+                    {loadingExtensions === db ? t("backups.loadingExtensions") : t("backups.loadExtensions")}
+                  </button>
+                  {excluded.length > 0 && (
+                    <span className="muted">{t("backups.excludedCount", { count: excluded.length })}</span>
+                  )}
+                </div>
+                {names.length > 0 && (
+                  <ul className="db-list">
+                    {names.map((n) => (
+                      <li key={n}>
+                        <label className="inline">
+                          <input
+                            type="checkbox"
+                            checked={excluded.includes(n)}
+                            onChange={() => toggleExcluded(setExcludeExtensions, db, n)}
+                          />
+                          {versions.has(n) ? `${n} (${versions.get(n)})` : n}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+          <p className="muted">{t("backups.excludeExtensionsHint")}</p>
         </fieldset>
       )}
 

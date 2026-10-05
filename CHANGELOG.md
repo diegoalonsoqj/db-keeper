@@ -3,6 +3,31 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 34] — Compatibilidad de dumps PostgreSQL y exclusión de extensiones · 2026-10-05
+
+### Añadido
+- **Excluir extensiones del backup (PostgreSQL)**: nueva opción de evento
+  `options.excludeExtensions = { bd: [extensiones] }`, que se traduce en
+  `--exclude-extension="<nombre>"` (literal, comillas internas duplicadas). En el modal,
+  sección «Extensiones excluidas» con «Cargar extensiones» por BD (`nombre (versión)`); las
+  ya excluidas aparecen marcadas aunque no se recarguen. Nuevo endpoint
+  `POST /servers/:serverId/databases/extensions` (`servers:read`), que omite `plpgsql`. El
+  log del job registra qué extensiones se excluyeron. Requiere **pg_dump ≥ 17**: con uno
+  anterior el dump falla de inmediato con un mensaje claro. Pensado para extensiones sin
+  objetos usados por la BD (p. ej. `pgaudit`, ausente en la instancia de destino); excluir
+  una de la que dependen tablas (postgis, citext, uuid-ossp, hstore) hace fallar el restore.
+- **Dumps PostgreSQL compatibles con versiones anteriores** (`options.pgCompat`, activa por
+  defecto): quita `SET transaction_timeout = 0;` (PG17+) y `\restrict`/`\unrestrict`, que
+  hacían fallar el import de Cloud SQL en PG ≤ 16. Los datos de los `COPY` no se tocan. La
+  compresión pasa de `pg_dump -Z` a gzip en Node.
+- **Tests unitarios** con Vitest (`pnpm --filter @dbkeeper/api test`): argumentos
+  `--exclude-*`, normalización de exclusiones y filtro `pgCompat`.
+
+### Cambiado
+- La normalización de `excludeSchemas` y `excludeExtensions` comparte la misma lógica
+  (`backups/exclusions.ts`): solo BDs del evento, nombres recortados y únicos, máx. 200 por BD.
+- Logo de marca (favicon, menú y login) a la escala del de db-refresh.
+
 ## [Etapa 4 · parte 33] — Descubrir BDs con la credencial del evento · 2026-06-11
 
 ### Añadido

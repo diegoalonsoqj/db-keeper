@@ -28,6 +28,8 @@ export type BackupOptionKey =
   | "excludeTables"
   /** PostgreSQL: esquemas que NO se respaldan, por BD (`options.excludeSchemas[db]`). */
   | "excludeSchemas"
+  /** PostgreSQL: extensiones que NO se respaldan, por BD (`options.excludeExtensions[db]`). */
+  | "excludeExtensions"
   | "cleanDefiners"
   /** PostgreSQL: dump restaurable en versiones anteriores (import de Cloud SQL). */
   | "pgCompat"
@@ -40,7 +42,7 @@ export type BackupOptionKey =
  * opciones propias.
  */
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
-  postgres: ["compress", "excludeTables", "excludeSchemas", "pgCompat", "verbose"],
+  postgres: ["compress", "excludeTables", "excludeSchemas", "excludeExtensions", "pgCompat", "verbose"],
   mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
   mongo: ["compress", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],
@@ -479,6 +481,12 @@ export interface DiscoveredDatabase {
   name: string;
   /** Tamaño en disco (bytes); null si no se pudo obtener (permisos o API de Cloud SQL). */
   bytes: number | null;
+}
+
+/** Extensión instalada en una BD de PostgreSQL (para excluirla del dump). */
+export interface PgExtension {
+  name: string;
+  version: string;
 }
 
 /** Formatea bytes a la unidad legible más cercana (B, KB, MB, …). */

@@ -12,6 +12,7 @@ import { enqueueExecution } from "./engine/queue.js";
 import { resolveBackupFile } from "./engine/files.js";
 import { parseGcsUri } from "./engine/gcs.js";
 import { normalizeRetention } from "./retention.js";
+import { normalizeExclusions } from "./exclusions.js";
 
 export interface JobData {
   name: string;
@@ -130,32 +131,6 @@ function applyRetention(options: Record<string, unknown>, method: BackupMethod):
   return next;
 }
 
-/** Nombre de esquema de PostgreSQL (identificador, máx. 63 bytes). */
-const MAX_SCHEMA_LEN = 63;
-
-/**
- * `options.excludeSchemas` = { bd: [esquemas] }. Conserva solo BDs del evento,
- * nombres válidos y sin duplicados; si no queda nada, quita la opción.
- */
-function normalizeExcludeSchemas(options: Record<string, unknown>, databases: string[]): Record<string, unknown> {
-  const next = { ...options };
-  const raw = options.excludeSchemas;
-  const out: Record<string, string[]> = {};
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    for (const db of databases) {
-      const list = (raw as Record<string, unknown>)[db];
-      if (!Array.isArray(list)) continue;
-      const schemas = [...new Set(list.map((s) => String(s).trim()))].filter(
-        (s) => s.length > 0 && s.length <= MAX_SCHEMA_LEN && !s.includes("\0"),
-      );
-      if (schemas.length > 0) out[db] = schemas.slice(0, 200);
-    }
-  }
-  if (Object.keys(out).length > 0) next.excludeSchemas = out;
-  else delete next.excludeSchemas;
-  return next;
-}
-
 /** Un destino recién asignado a un evento debe estar activo. */
 async function assertActiveBucket(bucketId: string | null | undefined): Promise<void> {
   if (!bucketId) return;
@@ -172,7 +147,7 @@ export async function createJob(data: JobData): Promise<BackupJobDto> {
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   const environment = await resolveEnvironment(data.serverId, data.credentialId);
   const { databases: _omit, ...fields } = data;
-  const options = normalizeExcludeSchemas(applyRetention(data.options, data.method), databases);
+  const options = normalizeExclusions(applyRetention(data.options, data.method), databases);
   const id = await repo.insertJob({ ...fields, options, environment }, databases);
   return getJob(id);
 }
@@ -198,9 +173,9 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
   // Recalcula si cambian las opciones, el método (al pasar a bucket se quita la
-  // retención) o las BDs (se descartan esquemas excluidos de BDs ya no incluidas).
+  // retención) o las BDs (se descartan exclusiones de BDs ya no incluidas).
   if (data.options !== undefined || data.method !== undefined || databases) {
-    fields.options = normalizeExcludeSchemas(
+    fields.options = normalizeExclusions(
       applyRetention(data.options ?? current.options, data.method ?? current.method),
       databases ?? current.databases,
     );
