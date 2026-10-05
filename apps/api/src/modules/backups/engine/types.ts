@@ -16,6 +16,8 @@ export interface DumpInput {
   excludeSchemas?: string[];
   /** PostgreSQL: extensiones que NO se respaldan (nombres exactos, `--exclude-extension`, pg_dump ≥ 17). */
   excludeExtensions?: string[];
+  /** PostgreSQL: event triggers que NO se respaldan (se filtran de la salida de pg_dump). */
+  excludeEventTriggers?: string[];
   /** MySQL: quitar cláusulas `DEFINER` (compat. Cloud SQL). */
   cleanDefiners?: boolean;
   /** PostgreSQL: quitar líneas que versiones anteriores rechazan (ver pg-compat.ts). */

@@ -112,6 +112,7 @@ existe, la API responde `400`.
 | POST | `/discover` | `servers:read` | Conecta en vivo y devuelve los nombres de las bases reales (`string[]`, sin las del sistema). `400` si no hay credencial o falla la conexión. Motores: PostgreSQL, MySQL, SQL Server y Mongo. |
 | POST | `/schemas` | `servers:read` | PostgreSQL. Body `{ dbName, credentialId? }`. Esquemas de usuario de la BD (`string[]`), para `options.excludeSchemas`. |
 | POST | `/extensions` | `servers:read` | PostgreSQL. Body `{ dbName, credentialId? }`. Extensiones instaladas en la BD (`[{ name, version }]`, sin `plpgsql`), para `options.excludeExtensions`. |
+| POST | `/event-triggers` | `servers:read` | PostgreSQL. Body `{ dbName, credentialId? }`. Event triggers de la BD (`[{ name, event, enabled }]`, `enabled` = `pg_event_trigger.evtenabled`), para `options.excludeEventTriggers`. |
 
 > La selección efectiva de BDs vive en el **evento de backup** (`/api/backups`), no en
 > la instancia.
@@ -152,6 +153,7 @@ Cuerpo de creación:
     "excludeTables": ["audit.log"], // patrones --exclude-table (opcional)
     "excludeSchemas": { "app": ["staging"] },     // PG: esquemas NO respaldados por BD (--exclude-schema)
     "excludeExtensions": { "app": ["pgaudit"] },  // PG: extensiones NO respaldadas por BD (--exclude-extension, pg_dump ≥ 17)
+    "excludeEventTriggers": { "app": ["trg_ddl"] }, // PG: event triggers NO respaldados por BD (se filtran de la salida)
     "pgCompat": true,               // PG: quita SET transaction_timeout y \restrict/\unrestrict (restaurable en PG ≤ 16); por defecto true
     "retention": {                  // retención (opcional); cada campo null = sin regla
       "days": 30,                   // purga backups con más de N días

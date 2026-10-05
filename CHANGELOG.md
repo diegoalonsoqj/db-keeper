@@ -3,6 +3,27 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 35] — Excluir event triggers del backup (PostgreSQL) · 2026-10-05
+
+### Añadido
+- **Excluir event triggers del backup**: nueva opción `options.excludeEventTriggers =
+  { bd: [triggers] }`. Restaurar en un destino sin superuser (Cloud SQL, import) fallaba con
+  `permission denied to create event trigger … Must be superuser`. Como pg_dump no tiene
+  `--exclude-event-trigger`, se filtra su salida en streaming: se quitan las sentencias
+  completas `CREATE`/`ALTER`/`COMMENT ON EVENT TRIGGER` de los triggers elegidos (multilínea,
+  con `;` dentro de literales o nombres entre comillas). No se tocan los datos de los `COPY`
+  ni la función `RETURNS event_trigger`. El log indica qué triggers se excluyeron y avisa si
+  alguno marcado no aparecía en el dump.
+- Endpoint `POST /servers/:serverId/databases/event-triggers` (`servers:read`) y sección
+  «Event triggers excluidos» en el modal, con `nombre (evento)` y si está deshabilitado.
+
+### Cambiado
+- Un solo filtro de salida de pg_dump (`engine/pg-filter.ts`) para `pgCompat` y event
+  triggers; reemplaza a `pg-compat.ts`.
+- Las secciones de exclusión por BD del modal (esquemas, extensiones, event triggers)
+  comparten componente y hook (`ExcludeByDbSection`, `useDbExclusions`); el descubrimiento
+  de PostgreSQL por BD comparte la conexión (`withDbClient`).
+
 ## [Etapa 4 · parte 34] — Compatibilidad de dumps PostgreSQL y exclusión de extensiones · 2026-10-05
 
 ### Añadido

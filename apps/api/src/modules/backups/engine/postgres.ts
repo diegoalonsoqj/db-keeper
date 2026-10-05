@@ -10,7 +10,7 @@ import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, describeDumpExit, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
-import { pgCompatFilter } from "./pg-compat.js";
+import { pgDumpFilter } from "./pg-filter.js";
 import { quotedPatternArgs } from "./pg-args.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
@@ -20,7 +20,7 @@ const GZIP_LEVEL = 6;
  * Vuelca una BD PostgreSQL con `pg_dump` en formato SQL plano (`-Fp`), con los
  * mismos parámetros que el script de referencia (`--no-owner --no-privileges
  * --serializable-deferrable`, apto para restaurar en Cloud SQL). La salida va por
- * stdout → [filtro de compatibilidad, `input.pgCompat`] → [gzip] → archivo:
+ * stdout → [filtro: `input.pgCompat` y event triggers excluidos] → [gzip] → archivo:
  * `.sql.gz` (restaurable con `gunzip -c … | psql`) o SQL plano (`.sql`, `psql -f`).
  * La contraseña viaja por `PGPASSWORD` (nunca en la línea de comandos ni en
  * logs) y los argumentos van como array (sin shell), por lo que no hay riesgo de
@@ -50,6 +50,10 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
   ];
 
   if ((input.excludeExtensions ?? []).length > 0) await assertExcludeExtensionSupported();
+  const pgCompat = input.pgCompat !== false; // por defecto sí
+  const excludeEventTriggers = input.excludeEventTriggers ?? [];
+  const filter =
+    pgCompat || excludeEventTriggers.length > 0 ? pgDumpFilter({ compat: pgCompat, excludeEventTriggers }) : null;
   try {
     await runPgDump(
       args,
@@ -59,7 +63,7 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
       },
       filePath,
       {
-        pgCompat: input.pgCompat !== false, // por defecto sí
+        filter,
         compress: input.compress,
         limits: input.limits,
         onLog: input.onLog,
@@ -69,6 +73,11 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
     if (size === 0) throw new Error("El dump quedó vacío");
     // Validar integridad: el .gz debe descomprimir sin error.
     if (input.compress) await verifyGzip(filePath);
+    // Un event trigger marcado que no estaba en el dump: aviso (pudo renombrarse o borrarse).
+    const missing = excludeEventTriggers.filter((n) => !filter?.droppedEventTriggers.has(n));
+    if (missing.length > 0) {
+      input.onLog?.(`Aviso: event triggers excluidos que no aparecían en el dump: ${missing.join(", ")}`);
+    }
     return { filePath, bytes: size };
   } catch (err) {
     // Limpiar el archivo parcial/corrupto para no dejar dumps inválidos.
@@ -99,12 +108,12 @@ async function assertExcludeExtensionSupported(): Promise<void> {
   }
 }
 
-/** Lanza pg_dump y canaliza stdout → [filtro de compatibilidad] → [gzip] → archivo. */
+/** Lanza pg_dump y canaliza stdout → [filtro] → [gzip] → archivo. */
 async function runPgDump(
   args: string[],
   extraEnv: Record<string, string>,
   filePath: string,
-  opts: { pgCompat: boolean; compress: boolean; limits: DumpLimits; onLog?: (line: string) => void },
+  opts: { filter: Transform | null; compress: boolean; limits: DumpLimits; onLog?: (line: string) => void },
 ): Promise<void> {
   const child = spawn(env.PG_DUMP_PATH, args, {
     env: { ...process.env, ...extraEnv },
@@ -136,7 +145,7 @@ async function runPgDump(
   });
 
   const transforms: Transform[] = [];
-  if (opts.pgCompat) transforms.push(pgCompatFilter());
+  if (opts.filter) transforms.push(opts.filter);
   if (opts.compress) transforms.push(createGzip({ level: GZIP_LEVEL }));
 
   const streams: (NodeJS.ReadableStream | NodeJS.ReadWriteStream | NodeJS.WritableStream)[] = [

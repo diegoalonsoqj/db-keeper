@@ -35,6 +35,14 @@ describe("normalizeExclusions · excludeExtensions", () => {
     expect(out).toEqual({ excludeSchemas: { app: ["audit"] }, excludeExtensions: { app: ["pgaudit"] } });
   });
 
+  it("normaliza excludeEventTriggers igual que el resto", () => {
+    const out = normalizeExclusions(
+      { excludeEventTriggers: { app: [" trg_ddl ", "trg_ddl", 'Trg "raro"'], otra: ["trg"] } },
+      ["app"],
+    );
+    expect(out).toEqual({ excludeEventTriggers: { app: ["trg_ddl", 'Trg "raro"'] } });
+  });
+
   it("no modifica el objeto de entrada", () => {
     const input = { excludeExtensions: { app: [" pgaudit "] } };
     normalizeExclusions(input, ["app"]);
