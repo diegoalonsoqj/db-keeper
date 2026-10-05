@@ -1,4 +1,4 @@
-import type { DiscoveredDatabase } from "@dbkeeper/shared";
+import type { DiscoveredDatabase, PgExtension } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { decryptSecret } from "../../lib/crypto.js";
 import * as serversRepo from "../servers/servers.repository.js";
@@ -6,7 +6,7 @@ import * as credsRepo from "../credentials/credentials.repository.js";
 import { listDatabases } from "../../lib/cloudsql.js";
 import { resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import { getDiscoverer } from "./discovery/index.js";
-import { listPostgresSchemas } from "./discovery/postgres.js";
+import { listPostgresExtensions, listPostgresSchemas } from "./discovery/postgres.js";
 import type { ConnInfo } from "./discovery/types.js";
 
 /** Elimina cualquier rastro de la contraseña del mensaje de error del driver. */
@@ -65,6 +65,21 @@ export async function listSchemas(serverId: string, dbName: string, credentialId
     return await listPostgresSchemas(conn, dbName);
   } catch (err) {
     throw HttpError.badRequest(`No se pudieron listar los esquemas de ${dbName}: ${safeMessage(err, conn.password)}`);
+  }
+}
+
+/** Extensiones instaladas en una BD de PostgreSQL (para elegir cuáles excluir del dump). */
+export async function listExtensions(
+  serverId: string,
+  dbName: string,
+  credentialId?: string | null,
+): Promise<PgExtension[]> {
+  const { engine, conn } = await resolveConn(serverId, credentialId);
+  if (engine !== "postgres") throw HttpError.badRequest("Las extensiones solo aplican a PostgreSQL");
+  try {
+    return await listPostgresExtensions(conn, dbName);
+  } catch (err) {
+    throw HttpError.badRequest(`No se pudieron listar las extensiones de ${dbName}: ${safeMessage(err, conn.password)}`);
   }
 }
 

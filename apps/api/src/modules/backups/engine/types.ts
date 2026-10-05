@@ -14,6 +14,8 @@ export interface DumpInput {
   excludeTables: string[];
   /** PostgreSQL: esquemas que NO se respaldan (nombres exactos, `--exclude-schema`). */
   excludeSchemas?: string[];
+  /** PostgreSQL: extensiones que NO se respaldan (nombres exactos, `--exclude-extension`, pg_dump ≥ 17). */
+  excludeExtensions?: string[];
   /** MySQL: quitar cláusulas `DEFINER` (compat. Cloud SQL). */
   cleanDefiners?: boolean;
   /** PostgreSQL: quitar líneas que versiones anteriores rechazan (ver pg-compat.ts). */
