@@ -894,10 +894,17 @@ pre.log.log-modal {
 .login-card h1 {
   margin: 0;
 }
+/* Marca del login apilada y centrada: logo encima, nombre y subtítulo debajo. */
 .login-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
+  text-align: center;
+}
+.login-card .tagline {
+  margin: -0.35rem 0 0.35rem;
+  text-align: center;
 }
 .login-card button[type="submit"] {
   margin-top: 0.5rem;

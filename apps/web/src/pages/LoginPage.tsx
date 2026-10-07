@@ -34,7 +34,7 @@ export function LoginPage() {
     <div className="login-screen">
       <form className="card login-card" onSubmit={onSubmit}>
         <h1 className="login-brand">
-          <BrandLogo size={36} />
+          <BrandLogo size={48} />
           {t("app.name")}
         </h1>
         <p className="tagline">{t("app.tagline")}</p>
