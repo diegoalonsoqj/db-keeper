@@ -108,11 +108,8 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: (
-          <RequirePermission perm="settings:read">
-            <SettingsPage />
-          </RequirePermission>
-        ),
+        // Sin permiso: la página muestra solo Apariencia (preferencia propia).
+        element: <SettingsPage />,
       },
     ],
   },

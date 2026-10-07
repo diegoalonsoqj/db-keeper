@@ -3,7 +3,7 @@ import { z } from "zod";
 import { cookieSecure } from "../../config/env.js";
 import { ok } from "../../lib/respond.js";
 import { SESSION_COOKIE, signSession } from "../../lib/jwt.js";
-import { APP_LOCALES } from "@dbkeeper/shared";
+import { APP_LOCALES, UI_MODES, UI_PALETTES } from "@dbkeeper/shared";
 import { authenticate } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { HttpError } from "../../lib/http-error.js";
@@ -98,7 +98,8 @@ const profileSchema = z.object({
   fullName: z.string().max(255).nullable().optional(),
   email: z.string().email().nullable().optional(),
   preferredLanguage: z.enum(APP_LOCALES).nullable().optional(),
-  preferredTheme: z.enum(["dark", "light"]).nullable().optional(),
+  preferredTheme: z.enum(UI_MODES).nullable().optional(),
+  preferredPalette: z.enum(UI_PALETTES).nullable().optional(),
   // Avatar como data URL de imagen (pequeña); "" o null lo elimina.
   avatar: z
     .string()

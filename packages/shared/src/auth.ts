@@ -1,4 +1,4 @@
-import type { AuthType, Role } from "./index.js";
+import type { AuthType, Role, UiMode, UiPalette } from "./index.js";
 
 /**
  * Catálogo de permisos del sistema (RBAC granular).
@@ -87,7 +87,8 @@ export interface UserDto {
   roles: string[]; // keys de rol
   avatar: string | null; // data URL de imagen pequeña
   preferredLanguage: string | null;
-  preferredTheme: "dark" | "light" | null;
+  preferredTheme: UiMode | null;
+  preferredPalette: UiPalette | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;

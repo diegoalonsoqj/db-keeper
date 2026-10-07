@@ -59,7 +59,7 @@ export function AppLayout() {
     { to: "/users", label: t("nav.users"), icon: Users, perm: "users:read" },
     { to: "/roles", label: t("nav.roles"), icon: ShieldCheck, perm: "roles:read" },
     { to: "/audit", label: t("nav.audit"), icon: ScrollText, perm: "audit:read" },
-    { to: "/settings", label: t("nav.settings"), icon: Settings, perm: "settings:read" },
+    { to: "/settings", label: t("nav.settings"), icon: Settings },
   ];
 
   // Título del módulo activo (mostrado en el header en vez del tagline fijo).

@@ -1,28 +1,76 @@
+/*
+ * Temas: data-theme="dark|light" en <html> elige el modo y data-palette="cyan|
+ * indigo|emerald" la paleta (Cyan por defecto). Los colores de modo (texto,
+ * estados) son comunes; cada paleta define fondos, bordes y acento. Mismas
+ * paletas que CloudSQL Inventory Manager.
+ */
 :root,
 :root[data-theme="dark"] {
-  --bg: #0f141a;
-  --panel: #1a2230;
-  --panel-2: #222c3c;
-  --border: #2c3a4f;
   --text: #e6edf3;
-  --muted: #8b9bb0;
-  --accent: #3b82f6;
+  --muted: #8d96a5;
   --danger: #ef4444;
   --success: #22c55e;
   color-scheme: dark;
+
+  /* Cyan · oscuro */
+  --bg: #0f1117;
+  --panel: #1a1d27;
+  --panel-2: #1e2130;
+  --border: #2a2e3d;
+  --accent: #06b6d4;
+  --on-accent: #0f1117;
 }
 
 :root[data-theme="light"] {
-  --bg: #f4f6f9;
-  --panel: #ffffff;
-  --panel-2: #eef2f7;
-  --border: #d6deea;
   --text: #1b2430;
-  --muted: #5b6b80;
-  --accent: #2563eb;
+  --muted: #5b6474;
   --danger: #dc2626;
   --success: #16a34a;
   color-scheme: light;
+
+  /* Cyan · claro */
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --panel-2: #ecf0f5;
+  --border: #d6dde6;
+  --accent: #0891b2;
+  --on-accent: #ffffff;
+}
+
+/* Índigo */
+:root[data-palette="indigo"] {
+  --bg: #0e0e18;
+  --panel: #181828;
+  --panel-2: #202036;
+  --border: #2c2c46;
+  --accent: #818cf8;
+  --on-accent: #0e0e18;
+}
+:root[data-palette="indigo"][data-theme="light"] {
+  --bg: #f5f5fc;
+  --panel: #ffffff;
+  --panel-2: #ededfa;
+  --border: #d9d9ef;
+  --accent: #4f46e5;
+  --on-accent: #ffffff;
+}
+
+/* Esmeralda */
+:root[data-palette="emerald"] {
+  --bg: #0c1210;
+  --panel: #151e1b;
+  --panel-2: #1c2824;
+  --border: #263630;
+  --accent: #34d399;
+  --on-accent: #0c1210;
+}
+:root[data-palette="emerald"][data-theme="light"] {
+  --bg: #f3f7f5;
+  --panel: #ffffff;
+  --panel-2: #eaf2ee;
+  --border: #d3e2da;
+  --accent: #059669;
+  --on-accent: #ffffff;
 }
 
 :root {
@@ -41,7 +89,7 @@ body {
 
 button {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   border: 0;
   border-radius: 6px;
   padding: 0.45rem 0.8rem;
@@ -55,6 +103,7 @@ button.secondary {
 }
 button.danger {
   background: var(--danger);
+  color: #fff;
 }
 button:disabled {
   opacity: 0.6;
@@ -84,7 +133,7 @@ button.icon-btn.danger:hover:not(:disabled) {
 }
 button.icon-btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: transparent;
 }
 /* Indicador (no botón) de destino por defecto. */
@@ -127,6 +176,7 @@ button.icon-btn.primary {
 }
 .toast-info {
   background: var(--accent);
+  color: var(--on-accent);
 }
 @keyframes toast-in {
   from {
@@ -275,7 +325,7 @@ a {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 .sidebar-toggle:hover {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -299,7 +349,7 @@ a {
 }
 .sidebar nav a.active {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
 }
 .nav-icon {
   flex: 0 0 auto;
@@ -727,6 +777,93 @@ pre.log.log-modal {
 .settings-content .form-card fieldset > label.full {
   grid-column: 1 / -1;
 }
+/* Apariencia: tarjetas de paleta con vista previa y grupo de modo. */
+.settings-content .form-card fieldset.appearance-field {
+  display: block;
+}
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+.palette-option,
+.mode-option {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.palette-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  text-align: left;
+}
+.palette-option:hover,
+.mode-option:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.palette-option.active,
+.mode-option.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.palette-preview {
+  display: flex;
+  gap: 0.35rem;
+  height: 3.5rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.palette-preview-side {
+  width: 0.75rem;
+  border-radius: 3px;
+}
+.palette-preview-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.35rem;
+  border-radius: 3px;
+}
+.palette-preview-main > span {
+  height: 0.35rem;
+  border-radius: 999px;
+}
+.palette-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.palette-meta strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+.palette-meta small {
+  font-size: 0.75rem;
+}
+.mode-group {
+  display: flex;
+  gap: 0.5rem;
+}
+.mode-option {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+@media (max-width: 760px) {
+  .palette-grid {
+    grid-template-columns: 1fr;
+  }
+}
 /* La tarjeta oculta usa display:grid/flex, que pisaría a [hidden]; forzar. */
 .settings-content .form-card[hidden] {
   display: none;
@@ -781,7 +918,7 @@ pre.log.log-modal {
   height: 32px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;

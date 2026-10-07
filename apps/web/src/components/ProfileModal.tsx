@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { APP_LOCALES, type AppLocale } from "@dbkeeper/shared";
 import { useAuth } from "../auth/AuthContext";
-import type { Theme } from "../theme/ThemeContext";
 import { ApiClientError } from "../lib/api";
 import { fileToAvatarDataUrl, initialsOf } from "../lib/avatar";
 import { useToast } from "./Toast";
@@ -20,7 +19,6 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [fullName, setFullName] = useState(user.fullName ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [language, setLanguage] = useState(user.preferredLanguage ?? "");
-  const [theme, setTheme] = useState(user.preferredTheme ?? "");
   const [avatar, setAvatar] = useState<string | null>(user.avatar);
 
   const [curPwd, setCurPwd] = useState("");
@@ -44,7 +42,6 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         fullName: fullName || null,
         email: email || null,
         preferredLanguage: (language || null) as AppLocale | null,
-        preferredTheme: (theme || null) as Theme | null,
         avatar: avatar ?? "",
       });
       toast.success(t("profile.saved"));
@@ -122,14 +119,6 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
                 {l}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          {t("profile.theme")}
-          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-            <option value="">{t("profile.systemDefault")}</option>
-            <option value="dark">{t("profile.dark")}</option>
-            <option value="light">{t("profile.light")}</option>
           </select>
         </label>
       </div>
