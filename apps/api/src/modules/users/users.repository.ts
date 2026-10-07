@@ -1,4 +1,4 @@
-import type { AuthType, UserDto } from "@dbkeeper/shared";
+import type { AuthType, UiMode, UiPalette, UserDto } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
 
 /** Fila de auth.users tal como vive en la BD. */
@@ -12,7 +12,8 @@ interface UserRow {
   is_active: boolean;
   avatar: string | null;
   preferred_language: string | null;
-  preferred_theme: "dark" | "light" | null;
+  preferred_theme: UiMode | null;
+  preferred_palette: UiPalette | null;
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -35,6 +36,7 @@ function toUser(row: UserRow): UserWithSecret {
     avatar: row.avatar,
     preferredLanguage: row.preferred_language,
     preferredTheme: row.preferred_theme,
+    preferredPalette: row.preferred_palette,
     lastLoginAt: row.last_login_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -128,7 +130,8 @@ export interface ProfileInput {
   email?: string | null;
   avatar?: string | null;
   preferredLanguage?: string | null;
-  preferredTheme?: "dark" | "light" | null;
+  preferredTheme?: UiMode | null;
+  preferredPalette?: UiPalette | null;
 }
 
 /** Actualiza los campos de perfil propios del usuario. */
@@ -139,6 +142,7 @@ export async function updateProfile(id: string, input: ProfileInput): Promise<vo
     avatar: "avatar",
     preferredLanguage: "preferred_language",
     preferredTheme: "preferred_theme",
+    preferredPalette: "preferred_palette",
   };
   const sets: string[] = [];
   const params: unknown[] = [];

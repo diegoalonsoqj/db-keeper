@@ -22,6 +22,7 @@ import { NumberInput } from "../components/NumberInput";
 import { optionLabel } from "../lib/options";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { AppearanceCard } from "../components/AppearanceCard";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
@@ -40,6 +41,8 @@ type NotifTestResult = { email: ChannelTest; telegram: ChannelTest };
 export function SettingsPage() {
   const { t } = useTranslation();
   const { has } = useAuth();
+  // Apariencia es preferencia propia: visible para todos; el resto exige settings:read.
+  const canRead = has("settings:read");
   const canWrite = has("settings:write");
   const toast = useToast();
 
@@ -59,10 +62,11 @@ export function SettingsPage() {
   const [testing, setTesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<
-    "general" | "storage" | "backups" | "ldap" | "security" | "notifications"
-  >("general");
+    "appearance" | "general" | "storage" | "backups" | "ldap" | "security" | "notifications"
+  >("appearance");
 
   useEffect(() => {
+    if (!canRead) return;
     api
       .get<SettingsDto>("/settings")
       .then((s) => {
@@ -78,7 +82,7 @@ export function SettingsPage() {
       .get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100")
       .then((p) => setAccounts(p.items))
       .catch(() => {});
-  }, []);
+  }, [canRead]);
 
   async function setDefaultTarget(id: string) {
     await api.post(`/storage/${id}/default`);
@@ -98,6 +102,23 @@ export function SettingsPage() {
     fn()
       .then(() => toast.success(t("settings.saved")))
       .catch((e) => toast.error(errMsg(e)));
+  }
+
+  const appearanceNav = (
+    <button className={activeSection === "appearance" ? "active" : ""} onClick={() => setActiveSection("appearance")}>
+      {t("settings.navAppearance")}
+    </button>
+  );
+
+  if (!canRead) {
+    return (
+      <section className="settings-layout">
+        <nav className="settings-nav">{appearanceNav}</nav>
+        <div className="settings-content">
+          <AppearanceCard />
+        </div>
+      </section>
+    );
   }
 
   if (!data) return <p className="muted">{loadError ?? t("common.loading")}</p>;
@@ -210,6 +231,7 @@ export function SettingsPage() {
   return (
     <section className="settings-layout">
       <nav className="settings-nav">
+        {appearanceNav}
         <button className={activeSection === "general" ? "active" : ""} onClick={() => setActiveSection("general")}>
           {t("settings.navGeneral")}
         </button>
@@ -234,6 +256,8 @@ export function SettingsPage() {
       </nav>
 
       <div className="settings-content">
+        <AppearanceCard hidden={activeSection !== "appearance"} />
+
         <div className="card form-card" hidden={activeSection !== "general"}>
           <h2>{t("settings.general")}</h2>
         <label>

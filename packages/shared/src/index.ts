@@ -6,6 +6,12 @@
 
 export const APP_LOCALES = ["es-419", "en"] as const;
 export type AppLocale = (typeof APP_LOCALES)[number];
+
+/** Apariencia por usuario: paleta de color y modo (system = sigue al SO). */
+export const UI_PALETTES = ["cyan", "indigo", "emerald"] as const;
+export type UiPalette = (typeof UI_PALETTES)[number];
+export const UI_MODES = ["dark", "light", "system"] as const;
+export type UiMode = (typeof UI_MODES)[number];
 export const DEFAULT_LOCALE: AppLocale = "es-419";
 
 /** Roles base del sistema. Sus permisos por defecto son editables (Etapa 1). */

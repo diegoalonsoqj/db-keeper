@@ -11,14 +11,14 @@ import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <ToastProvider>
-        <ConfirmProvider>
-          <AuthProvider>
+    <ToastProvider>
+      <ConfirmProvider>
+        <AuthProvider>
+          <ThemeProvider>
             <RouterProvider router={router} />
-          </AuthProvider>
-        </ConfirmProvider>
-      </ToastProvider>
-    </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </ConfirmProvider>
+    </ToastProvider>
   </React.StrictMode>,
 );

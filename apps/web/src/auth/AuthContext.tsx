@@ -2,13 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useTranslation } from "react-i18next";
 import type { AuthIdentity, PermissionKey } from "@dbkeeper/shared";
 import { api } from "../lib/api";
-import { useTheme, type Theme } from "../theme/ThemeContext";
 
 export interface ProfilePayload {
   fullName?: string | null;
   email?: string | null;
   preferredLanguage?: string | null;
-  preferredTheme?: Theme | null;
   avatar?: string | null;
 }
 
@@ -27,19 +25,17 @@ const AuthCtx = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<AuthIdentity | null>(null);
   const [loading, setLoading] = useState(true);
-  const { setTheme } = useTheme();
   const { i18n } = useTranslation();
 
-  /** Aplica las preferencias del usuario (idioma/tema) a la sesión. */
+  /** Aplica el idioma preferido del usuario (la apariencia la aplica ThemeProvider). */
   const applyPreferences = useCallback(
     (id: AuthIdentity | null) => {
       if (!id) return;
-      if (id.user.preferredTheme) setTheme(id.user.preferredTheme);
       if (id.user.preferredLanguage && id.user.preferredLanguage !== i18n.language) {
         void i18n.changeLanguage(id.user.preferredLanguage);
       }
     },
-    [setTheme, i18n],
+    [i18n],
   );
 
   useEffect(() => {
