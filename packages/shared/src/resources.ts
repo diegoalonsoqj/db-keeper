@@ -178,6 +178,23 @@ export interface ExecutionItemDto {
   prunedAt: string | null;
   /** Huellas del archivo para validar su integridad al descargarlo; null = sin datos. */
   checksums: FileChecksums | null;
+  /** Última verificación de integridad a demanda; null = nunca se verificó. */
+  verification: ItemVerificationDto | null;
+}
+
+export const VERIFY_MODES = ["quick", "deep"] as const;
+/** quick: metadata del bucket (sin descargar). deep: relee el archivo completo. */
+export type VerifyMode = (typeof VERIFY_MODES)[number];
+export type VerifyStatus = "running" | "ok" | "mismatch" | "missing" | "error";
+
+/** Resultado de "Verificar ahora" sobre el archivo de un ítem. */
+export interface ItemVerificationDto {
+  status: VerifyStatus;
+  mode: VerifyMode | null;
+  /** Fin de la verificación (o inicio mientras `running`). */
+  at: string | null;
+  /** Diferencias o causa del error; null si coincide. */
+  detail: string | null;
 }
 
 /** Checksums de un archivo de backup (cada uno null si no está disponible). */

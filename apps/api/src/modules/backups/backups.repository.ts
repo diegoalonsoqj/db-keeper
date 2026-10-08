@@ -1,4 +1,4 @@
-import type { BackupJobDto, BackupMethod, ExecutionDto, FileChecksums } from "@dbkeeper/shared";
+import type { BackupJobDto, BackupMethod, ExecutionDto, FileChecksums, VerifyMode, VerifyStatus } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
 
 interface JobRow {
@@ -211,7 +211,10 @@ const SELECT_EXECUTION = `
           'fileName', i.file_name, 'fileBytes', i.file_bytes, 'log', i.log,
           'startedAt', i.started_at, 'finishedAt', i.finished_at, 'prunedAt', i.pruned_at,
           'checksums', CASE WHEN COALESCE(i.file_sha256, i.file_md5, i.file_crc32c) IS NOT NULL
-            THEN json_build_object('sha256', i.file_sha256, 'md5', i.file_md5, 'crc32c', i.file_crc32c) END
+            THEN json_build_object('sha256', i.file_sha256, 'md5', i.file_md5, 'crc32c', i.file_crc32c) END,
+          'verification', CASE WHEN i.verify_status IS NOT NULL
+            THEN json_build_object('status', i.verify_status, 'mode', i.verify_mode,
+              'at', i.verified_at, 'detail', i.verify_detail) END
         ) ORDER BY i.db_name
       ) FILTER (WHERE i.id IS NOT NULL), '[]'
     ) AS items
@@ -380,6 +383,93 @@ export async function recoverStaleExecutions(exceptIds: string[] = []): Promise<
     [exceptIds],
   );
   return rows.map((r) => r.id);
+}
+
+// ---- Verificación de integridad a demanda ----
+
+/** Datos de un ítem para verificar su archivo (valida pertenencia a la ejecución). */
+export interface ItemForVerify {
+  dbName: string;
+  status: ExecutionDto["status"];
+  fileName: string | null;
+  fileBytes: number | null;
+  prunedAt: Date | null;
+  checksums: FileChecksums;
+  verifyStatus: VerifyStatus | null;
+  jobName: string;
+  engine: string | null;
+}
+
+export async function findItemForVerify(executionId: string, itemId: string): Promise<ItemForVerify | null> {
+  const { rows } = await query<{
+    db_name: string;
+    status: ExecutionDto["status"];
+    file_name: string | null;
+    file_bytes: string | null;
+    pruned_at: Date | null;
+    file_sha256: string | null;
+    file_md5: string | null;
+    file_crc32c: string | null;
+    verify_status: VerifyStatus | null;
+    job_name: string;
+    engine: string | null;
+  }>(
+    `SELECT i.db_name, i.status, i.file_name, i.file_bytes, i.pruned_at,
+            i.file_sha256, i.file_md5, i.file_crc32c, i.verify_status,
+            COALESCE(j.name, e.label) AS job_name, s.engine
+     FROM core.execution_items i
+     JOIN core.executions e ON e.id = i.execution_id
+     LEFT JOIN core.backup_jobs j ON j.id = e.job_id
+     LEFT JOIN core.servers s ON s.id = j.server_id
+     WHERE i.id = $1 AND i.execution_id = $2`,
+    [itemId, executionId],
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    dbName: r.db_name,
+    status: r.status,
+    fileName: r.file_name,
+    fileBytes: r.file_bytes == null ? null : Number(r.file_bytes),
+    prunedAt: r.pruned_at,
+    checksums: { sha256: r.file_sha256, md5: r.file_md5, crc32c: r.file_crc32c },
+    verifyStatus: r.verify_status,
+    jobName: r.job_name,
+    engine: r.engine,
+  };
+}
+
+/** Marca el inicio de una verificación; false si ya había una en curso (atómico). */
+export async function startItemVerify(itemId: string, mode: VerifyMode): Promise<boolean> {
+  const { rowCount } = await query(
+    `UPDATE core.execution_items
+     SET verify_status = 'running', verify_mode = $2, verified_at = now(), verify_detail = NULL
+     WHERE id = $1 AND verify_status IS DISTINCT FROM 'running'`,
+    [itemId, mode],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** Guarda el resultado de una verificación. */
+export async function finishItemVerify(
+  itemId: string,
+  status: Exclude<VerifyStatus, "running">,
+  detail: string | null,
+): Promise<void> {
+  await query(
+    "UPDATE core.execution_items SET verify_status = $2, verified_at = now(), verify_detail = $3 WHERE id = $1",
+    [itemId, status, detail],
+  );
+}
+
+/** Tras un reinicio: las verificaciones en curso murieron con el proceso. */
+export async function recoverStaleVerifications(): Promise<number> {
+  const { rowCount } = await query(
+    `UPDATE core.execution_items
+     SET verify_status = 'error', verify_detail = 'Interrumpida por reinicio del servicio', verified_at = now()
+     WHERE verify_status = 'running'`,
+  );
+  return rowCount ?? 0;
 }
 
 export interface QueuedExecution {

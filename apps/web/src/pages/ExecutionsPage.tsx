@@ -1,7 +1,13 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldCheck } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, type ExecutionDto, type FileChecksums, type Paginated } from "@dbkeeper/shared";
+import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  DEFAULT_PAGE_SIZE,
+  type ExecutionDto,
+  type ExecutionItemDto,
+  type Paginated,
+  type VerifyMode,
+} from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useExecutionStream } from "../lib/useExecutionStream";
 import { Modal } from "../components/Modal";
@@ -52,21 +58,34 @@ function LogModal({
 /** Nombre del archivo descargado (último segmento de la ruta o del objeto gs://). */
 const baseName = (fileName: string) => fileName.split(/[\\/]/).pop() ?? fileName;
 
-/** Modal con las huellas del archivo y cómo verificarlas tras descargarlo. */
+/** La verificación detectó un archivo alterado o faltante. */
+const verifyFailed = (it: ExecutionItemDto) =>
+  it.verification?.status === "mismatch" || it.verification?.status === "missing";
+
+/**
+ * Modal con las huellas del archivo, cómo verificarlas tras descargarlo y
+ * "Verificar ahora" (compara la huella actual del archivo guardado).
+ */
 function ChecksumModal({
-  dbName,
-  fileName,
-  checksums,
+  item,
+  canVerify,
+  fmt,
+  onVerify,
   onClose,
 }: {
-  dbName: string;
-  fileName: string;
-  checksums: FileChecksums;
+  item: ExecutionItemDto;
+  canVerify: boolean;
+  fmt: (iso: string | null) => string;
+  onVerify: (mode: VerifyMode) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
-  const file = baseName(fileName);
+  const checksums = item.checksums!;
+  const file = baseName(item.fileName!);
+  const isGcs = item.fileName!.startsWith("gs://");
+  const v = item.verification;
+  const running = v?.status === "running";
   const copy = (text: string) =>
     navigator.clipboard
       .writeText(text)
@@ -79,7 +98,7 @@ function ChecksumModal({
   ];
   return (
     <Modal
-      title={`${t("executions.checksums")} — ${dbName}`}
+      title={`${t("executions.checksums")} — ${item.dbName}`}
       size="lg"
       onClose={onClose}
       footer={
@@ -110,6 +129,32 @@ function ChecksumModal({
             </small>
           </div>
         ))}
+      <hr />
+      <strong>{t("executions.verifyTitle")}</strong>
+      <p className="muted">{t(isGcs ? "executions.verifyHelpGcs" : "executions.verifyHelpLocal")}</p>
+      {v && (
+        <p>
+          <span className={`badge badge-${v.status === "ok" ? "success" : v.status === "running" ? "running" : "failed"}`}>
+            {t(`executions.verifyStatus.${v.status}`)}
+          </span>{" "}
+          <span className="muted">
+            {v.mode && t(`executions.verifyMode.${v.mode}`)} · {fmt(v.at)}
+          </span>
+        </p>
+      )}
+      {v?.detail && <pre className="log">{v.detail}</pre>}
+      {canVerify && (
+        <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+          {isGcs && (
+            <button className="secondary" disabled={running} onClick={() => onVerify("quick")}>
+              {t("executions.verifyQuick")}
+            </button>
+          )}
+          <button className="secondary" disabled={running} onClick={() => onVerify("deep")}>
+            {t(isGcs ? "executions.verifyDeep" : "executions.verifyNow")}
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -138,7 +183,7 @@ export function ExecutionsPage() {
   // Log abierto en modal (se resuelve el ítem/líneas en cada render → siempre al día).
   const [logFor, setLogFor] = useState<{ execId: string; dbName: string } | null>(null);
   // Checksums abiertos en modal.
-  const [hashFor, setHashFor] = useState<{ dbName: string; fileName: string; checksums: FileChecksums } | null>(null);
+  const [hashFor, setHashFor] = useState<{ execId: string; itemId: string } | null>(null);
 
   const load = useCallback(() => {
     return api
@@ -189,13 +234,14 @@ export function ExecutionsPage() {
     },
   });
 
-  // Fallback: si el SSE no está conectado y hay corridas en curso, sondear.
+  // Fallback: si el SSE no está conectado y hay corridas o verificaciones en curso, sondear.
   const isActive = data.items.some((e) => e.status === "pending" || e.status === "running");
+  const isVerifying = data.items.some((e) => e.items.some((it) => it.verification?.status === "running"));
   useEffect(() => {
-    if (streamOn || !isActive) return;
+    if (streamOn || !(isActive || isVerifying)) return;
     const id = setInterval(() => void load(), POLL_MS);
     return () => clearInterval(id);
-  }, [streamOn, isActive, load]);
+  }, [streamOn, isActive, isVerifying, load]);
 
   // Cronómetro en vivo: refresca cada segundo mientras haya corridas en curso.
   useEffect(() => {
@@ -216,6 +262,16 @@ export function ExecutionsPage() {
       await api.post(`/backups/executions/${e.id}/retry`);
       toast.success(t("executions.retried", { name: e.label }));
       await load();
+    } catch (err) {
+      toast.error(errMsg(err));
+    }
+  }
+
+  async function verify(execId: string, itemId: string, mode: VerifyMode) {
+    try {
+      const exec = await api.post<ExecutionDto>(`/backups/executions/${execId}/items/${itemId}/verify`, { mode });
+      setData((prev) => ({ ...prev, items: prev.items.map((e) => (e.id === exec.id ? exec : e)) }));
+      toast.success(t("executions.verifyStarted"));
     } catch (err) {
       toast.error(errMsg(err));
     }
@@ -390,13 +446,12 @@ export function ExecutionsPage() {
                                   {it.checksums && it.fileName && (
                                     <button
                                       className="icon-btn"
-                                      title={t("executions.checksums")}
+                                      title={verifyFailed(it) ? t("executions.verifyAlert") : t("executions.checksums")}
                                       aria-label={t("executions.checksums")}
-                                      onClick={() =>
-                                        setHashFor({ dbName: it.dbName, fileName: it.fileName!, checksums: it.checksums! })
-                                      }
+                                      style={verifyFailed(it) ? { color: "var(--danger)" } : undefined}
+                                      onClick={() => setHashFor({ execId: e.id, itemId: it.id })}
                                     >
-                                      <ShieldCheck size={16} />
+                                      {verifyFailed(it) ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
                                     </button>
                                   )}
                                   {it.prunedAt ? (
@@ -447,14 +502,21 @@ export function ExecutionsPage() {
             />
           );
         })()}
-      {hashFor && (
-        <ChecksumModal
-          dbName={hashFor.dbName}
-          fileName={hashFor.fileName}
-          checksums={hashFor.checksums}
-          onClose={() => setHashFor(null)}
-        />
-      )}
+      {hashFor &&
+        (() => {
+          // Se resuelve en cada render: el resultado de la verificación llega por SSE.
+          const item = data.items.find((e) => e.id === hashFor.execId)?.items.find((i) => i.id === hashFor.itemId);
+          if (!item?.checksums || !item.fileName) return null;
+          return (
+            <ChecksumModal
+              item={item}
+              canVerify={canRun && !item.prunedAt}
+              fmt={fmt}
+              onVerify={(mode) => void verify(hashFor.execId, hashFor.itemId, mode)}
+              onClose={() => setHashFor(null)}
+            />
+          );
+        })()}
     </section>
   );
 }
