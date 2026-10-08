@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Download, FileText, RotateCcw } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, type ExecutionDto, type Paginated } from "@dbkeeper/shared";
+import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldCheck } from "lucide-react";
+import { DEFAULT_PAGE_SIZE, type ExecutionDto, type FileChecksums, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useExecutionStream } from "../lib/useExecutionStream";
 import { Modal } from "../components/Modal";
@@ -49,6 +49,71 @@ function LogModal({
   );
 }
 
+/** Nombre del archivo descargado (último segmento de la ruta o del objeto gs://). */
+const baseName = (fileName: string) => fileName.split(/[\\/]/).pop() ?? fileName;
+
+/** Modal con las huellas del archivo y cómo verificarlas tras descargarlo. */
+function ChecksumModal({
+  dbName,
+  fileName,
+  checksums,
+  onClose,
+}: {
+  dbName: string;
+  fileName: string;
+  checksums: FileChecksums;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const file = baseName(fileName);
+  const copy = (text: string) =>
+    navigator.clipboard
+      .writeText(text)
+      .then(() => toast.success(t("executions.checksumCopied")))
+      .catch((e) => toast.error(errMsg(e)));
+  const rows: { label: string; value: string | null; cmd: string }[] = [
+    { label: "SHA-256", value: checksums.sha256, cmd: `Get-FileHash .\\${file} -Algorithm SHA256   # sha256sum ${file}` },
+    { label: "MD5", value: checksums.md5, cmd: `Get-FileHash .\\${file} -Algorithm MD5   # md5sum ${file}` },
+    { label: "CRC32C", value: checksums.crc32c, cmd: `gcloud storage hash ${file}` },
+  ];
+  return (
+    <Modal
+      title={`${t("executions.checksums")} — ${dbName}`}
+      size="lg"
+      onClose={onClose}
+      footer={
+        <button className="secondary" onClick={onClose}>
+          {t("common.close")}
+        </button>
+      }
+    >
+      <p className="muted">{t("executions.checksumHelp")}</p>
+      {rows
+        .filter((r) => r.value)
+        .map((r) => (
+          <div key={r.label} style={{ marginBottom: 12 }}>
+            <strong>{r.label}</strong>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code style={{ wordBreak: "break-all", flex: 1 }}>{r.value}</code>
+              <button
+                className="icon-btn"
+                title={t("executions.copy")}
+                aria-label={t("executions.copy")}
+                onClick={() => copy(r.value!)}
+              >
+                <Copy size={16} />
+              </button>
+            </div>
+            <small className="muted">
+              <code>{r.cmd}</code>
+            </small>
+          </div>
+        ))}
+    </Modal>
+  );
+}
+
 /** Refresco mientras haya corridas en curso, para ver el avance del motor (ms). */
 const POLL_MS = 3000;
 const COLS = 10;
@@ -72,6 +137,8 @@ export function ExecutionsPage() {
   const [now, setNow] = useState(Date.now());
   // Log abierto en modal (se resuelve el ítem/líneas en cada render → siempre al día).
   const [logFor, setLogFor] = useState<{ execId: string; dbName: string } | null>(null);
+  // Checksums abiertos en modal.
+  const [hashFor, setHashFor] = useState<{ dbName: string; fileName: string; checksums: FileChecksums } | null>(null);
 
   const load = useCallback(() => {
     return api
@@ -320,6 +387,18 @@ export function ExecutionsPage() {
                                       <FileText size={16} />
                                     </button>
                                   )}
+                                  {it.checksums && it.fileName && (
+                                    <button
+                                      className="icon-btn"
+                                      title={t("executions.checksums")}
+                                      aria-label={t("executions.checksums")}
+                                      onClick={() =>
+                                        setHashFor({ dbName: it.dbName, fileName: it.fileName!, checksums: it.checksums! })
+                                      }
+                                    >
+                                      <ShieldCheck size={16} />
+                                    </button>
+                                  )}
                                   {it.prunedAt ? (
                                     <span className="muted" title={fmt(it.prunedAt)}>
                                       {t("executions.pruned")}
@@ -368,6 +447,14 @@ export function ExecutionsPage() {
             />
           );
         })()}
+      {hashFor && (
+        <ChecksumModal
+          dbName={hashFor.dbName}
+          fileName={hashFor.fileName}
+          checksums={hashFor.checksums}
+          onClose={() => setHashFor(null)}
+        />
+      )}
     </section>
   );
 }
