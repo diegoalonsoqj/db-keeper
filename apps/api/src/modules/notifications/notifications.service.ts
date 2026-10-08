@@ -5,7 +5,8 @@ import type { NotifRuntimeConfig } from "../settings/settings.service.js";
 import { sendEmail } from "./email.js";
 import { sendTelegram } from "./telegram.js";
 
-export type BackupEvent = "start" | "success" | "failure";
+/** `integrity`: "Verificar ahora" detectó un archivo alterado o faltante. */
+export type BackupEvent = "start" | "success" | "failure" | "integrity";
 
 /** Resultado de una BD dentro de la corrida (para el detalle del aviso de fin). */
 export interface BackupItemResult {
@@ -35,6 +36,7 @@ const EVENT_LABEL: Record<BackupEvent, string> = {
   start: "Backup iniciado",
   success: "Backup completado",
   failure: "Backup con errores",
+  integrity: "Backup alterado o faltante",
 };
 
 /** Encabezado del cuerpo, con emoji por estado. */
@@ -42,6 +44,7 @@ const EVENT_HEAD: Record<BackupEvent, string> = {
   start: "🚀 Backup iniciado",
   success: "✅ Backup completado",
   failure: "❌ Backup con errores",
+  integrity: "⚠️ Integridad del backup comprometida",
 };
 
 /** Nombre presentable del motor. */
@@ -86,7 +89,7 @@ function summaryRows(n: BackupNotification): { emoji: string; label: string; val
   if (n.environment) rows.push({ emoji: "🌎", label: "Ambiente", value: n.environment });
   rows.push({ emoji: "💾", label: "Bases de datos", value: n.databases.join(", ") || "—" });
   if (n.storage) rows.push({ emoji: "🗂️", label: "Almacenamiento", value: n.storage });
-  if (n.event !== "start") {
+  if (n.event === "success" || n.event === "failure") {
     rows.push({ emoji: "⏱️", label: "Duración", value: formatDuration(n.durationMs) });
     rows.push({ emoji: "📦", label: "Peso total", value: formatBytes(n.totalBytes) });
   }

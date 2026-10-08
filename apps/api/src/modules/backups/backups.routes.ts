@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { BACKUP_METHODS, SCHEDULE_MODES } from "@dbkeeper/shared";
+import { BACKUP_METHODS, SCHEDULE_MODES, VERIFY_MODES } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationSchema } from "../../lib/pagination.js";
@@ -9,6 +9,7 @@ import * as service from "./backups.service.js";
 import * as schedules from "./schedules.service.js";
 import { gcsReadStream } from "./engine/gcs.js";
 import { subscribe } from "./events.js";
+import { verifyItemNow } from "./integrity.js";
 
 export const backupsRouter: Router = Router();
 backupsRouter.use(authenticate);
@@ -93,6 +94,31 @@ backupsRouter.get(
         else res.destroy(err);
       });
       stream.pipe(res);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// "Verificar ahora": compara la huella actual del archivo con la registrada.
+// Responde al iniciar (202); el resultado llega por SSE. Mismo permiso que
+// ejecutar: el modo profundo descarga el objeto completo (egress de GCS).
+backupsRouter.post(
+  "/executions/:execId/items/:itemId/verify",
+  authorize("backups:run"),
+  async (req, res, next) => {
+    try {
+      const execId = z.string().uuid().parse(req.params.execId);
+      const itemId = z.string().uuid().parse(req.params.itemId);
+      const { mode } = z.object({ mode: z.enum(VERIFY_MODES).default("quick") }).parse(req.body ?? {});
+      const exec = await verifyItemNow(execId, itemId, mode);
+      await recordAudit(req, {
+        action: "backups.verify",
+        entityType: "execution",
+        entityId: execId,
+        detail: { itemId, mode },
+      });
+      ok(res, exec, 202);
     } catch (err) {
       next(err);
     }
