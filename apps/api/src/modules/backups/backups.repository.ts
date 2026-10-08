@@ -1,4 +1,4 @@
-import type { BackupJobDto, BackupMethod, ExecutionDto } from "@dbkeeper/shared";
+import type { BackupJobDto, BackupMethod, ExecutionDto, FileChecksums } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
 
 interface JobRow {
@@ -209,7 +209,9 @@ const SELECT_EXECUTION = `
         json_build_object(
           'id', i.id, 'dbName', i.db_name, 'status', i.status,
           'fileName', i.file_name, 'fileBytes', i.file_bytes, 'log', i.log,
-          'startedAt', i.started_at, 'finishedAt', i.finished_at, 'prunedAt', i.pruned_at
+          'startedAt', i.started_at, 'finishedAt', i.finished_at, 'prunedAt', i.pruned_at,
+          'checksums', CASE WHEN COALESCE(i.file_sha256, i.file_md5, i.file_crc32c) IS NOT NULL
+            THEN json_build_object('sha256', i.file_sha256, 'md5', i.file_md5, 'crc32c', i.file_crc32c) END
         ) ORDER BY i.db_name
       ) FILTER (WHERE i.id IS NOT NULL), '[]'
     ) AS items
@@ -294,13 +296,30 @@ export async function markItemRunning(itemId: string): Promise<void> {
 /** Cierra un ítem con su resultado: estado final, archivo/peso y log. */
 export async function finishItem(
   itemId: string,
-  result: { status: "success" | "failed"; fileName?: string | null; fileBytes?: number | null; log?: string | null },
+  result: {
+    status: "success" | "failed";
+    fileName?: string | null;
+    fileBytes?: number | null;
+    log?: string | null;
+    checksums?: FileChecksums | null;
+  },
 ): Promise<void> {
+  const c = result.checksums;
   await query(
     `UPDATE core.execution_items
-     SET status = $2, file_name = $3, file_bytes = $4, log = $5, finished_at = now()
+     SET status = $2, file_name = $3, file_bytes = $4, log = $5,
+         file_sha256 = $6, file_md5 = $7, file_crc32c = $8, finished_at = now()
      WHERE id = $1`,
-    [itemId, result.status, result.fileName ?? null, result.fileBytes ?? null, result.log ?? null],
+    [
+      itemId,
+      result.status,
+      result.fileName ?? null,
+      result.fileBytes ?? null,
+      result.log ?? null,
+      c?.sha256 ?? null,
+      c?.md5 ?? null,
+      c?.crc32c ?? null,
+    ],
   );
 }
 

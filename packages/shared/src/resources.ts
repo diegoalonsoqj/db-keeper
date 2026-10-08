@@ -176,6 +176,18 @@ export interface ExecutionItemDto {
   finishedAt: string | null;
   /** Fecha en que el archivo se borró por retención; null = sigue disponible. */
   prunedAt: string | null;
+  /** Huellas del archivo para validar su integridad al descargarlo; null = sin datos. */
+  checksums: FileChecksums | null;
+}
+
+/** Checksums de un archivo de backup (cada uno null si no está disponible). */
+export interface FileChecksums {
+  /** SHA-256 en hex, calculado por DBKeeper (`sha256sum` / `Get-FileHash`). */
+  sha256: string | null;
+  /** MD5 en hex, el que reporta GCS (`md5sum` / `Get-FileHash -Algorithm MD5`). */
+  md5: string | null;
+  /** CRC32C en base64, el formato de GCS (`gcloud storage hash`). */
+  crc32c: string | null;
 }
 
 /**
