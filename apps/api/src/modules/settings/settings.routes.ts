@@ -59,6 +59,7 @@ const notificationsSchema = z.object({
       api: z
         .object({
           url: z.string().max(1024).optional(),
+          title: z.string().trim().max(255).optional(),
           authHeader: z.string().max(255).optional(),
           auth: z.string().max(2048).optional(),
         })

@@ -110,10 +110,13 @@ interface StoredNotif {
     from: string;
     recipients: string[];
     smtp: { host: string; port: number; secure: boolean; user: string; passwordEncrypted: string | null };
-    api: { url: string; authHeader: string; authEncrypted: string | null };
+    /** title es opcional: los ajustes guardados antes de existir no lo tienen. */
+    api: { url: string; title?: string; authHeader: string; authEncrypted: string | null };
   };
   telegram: { enabled: boolean; chatId: string; botTokenEncrypted: string | null };
 }
+
+const DEFAULT_EMAIL_API_TITLE = "DBKeeper";
 
 const EMPTY_NOTIF: StoredNotif = {
   notifyOnStart: false,
@@ -125,7 +128,7 @@ const EMPTY_NOTIF: StoredNotif = {
     from: "",
     recipients: [],
     smtp: { host: "", port: 587, secure: false, user: "", passwordEncrypted: null },
-    api: { url: "", authHeader: "Authorization", authEncrypted: null },
+    api: { url: "", title: DEFAULT_EMAIL_API_TITLE, authHeader: "Authorization", authEncrypted: null },
   },
   telegram: { enabled: false, chatId: "", botTokenEncrypted: null },
 };
@@ -154,6 +157,7 @@ function notifToDto(stored: StoredNotif): NotificationSettings {
       },
       api: {
         url: stored.email.api.url,
+        title: stored.email.api.title ?? DEFAULT_EMAIL_API_TITLE,
         authHeader: stored.email.api.authHeader,
         hasAuth: Boolean(stored.email.api.authEncrypted),
       },
@@ -316,7 +320,7 @@ export interface UpdateNotifInput {
     from?: string;
     recipients?: string[];
     smtp?: { host?: string; port?: number; secure?: boolean; user?: string; password?: string };
-    api?: { url?: string; authHeader?: string; auth?: string };
+    api?: { url?: string; title?: string; authHeader?: string; auth?: string };
   };
   telegram?: { enabled?: boolean; chatId?: string; botToken?: string };
 }
@@ -348,6 +352,7 @@ export async function updateNotifications(input: UpdateNotifInput): Promise<Noti
       },
       api: {
         url: input.email?.api?.url ?? current.email.api.url,
+        title: input.email?.api?.title || current.email.api.title || DEFAULT_EMAIL_API_TITLE,
         authHeader: input.email?.api?.authHeader ?? current.email.api.authHeader,
         authEncrypted: nextSecret(current.email.api.authEncrypted, input.email?.api?.auth),
       },
@@ -373,7 +378,7 @@ export interface NotifRuntimeConfig {
     from: string;
     recipients: string[];
     smtp: { host: string; port: number; secure: boolean; user: string; password: string | null };
-    api: { url: string; authHeader: string; auth: string | null };
+    api: { url: string; title: string; authHeader: string; auth: string | null };
   };
   telegram: { enabled: boolean; chatId: string; botToken: string | null };
 }
@@ -402,6 +407,7 @@ export async function getNotifRuntimeConfig(): Promise<NotifRuntimeConfig> {
       },
       api: {
         url: s.email.api.url,
+        title: s.email.api.title ?? DEFAULT_EMAIL_API_TITLE,
         authHeader: s.email.api.authHeader,
         auth: s.email.api.authEncrypted ? decryptSecret(s.email.api.authEncrypted) : null,
       },

@@ -420,7 +420,11 @@ export interface NotificationSettings {
     from: string;
     recipients: string[];
     smtp: { host: string; port: number; secure: boolean; user: string; hasPassword: boolean };
-    api: { url: string; authHeader: string; hasAuth: boolean };
+    /**
+     * API de correo "notify": POST `{ title, subject, htmlContent, from: {name, email}, to: [{email}] }`.
+     * `title` es campo obligatorio de esa API.
+     */
+    api: { url: string; title: string; authHeader: string; hasAuth: boolean };
   };
   telegram: { enabled: boolean; chatId: string; hasBotToken: boolean };
 }

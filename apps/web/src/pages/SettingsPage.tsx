@@ -214,6 +214,7 @@ export function SettingsPage() {
         },
         api: {
           url: n.email.api.url,
+          title: n.email.api.title,
           authHeader: n.email.api.authHeader,
           ...(apiAuth ? { auth: apiAuth } : {}),
         },
@@ -888,7 +889,7 @@ export function SettingsPage() {
                 <input
                   value={n.email.api.url}
                   disabled={!canWrite}
-                  placeholder="https://api.proveedor.com/send"
+                  placeholder="https://…/v1/notify/email"
                   onChange={(e) =>
                     setData({
                       ...data,
@@ -896,6 +897,21 @@ export function SettingsPage() {
                     })
                   }
                 />
+              </label>
+              <label>
+                {t("settings.apiTitle")}
+                <input
+                  value={n.email.api.title}
+                  disabled={!canWrite}
+                  placeholder="DBKeeper"
+                  onChange={(e) =>
+                    setData({
+                      ...data,
+                      notifications: { ...n, email: { ...n.email, api: { ...n.email.api, title: e.target.value } } },
+                    })
+                  }
+                />
+                <small>{t("settings.apiTitleHint")}</small>
               </label>
               <label>
                 {t("settings.apiAuthHeader")}

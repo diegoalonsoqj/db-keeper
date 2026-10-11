@@ -3,6 +3,19 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 37] — API de correo "notify" y plantilla HTML · 2026-10-11
+
+### Cambiado
+- Notificaciones → Email → API envía ahora el formato de la API "notify":
+  `{ title, subject, htmlContent, from: {name, email}, to: [{email}] }`, con **Título**
+  editable y el remitente tomado de `Nombre <correo>`. Se elimina el cuerpo genérico
+  anterior (`{ from, to, subject, text, html }`), que no correspondía a ningún servicio.
+
+### Añadido
+- Plantilla HTML propia para los correos (`email-template.ts`): tarjeta con barra y
+  etiqueta de estado por color, resumen en tabla y detalle por BD; compatible con
+  Outlook/Gmail (tablas + estilos inline), sin emojis. Telegram mantiene su formato.
+
 ## [Etapa 4 · parte 36] — Dump paralelo con disco temporal (AlloyDB) · 2026-10-11
 
 ### Añadido

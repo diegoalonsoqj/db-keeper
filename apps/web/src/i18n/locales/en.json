@@ -477,6 +477,8 @@
     "smtpUser": "SMTP user",
     "smtpPassword": "SMTP password",
     "apiUrl": "API URL",
+    "apiTitle": "Title",
+    "apiTitleHint": "API title field (required). Also used as sender name when the from has none (from: Name <email>).",
     "apiAuthHeader": "Authorization header",
     "apiAuth": "Authorization value",
     "notifTelegram": "Telegram",

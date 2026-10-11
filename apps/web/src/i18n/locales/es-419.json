@@ -477,6 +477,8 @@
     "smtpUser": "Usuario SMTP",
     "smtpPassword": "Contraseña SMTP",
     "apiUrl": "URL de la API",
+    "apiTitle": "Título (title)",
+    "apiTitleHint": "Campo title de la API (obligatorio). También es el nombre del remitente si el from no lo trae (from: Nombre <correo>).",
     "apiAuthHeader": "Header de autorización",
     "apiAuth": "Valor de autorización",
     "notifTelegram": "Telegram",

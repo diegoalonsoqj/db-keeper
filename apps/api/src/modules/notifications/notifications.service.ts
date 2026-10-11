@@ -3,6 +3,7 @@ import { formatBytes } from "../../lib/format.js";
 import * as settings from "../settings/settings.service.js";
 import type { NotifRuntimeConfig } from "../settings/settings.service.js";
 import { sendEmail } from "./email.js";
+import { escapeHtml, renderEmail, type EmailTone } from "./email-template.js";
 import { sendTelegram } from "./telegram.js";
 
 /** `integrity`: "Verificar ahora" detectó un archivo alterado o faltante. */
@@ -39,7 +40,25 @@ const EVENT_LABEL: Record<BackupEvent, string> = {
   integrity: "Backup alterado o faltante",
 };
 
-/** Encabezado del cuerpo, con emoji por estado. */
+/** Correo: tono, estado y frase de apertura por evento. */
+const EVENT_EMAIL: Record<BackupEvent, { tone: EmailTone; status: string; intro: string }> = {
+  start: { tone: "info", status: "En curso", intro: "Se inició la ejecución del evento de backup." },
+  success: { tone: "success", status: "Completado", intro: "El backup terminó correctamente en todas las bases de datos." },
+  failure: {
+    tone: "danger",
+    status: "Con errores",
+    intro: "El backup terminó con errores en al menos una base de datos. Revisa el detalle y el log de la ejecución en DBKeeper.",
+  },
+  integrity: {
+    tone: "warning",
+    status: "Integridad",
+    intro: "La verificación detectó un archivo de backup alterado o que ya no existe en el almacenamiento.",
+  },
+};
+
+const sentAt = (): string => new Date().toLocaleString("es", { dateStyle: "medium", timeStyle: "short" });
+
+/** Encabezado del mensaje de Telegram, con emoji por estado. */
 const EVENT_HEAD: Record<BackupEvent, string> = {
   start: "🚀 Backup iniciado",
   success: "✅ Backup completado",
@@ -62,14 +81,6 @@ function eventEnabled(cfg: NotifRuntimeConfig, event: BackupEvent): boolean {
   if (event === "success") return cfg.notifyOnSuccess;
   return cfg.notifyOnFailure;
 }
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 
 function formatDuration(ms: number | null | undefined): string {
   if (!ms || ms <= 0) return "—";
@@ -97,32 +108,54 @@ function summaryRows(n: BackupNotification): { emoji: string; label: string; val
 }
 
 /** Detalle por BD (solo eventos de fin con ítems): emoji de estado + línea. */
-function detailItems(n: BackupNotification): { emoji: string; text: string }[] | null {
+function detailItems(n: BackupNotification): { ok: boolean; emoji: string; text: string }[] | null {
   if (n.event === "start" || !n.items || n.items.length === 0) return null;
   return n.items.map((it) => ({
+    ok: it.status === "success",
     emoji: it.status === "success" ? "✅" : "❌",
     text: `${it.dbName} — ${it.status === "success" ? formatBytes(it.bytes) : it.error || "error"}`,
   }));
 }
 
-/** Texto plano (para el cuerpo `text` del correo). */
+/** Texto plano del correo (alternativa al HTML), sin emojis. */
 function buildText(n: BackupNotification): string {
-  const parts = [EVENT_HEAD[n.event], ""];
-  for (const r of summaryRows(n)) parts.push(`${r.emoji} ${r.label}: ${r.value}`);
+  const parts = [`${EVENT_LABEL[n.event]}: ${n.jobName}`, EVENT_EMAIL[n.event].intro, ""];
+  for (const r of summaryRows(n)) parts.push(`${r.label}: ${r.value}`);
   const det = detailItems(n);
   if (det) {
-    parts.push("", "📋 Detalle:");
-    for (const d of det) parts.push(`   ${d.emoji} ${d.text}`);
+    parts.push("", "Detalle por base de datos:");
+    for (const d of det) parts.push(`- [${d.ok ? "OK" : "ERROR"}] ${d.text}`);
   }
   return parts.join("\n");
 }
 
+/** Correo HTML con la plantilla de email-template.ts. */
+function buildEmailHtml(n: BackupNotification): string {
+  const ev = EVENT_EMAIL[n.event];
+  const det = detailItems(n);
+  return renderEmail({
+    tone: ev.tone,
+    status: ev.status,
+    title: `${EVENT_LABEL[n.event]}: ${n.jobName}`,
+    intro: ev.intro,
+    rows: summaryRows(n).map(({ label, value }) => ({ label, value })),
+    details: n.items && det
+      ? n.items.map((it) => ({
+          name: it.dbName,
+          ok: it.status === "success",
+          info: it.status === "success" ? formatBytes(it.bytes) : it.error || "error",
+        }))
+      : null,
+    sentAt: sentAt(),
+  });
+}
+
 /**
- * Versión HTML con etiquetas en negrita. `br` es el separador de línea: `\n` para
- * Telegram (su HTML no admite `<br>`) y `<br>` para el correo. Los valores dinámicos
- * se escapan; las etiquetas y emojis son estáticos.
+ * Mensaje de Telegram: HTML con etiquetas en negrita y `\n` como salto (su HTML no
+ * admite `<br>`). Los valores dinámicos se escapan; etiquetas y emojis son estáticos.
  */
-function buildHtml(n: BackupNotification, br: string): string {
+function buildTelegramHtml(n: BackupNotification): string {
+  const br = "\n";
   const parts = [`<b>${escapeHtml(EVENT_HEAD[n.event])}</b>`, ""];
   for (const r of summaryRows(n)) parts.push(`${r.emoji} <b>${r.label}:</b> ${escapeHtml(r.value)}`);
   const det = detailItems(n);
@@ -156,7 +189,7 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (cfg.email.enabled) {
     tasks.push(
-      sendEmail(cfg.email, { subject, text, html: buildHtml(n, "<br>") }).catch((err) => {
+      sendEmail(cfg.email, { subject, text, html: buildEmailHtml(n) }).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar correo de notificación");
       }),
     );
@@ -164,7 +197,7 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, buildHtml(n, "\n")).catch((err) => {
+      sendTelegram(cfg.telegram, buildTelegramHtml(n)).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
       }),
     );
@@ -199,8 +232,8 @@ export async function sendTestNotification(): Promise<NotificationTestResult> {
   const subject = "[DBKeeper] Notificación de prueba";
   const head = "🔔 Notificación de prueba";
   const body = "Esta es una notificación de prueba de DBKeeper. Si la recibes, el canal está bien configurado.";
-  const text = `${head}\n\n${body}`;
-  const emailHtml = `<b>${escapeHtml(head)}</b><br><br>${escapeHtml(body)}`;
+  const text = `Notificación de prueba\n\n${body}`;
+  const emailHtml = renderEmail({ tone: "info", status: "Prueba", title: "Notificación de prueba", intro: body, sentAt: sentAt() });
   const telegramHtml = `<b>${escapeHtml(head)}</b>\n\n${escapeHtml(body)}`;
 
   const result: NotificationTestResult = {

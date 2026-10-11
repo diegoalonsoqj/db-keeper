@@ -11,7 +11,7 @@ export interface EmailMessage {
 type EmailConfig = NotifRuntimeConfig["email"];
 
 /**
- * Envía un correo por el proveedor configurado (SMTP o una API HTTP genérica).
+ * Envía un correo por el proveedor configurado (SMTP o la API HTTP "notify").
  * Lanza si la configuración está incompleta o el transporte falla; el orquestador
  * captura y registra el error sin interrumpir el flujo de backups.
  */
@@ -43,10 +43,28 @@ async function sendViaSmtp(cfg: EmailConfig, msg: EmailMessage): Promise<void> {
   });
 }
 
+/** Separa `Nombre <correo>` en sus partes; sin `<…>`, todo es el correo. */
+export function parseAddress(from: string): { name: string; email: string } {
+  const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(from);
+  return m ? { name: m[1]!.trim(), email: m[2]!.trim() } : { name: "", email: from.trim() };
+}
+
+/** Cuerpo del POST de la API de correo "notify". */
+export function buildApiBody(cfg: EmailConfig, msg: EmailMessage): Record<string, unknown> {
+  const from = parseAddress(cfg.from);
+  return {
+    title: cfg.api.title,
+    subject: msg.subject,
+    htmlContent: msg.html,
+    from: { name: from.name || cfg.api.title, email: from.email },
+    to: cfg.recipients.map((email) => ({ email })),
+  };
+}
+
 /**
- * Envío vía API HTTP: POST JSON con `{ from, to, subject, text, html }`. El header
- * de autorización es configurable (nombre + valor) para adaptarse a distintos
- * proveedores (p. ej. `Authorization: Bearer …` o `X-Api-Key: …`).
+ * Envío vía API HTTP: POST JSON con la forma de `buildApiBody`. El header de
+ * autorización es configurable (nombre + valor) para adaptarse a distintos
+ * proveedores (p. ej. `Authorization: Bearer …` o `X-Api-Key: …`); vacío = sin header.
  */
 async function sendViaApi(cfg: EmailConfig, msg: EmailMessage): Promise<void> {
   if (!cfg.api.url) throw new Error("Falta la URL de la API de correo");
@@ -56,13 +74,7 @@ async function sendViaApi(cfg: EmailConfig, msg: EmailMessage): Promise<void> {
   const res = await fetch(cfg.api.url, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      from: cfg.from,
-      to: cfg.recipients,
-      subject: msg.subject,
-      text: msg.text,
-      html: msg.html,
-    }),
+    body: JSON.stringify(buildApiBody(cfg, msg)),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
