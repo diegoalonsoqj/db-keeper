@@ -1,8 +1,10 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import {
   DEFAULT_PAGE_SIZE,
+  isDirectoryArtifact,
+  PGDIR_MANIFEST,
   type ExecutionDto,
   type ExecutionItemDto,
   type Paginated,
@@ -14,6 +16,7 @@ import { Modal } from "../components/Modal";
 import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Pagination } from "../components/Pagination";
@@ -82,7 +85,9 @@ function ChecksumModal({
   const { t } = useTranslation();
   const toast = useToast();
   const checksums = item.checksums!;
-  const file = baseName(item.fileName!);
+  // Carpeta (dump paralelo): la huella es la del manifest.json, que lista cada archivo.
+  const isDir = isDirectoryArtifact(item.fileName);
+  const file = isDir ? PGDIR_MANIFEST : baseName(item.fileName!);
   const isGcs = item.fileName!.startsWith("gs://");
   const v = item.verification;
   const running = v?.status === "running";
@@ -131,7 +136,7 @@ function ChecksumModal({
         ))}
       <hr />
       <strong>{t("executions.verifyTitle")}</strong>
-      <p className="muted">{t(isGcs ? "executions.verifyHelpGcs" : "executions.verifyHelpLocal")}</p>
+      <p className="muted">{t(isDir ? "executions.verifyHelpDir" : isGcs ? "executions.verifyHelpGcs" : "executions.verifyHelpLocal")}</p>
       {v && (
         <p>
           <span className={`badge badge-${v.status === "ok" ? "success" : v.status === "running" ? "running" : "failed"}`}>
@@ -150,9 +155,11 @@ function ChecksumModal({
               {t("executions.verifyQuick")}
             </button>
           )}
-          <button className="secondary" disabled={running} onClick={() => onVerify("deep")}>
-            {t(isGcs ? "executions.verifyDeep" : "executions.verifyNow")}
-          </button>
+          {!isDir && (
+            <button className="secondary" disabled={running} onClick={() => onVerify("deep")}>
+              {t(isGcs ? "executions.verifyDeep" : "executions.verifyNow")}
+            </button>
+          )}
         </div>
       )}
     </Modal>
@@ -277,6 +284,33 @@ export function ExecutionsPage() {
     }
   }
 
+  const confirm = useConfirm();
+
+  /** En cola: se cierra sin lanzarse. En curso: solo el dump paralelo (libera su disco). */
+  async function cancel(e: ExecutionDto) {
+    const ok = await confirm({
+      message: t(e.status === "running" ? "executions.cancelRunningConfirm" : "executions.cancelPendingConfirm", { name: e.label }),
+      confirmLabel: t("executions.cancel"),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.post(`/backups/executions/${e.id}/cancel`);
+      toast.success(t("executions.cancelRequested"));
+      await load();
+    } catch (err) {
+      toast.error(errMsg(err));
+    }
+  }
+
+  /** Backup en carpeta: no se descarga por la web; se copia el comando de gcloud. */
+  function copyDirCommand(uri: string) {
+    navigator.clipboard
+      .writeText(`gcloud storage cp -r ${uri} .`)
+      .then(() => toast.success(t("executions.dirCommandCopied")))
+      .catch((err) => toast.error(errMsg(err)));
+  }
+
   async function download(execId: string, itemId: string, name: string) {
     try {
       await api.download(`/backups/executions/${execId}/items/${itemId}/download`, name);
@@ -395,6 +429,16 @@ export function ExecutionsPage() {
                     >
                       {expanded.has(e.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
+                    {canRun && (e.status === "pending" || (e.status === "running" && e.method === "pg_parallel")) && (
+                      <button
+                        className="icon-btn"
+                        title={t("executions.cancel")}
+                        aria-label={t("executions.cancel")}
+                        onClick={() => cancel(e)}
+                      >
+                        <Square size={16} />
+                      </button>
+                    )}
                     {canRun && e.status === "failed" && (
                       <button
                         className="icon-btn primary"
@@ -459,7 +503,17 @@ export function ExecutionsPage() {
                                       {t("executions.pruned")}
                                     </span>
                                   ) : (
-                                    it.fileName && (
+                                    it.fileName &&
+                                    (isDirectoryArtifact(it.fileName) ? (
+                                      <button
+                                        className="icon-btn"
+                                        title={t("executions.copyDirCommand")}
+                                        aria-label={t("executions.copyDirCommand")}
+                                        onClick={() => copyDirCommand(it.fileName!)}
+                                      >
+                                        <Copy size={16} />
+                                      </button>
+                                    ) : (
                                       <button
                                         className="icon-btn"
                                         title={t("executions.download")}
@@ -468,7 +522,7 @@ export function ExecutionsPage() {
                                       >
                                         <Download size={16} />
                                       </button>
-                                    )
+                                    ))
                                   )}
                                 </td>
                               </tr>

@@ -38,6 +38,16 @@ const envSchema = z.object({
   // Prioridad (nice) de los procesos de dump: más alto = cede CPU a la API. 0 = normal.
   DUMP_PROCESS_NICE: z.coerce.number().int().min(0).max(19).default(10),
 
+  // --- Dump paralelo (pg_parallel) con disco temporal de GCE ---
+  // pg_restore valida el TOC del dump en formato directorio antes de subirlo.
+  PG_RESTORE_PATH: z.string().default("pg_restore"),
+  // Helper root que formatea/monta/desmonta el disco temporal (se invoca con sudo -n).
+  // No es editable desde la web a propósito: es el binario que corre como root.
+  SCRATCH_HELPER_PATH: z.string().default("/usr/local/sbin/dbkeeper-scratch"),
+  SUDO_PATH: z.string().default("sudo"),
+  // Archivos del dump subidos a GCS en paralelo.
+  GCS_UPLOAD_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(8),
+
   // Confianza en X-Forwarded-For para obtener la IP real del cliente (auditoría y límite
   // de intentos). "false" (por defecto) = se usa la IP de la conexión: correcto si la app
   // se sirve directo. Detrás de un proxy/balanceador: "1" (saltos) o su IP/subred.

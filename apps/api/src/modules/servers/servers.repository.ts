@@ -12,6 +12,7 @@ interface ServerRow {
   mongo_srv: boolean;
   conn_options: Record<string, string>;
   is_cloud_sql: boolean;
+  is_alloydb: boolean;
   gcp_project: string | null;
   gcp_instance: string | null;
   cloud_credential_id: string | null;
@@ -35,6 +36,7 @@ function toServer(row: ServerRow): ServerDto {
     mongoSrv: row.mongo_srv,
     connOptions: row.conn_options ?? {},
     isCloudSql: row.is_cloud_sql,
+    isAlloyDb: row.is_alloydb,
     gcpProject: row.gcp_project,
     gcpInstance: row.gcp_instance,
     cloudCredentialId: row.cloud_credential_id,
@@ -91,6 +93,7 @@ export interface ServerFields {
   mongoSrv: boolean;
   connOptions: Record<string, string>;
   isCloudSql: boolean;
+  isAlloyDb: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
   cloudCredentialId: string | null;
@@ -101,8 +104,8 @@ export interface ServerFields {
 export async function insertServer(fields: ServerFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
     `INSERT INTO core.servers
-       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id, cloud_credential_id, mongo_srv, conn_options)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+       (name, engine, host, port, environment, use_ssl, is_cloud_sql, gcp_project, gcp_instance, notes, credential_id, cloud_credential_id, mongo_srv, conn_options, is_alloydb)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
     [
       fields.name,
       fields.engine,
@@ -118,6 +121,7 @@ export async function insertServer(fields: ServerFields): Promise<string> {
       fields.cloudCredentialId,
       fields.mongoSrv,
       JSON.stringify(fields.connOptions),
+      fields.isAlloyDb,
     ],
   );
   return rows[0]!.id;
@@ -134,6 +138,7 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
     mongoSrv: "mongo_srv",
     connOptions: "conn_options",
     isCloudSql: "is_cloud_sql",
+    isAlloyDb: "is_alloydb",
     gcpProject: "gcp_project",
     gcpInstance: "gcp_instance",
     cloudCredentialId: "cloud_credential_id",

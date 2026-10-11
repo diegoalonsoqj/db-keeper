@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ALLOYDB_STDERR_IGNORE,
   BACKUP_METHODS,
+  PARALLEL_DUMP_LIMITS,
+  SCRATCH_DISK_TYPES,
+  type ParallelEnvironmentDto,
   ENGINE_BACKUP_OPTIONS,
   formatBytes,
   type BackupJobDto,
@@ -61,6 +65,18 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [retKeep, setRetKeep] = useState(ret?.keepLast != null ? String(ret.keepLast) : "");
   const [isActive, setIsActive] = useState(job?.isActive ?? true);
 
+  // Dump paralelo (pg_parallel): opciones propias; vacío = valor automático/por defecto.
+  const [parallelEnv, setParallelEnv] = useState<ParallelEnvironmentDto | null>(null);
+  const opt = job?.options ?? {};
+  const [parallelJobs, setParallelJobs] = useState(typeof opt.parallelJobs === "number" ? String(opt.parallelJobs) : "");
+  const [noPrivileges, setNoPrivileges] = useState(opt.noPrivileges === true);
+  const [diskSizeGb, setDiskSizeGb] = useState(typeof opt.diskSizeGb === "number" ? String(opt.diskSizeGb) : "");
+  const [diskType, setDiskType] = useState(typeof opt.diskType === "string" ? opt.diskType : "");
+  const [maxHours, setMaxHours] = useState(typeof opt.maxHours === "number" ? String(opt.maxHours) : "");
+  const [stderrIgnore, setStderrIgnore] = useState(
+    Array.isArray(opt.stderrIgnore) ? (opt.stderrIgnore as string[]).join("\n") : "",
+  );
+
   // PostgreSQL: esquemas, extensiones y event triggers a excluir por BD ({ bd: [nombres] }).
   const exclusionCtx = { serverId, credentialId, onError: (m: string | null) => setError(m) };
   const schemas = useDbExclusions<string>({
@@ -98,8 +114,13 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   // instancia en el bucket, así que no aplican las opciones de dump.
   const exportAvailable = engine === "sqlserver" && !!selectedServer?.isCloudSql;
   const isExport = method === "cloudsql_export";
-  const methods = BACKUP_METHODS.filter((m) => m !== "cloudsql_export" || exportAvailable);
-  const usesBucket = method === "gcloud" || isExport;
+  // Dump paralelo: solo PostgreSQL y con el disco temporal habilitado en Configuración.
+  const parallelAvailable = engine === "postgres" && (!!parallelEnv?.enabled || job?.method === "pg_parallel");
+  const isParallel = method === "pg_parallel";
+  const methods = BACKUP_METHODS.filter(
+    (m) => (m !== "cloudsql_export" || exportAvailable) && (m !== "pg_parallel" || parallelAvailable),
+  );
+  const usesBucket = method === "gcloud" || isExport || isParallel;
   const dumpOpts = engine && !isExport ? ENGINE_BACKUP_OPTIONS[engine] : [];
   const showCompress = dumpOpts.includes("compress");
   const showExclude = dumpOpts.includes("excludeTables");
@@ -107,7 +128,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExcludeExtensions = dumpOpts.includes("excludeExtensions");
   const showExcludeEventTriggers = dumpOpts.includes("excludeEventTriggers");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
-  const showPgCompat = dumpOpts.includes("pgCompat");
+  // -Fd no genera SQL plano: la compatibilidad de versiones no aplica.
+  const showPgCompat = dumpOpts.includes("pgCompat") && !isParallel;
   const showVerbose = dumpOpts.includes("verbose");
   const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
@@ -130,6 +152,9 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   useEffect(() => {
     if (isExport && selectedServer && !exportAvailable) setMethod("dump");
   }, [isExport, selectedServer, exportAvailable]);
+  useEffect(() => {
+    if (isParallel && selectedServer && engine !== "postgres") setMethod("dump");
+  }, [isParallel, selectedServer, engine]);
 
   useEffect(() => {
     Promise.all([
@@ -143,6 +168,11 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         setBuckets(b.items);
       })
       .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
+    // Opcional: sin él solo no se ofrece el dump paralelo.
+    api
+      .get<ParallelEnvironmentDto>("/backups/parallel/environment")
+      .then(setParallelEnv)
+      .catch(() => setParallelEnv(null));
   }, []);
 
   async function discover() {
@@ -216,6 +246,19 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     else delete options.verbose;
     if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
     else delete options.sqlBackupDir;
+    for (const k of ["parallelJobs", "noPrivileges", "diskSizeGb", "diskType", "maxHours", "stderrIgnore"]) delete options[k];
+    if (isParallel) {
+      // Vacío = automático: el backend aplica el valor por defecto.
+      if (parallelJobs.trim()) options.parallelJobs = Number(parallelJobs);
+      options.noPrivileges = noPrivileges;
+      options.diskSizeGb = diskSizeGb.trim() ? Number(diskSizeGb) : null;
+      options.diskType = diskType || null;
+      if (maxHours.trim()) options.maxHours = Number(maxHours);
+      options.stderrIgnore = stderrIgnore
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+    }
 
     // Retención: solo almacenamiento local (método dump); en buckets la app no borra.
     // Días y/o cantidad; vacío = sin regla.
@@ -276,6 +319,12 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             // Cloud SQL (SQL Server): el export es el método natural (no usa host ni credencial de BD).
             const s = servers.find((x) => x.id === e.target.value);
             if (s?.engine === "sqlserver" && s.isCloudSql) setMethod("cloudsql_export");
+            // AlloyDB (evento nuevo): dump paralelo con el filtro de ruido y consola en vivo.
+            if (!job && s?.isAlloyDb && parallelEnv?.enabled) {
+              setMethod("pg_parallel");
+              setVerbose(true);
+              if (!stderrIgnore.trim()) setStderrIgnore(ALLOYDB_STDERR_IGNORE.join("\n"));
+            }
           }}
         >
           <option value="">{t("backups.pickServer")}</option>
@@ -319,6 +368,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           ))}
         </select>
         {isExport && <small>{t("backups.methodCloudSqlExportHint")}</small>}
+        {isParallel && <small>{t("backups.methodParallelHint")}</small>}
       </label>
       {usesBucket ? (
         <label>
@@ -326,7 +376,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           <select value={bucketId} onChange={(e) => setBucketId(e.target.value)}>
             <option value="">{t("backups.bucketNone")}</option>
             {buckets
-              .filter((b) => b.type === "bucket" && (!isExport || b.provider === "gcp"))
+              .filter((b) => b.type === "bucket" && (!(isExport || isParallel) || b.provider === "gcp"))
               .filter((b) => b.isActive || b.id === bucketId)
               .map((b) => (
                 <option key={b.id} value={b.id}>
@@ -348,6 +398,92 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           />
           <small>{t("backups.destinationLocalHint")}</small>
         </label>
+      )}
+
+      {isParallel && (
+        <fieldset>
+          <legend>{t("backups.parallel")}</legend>
+          {parallelEnv?.gce && (
+            <small className="muted">
+              {t("backups.parallelEnv", {
+                vm: parallelEnv.gce.instance,
+                zone: parallelEnv.gce.zone,
+                machine: parallelEnv.gce.machineType ?? "?",
+                vcpus: parallelEnv.vcpus,
+                mount: parallelEnv.mountPoint,
+              })}
+            </small>
+          )}
+          <label>
+            {t("backups.parallelJobs")}
+            <input
+              type="number"
+              min={PARALLEL_DUMP_LIMITS.parallelJobs.min}
+              max={PARALLEL_DUMP_LIMITS.parallelJobs.max}
+              value={parallelJobs}
+              onChange={(e) => setParallelJobs(e.target.value)}
+              placeholder={parallelEnv ? String(parallelEnv.suggestedJobs) : ""}
+            />
+            <small>
+              {t("backups.parallelJobsHint", {
+                vcpus: parallelEnv?.vcpus ?? "?",
+                suggested: parallelEnv?.suggestedJobs ?? "?",
+                conns: (Number(parallelJobs) || parallelEnv?.suggestedJobs || 0) + 1,
+              })}
+            </small>
+          </label>
+          <label className="inline">
+            <input type="checkbox" checked={noPrivileges} onChange={(e) => setNoPrivileges(e.target.checked)} />
+            {t("backups.noPrivileges")}
+          </label>
+          <small>{t("backups.noPrivilegesHint")}</small>
+          {noPrivileges && <p className="warning">{t("backups.noPrivilegesWarning")}</p>}
+          <label>
+            {t("backups.diskSizeGb")}
+            <input
+              type="number"
+              min={10}
+              max={parallelEnv?.maxSizeGb}
+              value={diskSizeGb}
+              onChange={(e) => setDiskSizeGb(e.target.value)}
+              placeholder={t("backups.diskSizeAuto")}
+            />
+            <small>{t("backups.diskSizeHint", { def: parallelEnv?.defaultSizeGb ?? "?", max: parallelEnv?.maxSizeGb ?? "?" })}</small>
+          </label>
+          <label>
+            {t("backups.diskType")}
+            <select value={diskType} onChange={(e) => setDiskType(e.target.value)}>
+              <option value="">{t("backups.diskTypeDefault", { type: parallelEnv?.diskType ?? "?" })}</option>
+              {SCRATCH_DISK_TYPES.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("backups.maxHours")}
+            <input
+              type="number"
+              min={PARALLEL_DUMP_LIMITS.maxHours.min}
+              max={parallelEnv?.dumpMaxHours}
+              value={maxHours}
+              onChange={(e) => setMaxHours(e.target.value)}
+              placeholder={String(Math.min(12, parallelEnv?.dumpMaxHours ?? 12))}
+            />
+            <small>{t("backups.maxHoursHint", { max: parallelEnv?.dumpMaxHours ?? "?" })}</small>
+          </label>
+          <label>
+            {t("backups.stderrIgnore")}
+            <textarea rows={3} value={stderrIgnore} onChange={(e) => setStderrIgnore(e.target.value)} />
+            <small>
+              {t("backups.stderrIgnoreHint", {
+                lines: PARALLEL_DUMP_LIMITS.stderrIgnoreLines,
+                len: PARALLEL_DUMP_LIMITS.stderrIgnoreLength,
+              })}
+            </small>
+          </label>
+        </fieldset>
       )}
 
       <fieldset>
@@ -408,7 +544,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
       {showExcludeEventTriggers && selected.size > 0 && (
         <ExcludeByDbSection
           legend={t("backups.excludeEventTriggers")}
-          warning={t("backups.excludeEventTriggersHint")}
+          warning={isParallel ? t("backups.excludeEventTriggersParallelHint") : t("backups.excludeEventTriggersHint")}
           loadLabel={t("backups.loadEventTriggers")}
           loadingLabel={t("backups.loadingEventTriggers")}
           databases={[...selected]}

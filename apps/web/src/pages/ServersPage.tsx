@@ -40,6 +40,7 @@ interface FormState {
   mongoSrv: boolean;
   connOptionsText: string;
   isCloudSql: boolean;
+  isAlloyDb: boolean;
   gcpProject: string;
   gcpInstance: string;
   cloudCredentialId: string;
@@ -58,6 +59,7 @@ const emptyForm: FormState = {
   mongoSrv: false,
   connOptionsText: "",
   isCloudSql: false,
+  isAlloyDb: false,
   gcpProject: "",
   gcpInstance: "",
   cloudCredentialId: "",
@@ -118,6 +120,7 @@ export function ServersPage() {
       mongoSrv: s.mongoSrv,
       connOptionsText: mongoOptionsToText(s.connOptions),
       isCloudSql: s.isCloudSql,
+      isAlloyDb: s.isAlloyDb,
       gcpProject: s.gcpProject ?? "",
       gcpInstance: s.gcpInstance ?? "",
       cloudCredentialId: s.cloudCredentialId ?? "",
@@ -172,6 +175,7 @@ export function ServersPage() {
         mongoSrv: isMongo && form.mongoSrv,
         connOptions: conn.options,
         isCloudSql: form.isCloudSql,
+        isAlloyDb: form.engine === "postgres" && form.isAlloyDb,
         gcpProject: form.gcpProject || null,
         gcpInstance: form.gcpInstance || null,
         cloudCredentialId: form.isCloudSql ? form.cloudCredentialId || null : null,
@@ -235,7 +239,7 @@ export function ServersPage() {
           {data.items.map((s) => (
             <tr key={s.id}>
               <td>{s.name}</td>
-              <td>{s.engine}{s.isCloudSql ? " · Cloud SQL" : ""}</td>
+              <td>{s.engine}{s.isCloudSql ? " · Cloud SQL" : s.isAlloyDb ? " · AlloyDB" : ""}</td>
               <td>{s.host ?? "—"}{s.useSsl ? " 🔒" : ""}</td>
               <td>{s.port}</td>
               <td>{environmentLabel(environments, s.environment) ?? t("common.none")}</td>
@@ -393,10 +397,28 @@ export function ServersPage() {
               {t("servers.useSsl")}
             </label>
           )}
-          <label className="inline">
-            <input type="checkbox" checked={form.isCloudSql} onChange={(e) => setForm({ ...form, isCloudSql: e.target.checked })} />
-            {t("servers.isCloudSql")}
-          </label>
+          {form.engine === "postgres" ? (
+            // PostgreSQL: plataforma (Cloud SQL y AlloyDB son excluyentes).
+            <label>
+              {t("servers.platform")}
+              <select
+                value={form.isAlloyDb ? "alloydb" : form.isCloudSql ? "cloudsql" : "self"}
+                onChange={(e) =>
+                  setForm({ ...form, isCloudSql: e.target.value === "cloudsql", isAlloyDb: e.target.value === "alloydb" })
+                }
+              >
+                <option value="self">{t("servers.platformSelf")}</option>
+                <option value="cloudsql">Cloud SQL</option>
+                <option value="alloydb">AlloyDB</option>
+              </select>
+              {form.isAlloyDb && <small>{t("servers.platformAlloyDbHint")}</small>}
+            </label>
+          ) : (
+            <label className="inline">
+              <input type="checkbox" checked={form.isCloudSql} onChange={(e) => setForm({ ...form, isCloudSql: e.target.checked })} />
+              {t("servers.isCloudSql")}
+            </label>
+          )}
           {form.isCloudSql && (
             <>
               <label>

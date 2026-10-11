@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
-import type { ExecutionDto, VerifyMode } from "@dbkeeper/shared";
+import { isDirectoryArtifact, PGDIR_MANIFEST, type ExecutionDto, type VerifyMode } from "@dbkeeper/shared";
+import { diffUploaded, hashBuffer, listPrefixObjects, readManifest } from "./engine/gcs-dir.js";
 import { logger } from "../../config/logger.js";
 import { HttpError } from "../../lib/http-error.js";
 import * as storageRepo from "../storage/storage.repository.js";
@@ -30,7 +31,8 @@ export async function verifyItemNow(executionId: string, itemId: string, mode: V
     throw HttpError.badRequest("Este backup no tiene checksums registrados (es anterior a la función)");
   }
   const isGcs = item.fileName.startsWith("gs://");
-  const effective: VerifyMode = isGcs ? mode : "deep";
+  // Carpeta (dump paralelo): se verifica contra el manifiesto, sin descargar los datos.
+  const effective: VerifyMode = isDirectoryArtifact(item.fileName) ? "quick" : isGcs ? mode : "deep";
 
   if (!(await repo.startItemVerify(itemId, effective))) {
     throw HttpError.conflict("Ya hay una verificación en curso para este archivo");
@@ -77,6 +79,7 @@ async function run(item: ItemForVerify, isGcs: boolean, mode: VerifyMode): Promi
     bucket: parsed.bucket,
     serviceAccountJson: target?.cloudCredentialId ? await getServiceAccountJson(target.cloudCredentialId) : null,
   };
+  if (isDirectoryArtifact(item.fileName)) return verifyDirectory(item, auth, parsed.object.replace(/\/+$/, ""));
 
   let info;
   try {
@@ -99,6 +102,30 @@ async function run(item: ItemForVerify, isGcs: boolean, mode: VerifyMode): Promi
     }
     throw err;
   }
+}
+
+/**
+ * Backup en carpeta: el manifest.json debe tener la huella registrada al generarlo y
+ * cada archivo listado debe existir en el bucket con el mismo tamaño y CRC32C.
+ */
+async function verifyDirectory(item: ItemForVerify, auth: GcsAuth, prefix: string): Promise<Outcome> {
+  let manifest;
+  let raw;
+  try {
+    ({ manifest, raw } = await readManifest(auth, prefix));
+  } catch (err) {
+    if ((err as { code?: number }).code === 404) return { status: "missing", detail: `No existe ${PGDIR_MANIFEST} en el bucket` };
+    throw err;
+  }
+  const head = judge(item, hashBuffer(raw));
+  if (head.status !== "ok") return { status: "mismatch", detail: `${PGDIR_MANIFEST} cambió:\n${head.detail ?? ""}` };
+  const diffs = diffUploaded(manifest.files, await listPrefixObjects(auth, prefix));
+  if (diffs.length === 0) return { status: "ok", detail: null };
+  const missing = diffs.every((d) => d.endsWith("no está en el bucket"));
+  return {
+    status: missing ? "missing" : "mismatch",
+    detail: `${diffs.length} de ${manifest.files.length} archivos:\n${diffs.slice(0, 20).join("\n")}`,
+  };
 }
 
 function judge(item: ItemForVerify, actual: Parameters<typeof compareChecksums>[1]): Outcome {

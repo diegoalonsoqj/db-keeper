@@ -4,6 +4,7 @@ import { logger } from "./config/logger.js";
 import { closePool } from "./db/pool.js";
 import { recoverStaleExecutions, startCloudSqlVerifier } from "./modules/backups/engine/runner.js";
 import { startExecutionQueue } from "./modules/backups/engine/queue.js";
+import { startScratchGc } from "./modules/backups/engine/parallel-runner.js";
 import { startScheduler } from "./modules/backups/scheduler.js";
 
 const app = createApp();
@@ -15,6 +16,7 @@ const server = app.listen(env.APP_PORT, () => {
   void recoverStaleExecutions().finally(startExecutionQueue);
   // Exports de Cloud SQL que superaron el timeout: se verifican en segundo plano.
   startCloudSqlVerifier();
+  startScratchGc();
   // Poller de programaciones (agendadas/recurrentes).
   startScheduler();
 });

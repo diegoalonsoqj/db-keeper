@@ -1,6 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
-import { APP_LOCALES, BACKUP_SETTINGS_LIMITS, EMAIL_PROVIDERS, LDAP_MODES, LDAP_SECURITY } from "@dbkeeper/shared";
+import {
+  APP_LOCALES,
+  BACKUP_SETTINGS_LIMITS,
+  EMAIL_PROVIDERS,
+  LDAP_MODES,
+  LDAP_SECURITY,
+  SCRATCH_DISK_TYPES,
+  SCRATCH_SETTINGS_LIMITS,
+} from "@dbkeeper/shared";
+import { preflightScratch } from "../backups/engine/scratch-disk.js";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
@@ -106,6 +115,40 @@ settingsRouter.patch("/backups", authorize("settings:write"), async (req, res, n
     const backups = await service.updateBackupSettings(data);
     await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "backups", detail: backups });
     ok(res, backups);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Disco temporal del dump paralelo (AlloyDB). El punto de montaje se valida en el
+// servicio y de nuevo en el helper root contra su propia lista.
+const L = SCRATCH_SETTINGS_LIMITS;
+const scratchSchema = z.object({
+  enabled: z.boolean().optional(),
+  mountPoint: z.string().trim().min(2).max(200).optional(),
+  cloudCredentialId: z.string().uuid().nullable().optional(),
+  diskType: z.enum(SCRATCH_DISK_TYPES).optional(),
+  defaultSizeGb: z.number().int().min(L.defaultSizeGb.min).max(L.defaultSizeGb.max).optional(),
+  maxSizeGb: z.number().int().min(L.maxSizeGb.min).max(L.maxSizeGb.max).optional(),
+  sizeMarginPct: z.number().int().min(L.sizeMarginPct.min).max(L.sizeMarginPct.max).optional(),
+  gcIntervalMinutes: z.number().int().min(L.gcIntervalMinutes.min).max(L.gcIntervalMinutes.max).optional(),
+});
+
+settingsRouter.patch("/scratch", authorize("settings:write"), async (req, res, next) => {
+  try {
+    const data = scratchSchema.parse(req.body);
+    const scratch = await service.updateScratchSettings(data);
+    await recordAudit(req, { action: "settings.update", entityType: "settings", entityId: "scratch", detail: scratch });
+    ok(res, scratch);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// "Probar configuración": comprueba VM, credencial, permisos, helper y binarios sin crear nada.
+settingsRouter.post("/scratch/test", authorize("settings:write"), async (_req, res, next) => {
+  try {
+    ok(res, await preflightScratch(await service.getScratchSettings()));
   } catch (err) {
     next(err);
   }

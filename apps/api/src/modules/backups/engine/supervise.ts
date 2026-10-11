@@ -17,6 +17,9 @@ export interface Supervision {
   stop: () => void;
 }
 
+/** Archivo de salida, o función que mide la salida (p. ej. una carpeta). */
+export type SizeSource = string | (() => Promise<number>);
+
 /** Cada cuánto se revisa el archivo de salida. */
 const CHECK_MS = 15_000;
 
@@ -26,7 +29,14 @@ const CHECK_MS = 15_000;
  * total. Así un dump grande que avanza nunca se corta por tiempo y uno colgado se
  * detecta pronto.
  */
-export function superviseDump(child: ChildProcess, filePath: string, limits: DumpLimits): Supervision {
+export function superviseDump(
+  child: ChildProcess,
+  output: SizeSource,
+  limits: DumpLimits,
+  // pg_dump -j: hay que terminar el grupo de procesos (workers), no solo el padre.
+  terminate: () => void = () => child.kill("SIGTERM"),
+): Supervision {
+  const sizeOf = typeof output === "string" ? () => stat(output).then((s) => s.size) : output;
   const start = Date.now();
   let lastActivity = start;
   let lastSize = -1;
@@ -35,14 +45,14 @@ export function superviseDump(child: ChildProcess, filePath: string, limits: Dum
   const kill = (why: StopReason): void => {
     if (stopped) return;
     stopped = why;
-    child.kill("SIGTERM");
+    terminate();
   };
 
   const timer = setInterval(() => {
-    void stat(filePath)
-      .then((s) => {
-        if (s.size !== lastSize) {
-          lastSize = s.size;
+    void sizeOf()
+      .then((size) => {
+        if (size !== lastSize) {
+          lastSize = size;
           lastActivity = Date.now();
         }
       })

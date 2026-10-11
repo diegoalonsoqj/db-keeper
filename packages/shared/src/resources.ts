@@ -1,3 +1,4 @@
+import type { ScratchDiskSettings } from "./scratch.js";
 import type {
   AppLocale,
   BackupMethod,
@@ -73,6 +74,8 @@ export interface ServerDto {
   /** MongoDB: opciones de conexión admitidas (ver MONGO_CONN_OPTION_KEYS). */
   connOptions: Record<string, string>;
   isCloudSql: boolean;
+  /** PostgreSQL en AlloyDB: sugiere el dump paralelo y filtra su ruido de stderr. */
+  isAlloyDb: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
   /** Credencial de nube (GCP) para la API de Cloud SQL; null = la GCP por defecto o ADC. */
@@ -222,6 +225,8 @@ export interface RetentionPolicy {
 export interface ExecutionDto {
   id: string;
   jobId: string | null;
+  /** Método del evento (null si el evento ya no existe). */
+  method: BackupMethod | null;
   label: string;
   /** Ambiente (código) del evento al momento de la corrida (snapshot). */
   environment: string | null;
@@ -485,6 +490,7 @@ export interface SettingsDto {
   notifications: NotificationSettings;
   security: SecuritySettings;
   backups: BackupSettings;
+  scratch: ScratchDiskSettings;
 }
 
 /** Resultado de "Probar Cloud SQL": datos de la instancia leídos de la API de Cloud SQL Admin. */

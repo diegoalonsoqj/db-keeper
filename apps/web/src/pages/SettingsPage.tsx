@@ -6,6 +6,8 @@ import {
   EMAIL_PROVIDERS,
   LDAP_MODES,
   LDAP_SECURITY,
+  SCRATCH_DISK_TYPES,
+  SCRATCH_SETTINGS_LIMITS,
   type AppLocale,
   type BackupSettings,
   type CloudCredentialDto,
@@ -14,6 +16,8 @@ import {
   type LdapSecurity,
   type LdapTestResultDto,
   type Paginated,
+  type ScratchCheckDto,
+  type ScratchDiskSettings,
   type SettingsDto,
   type StorageTargetDto,
 } from "@dbkeeper/shared";
@@ -61,8 +65,11 @@ export function SettingsPage() {
   const [recipientsText, setRecipientsText] = useState("");
   const [testing, setTesting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Disco temporal: resultado de "Probar configuración".
+  const [scratchCheck, setScratchCheck] = useState<ScratchCheckDto | null>(null);
+  const [scratchChecking, setScratchChecking] = useState(false);
   const [activeSection, setActiveSection] = useState<
-    "appearance" | "general" | "storage" | "backups" | "ldap" | "security" | "notifications"
+    "appearance" | "general" | "storage" | "backups" | "scratch" | "ldap" | "security" | "notifications"
   >("appearance");
 
   useEffect(() => {
@@ -137,6 +144,26 @@ export function SettingsPage() {
     const next = await api.patch<SettingsDto["backups"]>("/settings/backups", data!.backups);
     setData((d) => (d ? { ...d, backups: next } : d));
   }
+
+  async function saveScratch() {
+    const next = await api.patch<ScratchDiskSettings>("/settings/scratch", data!.scratch);
+    setData((d) => (d ? { ...d, scratch: next } : d));
+  }
+
+  async function testScratch() {
+    setScratchChecking(true);
+    setScratchCheck(null);
+    try {
+      setScratchCheck(await api.post<ScratchCheckDto>("/settings/scratch/test"));
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setScratchChecking(false);
+    }
+  }
+
+  const setScratch = (patch: Partial<ScratchDiskSettings>) =>
+    setData((d) => (d ? { ...d, scratch: { ...d.scratch, ...patch } } : d));
 
   async function saveSecurity() {
     const next = await api.patch<SettingsDto["security"]>("/settings/security", data!.security);
@@ -240,6 +267,9 @@ export function SettingsPage() {
         </button>
         <button className={activeSection === "backups" ? "active" : ""} onClick={() => setActiveSection("backups")}>
           {t("settings.navBackups")}
+        </button>
+        <button className={activeSection === "scratch" ? "active" : ""} onClick={() => setActiveSection("scratch")}>
+          {t("settings.navScratch")}
         </button>
         <button className={activeSection === "ldap" ? "active" : ""} onClick={() => setActiveSection("ldap")}>
           {t("settings.navLdap")}
@@ -543,6 +573,92 @@ export function SettingsPage() {
           <div className="form-actions">
             <button onClick={() => notify(saveBackups)}>{t("common.save")}</button>
           </div>
+        )}
+      </div>
+
+      <div className="card form-card" hidden={activeSection !== "scratch"}>
+        <h2>{t("settings.scratch")}</h2>
+        <p className="muted full">{t("settings.scratchDesc")}</p>
+        <label className="inline full">
+          <input
+            type="checkbox"
+            checked={data.scratch.enabled}
+            disabled={!canWrite}
+            onChange={(e) => setScratch({ enabled: e.target.checked })}
+          />
+          {t("settings.scratchEnabled")}
+        </label>
+        <label>
+          {t("settings.scratchMountPoint")}
+          <input
+            value={data.scratch.mountPoint}
+            disabled={!canWrite}
+            onChange={(e) => setScratch({ mountPoint: e.target.value })}
+          />
+          <small>{t("settings.scratchMountPointHint")}</small>
+        </label>
+        <label>
+          {t("settings.scratchCredential")}
+          <select
+            value={data.scratch.cloudCredentialId ?? ""}
+            disabled={!canWrite}
+            onChange={(e) => setScratch({ cloudCredentialId: e.target.value || null })}
+          >
+            <option value="">{t("settings.scratchCredentialDefault")}</option>
+            {accounts
+              .filter((a) => a.provider === "gcp" && (a.isActive || a.id === data.scratch.cloudCredentialId))
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {optionLabel(t, a.name, a.isActive)}
+                </option>
+              ))}
+          </select>
+          <small>{t("settings.scratchCredentialHint")}</small>
+        </label>
+        <label>
+          {t("settings.scratchDiskType")}
+          <select
+            value={data.scratch.diskType}
+            disabled={!canWrite}
+            onChange={(e) => setScratch({ diskType: e.target.value as ScratchDiskSettings["diskType"] })}
+          >
+            {SCRATCH_DISK_TYPES.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(["defaultSizeGb", "maxSizeGb", "sizeMarginPct", "gcIntervalMinutes"] as const).map((key) => (
+          <label key={key}>
+            {t(`settings.scratch_${key}`)}
+            <NumberInput
+              min={SCRATCH_SETTINGS_LIMITS[key].min}
+              max={SCRATCH_SETTINGS_LIMITS[key].max}
+              value={data.scratch[key]}
+              disabled={!canWrite}
+              onChange={(v) => setScratch({ [key]: v })}
+            />
+            <small>{t(`settings.scratch_${key}Hint`)}</small>
+          </label>
+        ))}
+        {canWrite && (
+          <div className="form-actions">
+            <button className="secondary" onClick={testScratch} disabled={scratchChecking}>
+              {scratchChecking ? t("settings.scratchTesting") : t("settings.scratchTest")}
+            </button>
+            <button onClick={() => notify(saveScratch)}>{t("common.save")}</button>
+          </div>
+        )}
+        {scratchCheck && (
+          <ul className="full check-list">
+            {scratchCheck.checks.map((c) => (
+              <li key={c.label} className={c.ok ? "success" : "error"}>
+                {c.ok ? "✔" : "✖"} <strong>{c.label}</strong>
+                {c.detail ? ` — ${c.detail}` : ""}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

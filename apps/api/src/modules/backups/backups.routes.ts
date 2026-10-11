@@ -142,6 +142,27 @@ backupsRouter.post("/executions/:execId/retry", authorize("backups:run"), async 
   }
 });
 
+// Cancela una ejecución en cola o un dump paralelo en curso (libera su disco temporal).
+backupsRouter.post("/executions/:execId/cancel", authorize("backups:run"), async (req, res, next) => {
+  try {
+    const execId = z.string().uuid().parse(req.params.execId);
+    const exec = await service.cancelExecution(execId, req.auth?.user.username ?? "usuario");
+    await recordAudit(req, { action: "backups.cancel", entityType: "execution", entityId: execId });
+    ok(res, exec, 202);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Entorno del dump paralelo para el formulario de eventos (vCPU, disco por defecto, VM).
+backupsRouter.get("/parallel/environment", authorize("backups:read"), async (_req, res, next) => {
+  try {
+    ok(res, await service.getParallelEnvironment());
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ---- Programación de un evento (una por evento) ----
 const scheduleSchema = z.object({
   mode: z.enum(SCHEDULE_MODES),

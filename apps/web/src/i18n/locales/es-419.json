@@ -199,7 +199,26 @@
     "bucketRequired": "El método gcloud requiere un bucket de destino.",
     "methodCloudSqlExport": "Export de Cloud SQL (.bak a bucket)",
     "methodCloudSqlExportHint": "La propia instancia Cloud SQL genera un .bak FULL copy-only y lo deja en el bucket; no usa credencial de BD. La service account de la instancia necesita roles/storage.objectCreator sobre el bucket.",
-    "retentionBucketNote": "En buckets la app no borra backups: la retención solo aplica al almacenamiento local. Para limpiar el bucket usa su ciclo de vida (lifecycle) en GCS."
+    "retentionBucketNote": "En buckets la app no borra backups: la retención solo aplica al almacenamiento local. Para limpiar el bucket usa su ciclo de vida (lifecycle) en GCS.",
+    "methodParallel": "Dump paralelo (directorio)",
+    "methodParallelHint": "pg_dump -Fd -j N en un disco temporal nuevo de GCE que se crea y se borra en cada ejecución; la carpeta se sube al bucket y se verifica. Para AlloyDB y BDs grandes.",
+    "parallel": "Dump paralelo",
+    "parallelEnv": "VM {{vm}} ({{zone}}, {{machine}}, {{vcpus}} vCPU) · disco temporal en {{mount}}",
+    "parallelJobs": "Workers en paralelo (-j)",
+    "parallelJobsHint": "Vacío = {{suggested}} (vCPU − 2, máx. 14; esta máquina tiene {{vcpus}} vCPU). Abre {{conns}} conexiones a la BD durante el dump. La compresión la hace esta VM: más workers, más CPU.",
+    "noPrivileges": "Quitar permisos (GRANT/REVOKE) del backup",
+    "noPrivilegesHint": "Por defecto el backup conserva los permisos sobre esquemas, tablas, secuencias y funciones, igual que el script actual.",
+    "noPrivilegesWarning": "El backup no incluirá permisos (pg_dump --no-privileges). Al restaurar, ningún usuario o rol tendrá acceso a los objetos hasta que se otorguen los GRANT a mano. Úsalo si vas a restaurar en otra instancia donde esos roles no existen.",
+    "diskSizeGb": "Tamaño del disco temporal (GB)",
+    "diskSizeAuto": "Automático",
+    "diskSizeHint": "Vacío = automático: el último backup exitoso + margen (mínimo {{def}} GB). Máximo {{max}} GB (Configuración → Disco temporal).",
+    "diskType": "Tipo de disco",
+    "diskTypeDefault": "Por defecto ({{type}})",
+    "maxHours": "Duración máxima del dump por BD (horas)",
+    "maxHoursHint": "Vacío = 12 h. Tope: {{max}} h (Configuración → Backups). Al superarlo se detiene el dump y se libera el disco.",
+    "stderrIgnore": "Ignorar en la consola",
+    "stderrIgnoreHint": "Una línea por patrón (texto literal). Las líneas de pg_dump que lo contengan no se muestran ni se guardan. Máx. {{lines}} líneas de {{len}} caracteres.",
+    "excludeEventTriggersParallelHint": "Con dump paralelo los event triggers no se pueden quitar del dump: se marcan como omitidos en restore.list y se restaura con pg_restore -L restore.list."
   },
   "schedule": {
     "title": "Programar",
@@ -254,13 +273,29 @@
     "verifyNow": "Verificar ahora",
     "verifyStarted": "Verificación iniciada",
     "verifyAlert": "Integridad comprometida: el archivo cambió o ya no existe",
-    "verifyStatus": {"running": "Verificando…", "ok": "Coincide", "mismatch": "No coincide", "missing": "Falta el archivo", "error": "Error al verificar"},
-    "verifyMode": {"quick": "Rápida", "deep": "Profunda"},
+    "verifyStatus": {
+      "running": "Verificando…",
+      "ok": "Coincide",
+      "mismatch": "No coincide",
+      "missing": "Falta el archivo",
+      "error": "Error al verificar"
+    },
+    "verifyMode": {
+      "quick": "Rápida",
+      "deep": "Profunda"
+    },
     "log": "Ver log",
     "liveConsole": "Consola en vivo",
     "retry": "Reintentar",
     "retried": "Reintento lanzado para «{{name}}».",
-    "empty": "Sin ejecuciones"
+    "empty": "Sin ejecuciones",
+    "cancel": "Cancelar",
+    "cancelRunningConfirm": "¿Cancelar «{{name}}»? Se detiene el dump o la subida en curso y se libera el disco temporal. Las BDs ya subidas se conservan.",
+    "cancelPendingConfirm": "¿Cancelar «{{name}}»? Sigue en cola y no se ejecutará.",
+    "cancelRequested": "Cancelación solicitada",
+    "copyDirCommand": "Copiar comando para descargar la carpeta",
+    "dirCommandCopied": "Comando de gcloud copiado",
+    "verifyHelpDir": "Backup en carpeta: se relee manifest.json (su huella debe coincidir) y se compara el tamaño y CRC32C de cada archivo en el bucket, sin descargar los datos."
   },
   "servers": {
     "title": "Instancias",
@@ -302,7 +337,10 @@
     "mongoConnSrv": "Atlas / SRV (mongodb+srv)",
     "connOptions": "Opciones de conexión",
     "connOptionsHint": "Opcional. Formato clave=valor&clave=valor. Admitidas: authSource, replicaSet, readPreference, appName, retryWrites, w, tls, directConnection.",
-    "connSrvDefaults": "En SRV se usa TLS y, si no indicas readPreference, {{readPreference}} (lee de un secundario para no cargar el primario)."
+    "connSrvDefaults": "En SRV se usa TLS y, si no indicas readPreference, {{readPreference}} (lee de un secundario para no cargar el primario).",
+    "platform": "Plataforma",
+    "platformSelf": "PostgreSQL (autogestionado)",
+    "platformAlloyDbHint": "AlloyDB: al crear un evento se sugiere el dump paralelo con su filtro de ruido."
   },
   "environments": {
     "intro": "Catálogo de ambientes disponibles para clasificar instancias (se usa en el nombre del backup).",
@@ -495,6 +533,26 @@
     "cloudSqlVerifyIntervalMinutes": "Verificar en segundo plano cada (minutos)",
     "cloudSqlVerifyIntervalMinutesHint": "Frecuencia con que se revisan los exports que superaron el seguimiento activo.",
     "cloudSqlExportMaxHours": "Tope absoluto (horas)",
-    "cloudSqlExportMaxHoursHint": "Pasado este tiempo el export se marca fallido (puede seguir en GCP). Debe ser mayor o igual que el seguimiento activo."
+    "cloudSqlExportMaxHoursHint": "Pasado este tiempo el export se marca fallido (puede seguir en GCP). Debe ser mayor o igual que el seguimiento activo.",
+    "navScratch": "Disco temporal",
+    "scratch": "Disco temporal (dump paralelo)",
+    "scratchDesc": "El dump paralelo (AlloyDB) crea en cada ejecución un disco NUEVO en la VM donde corre DBKeeper, lo formatea y monta, vuelca las BDs, sube las carpetas al bucket y lo borra. Requiere el helper root y la regla de sudoers (ops/README-scratch.md).",
+    "scratchEnabled": "Habilitar el dump paralelo con disco temporal",
+    "scratchMountPoint": "Punto de montaje",
+    "scratchMountPointHint": "Ruta absoluta; debe estar permitida también en el helper (ALLOWED_MOUNTS). Solo una ejecución con disco a la vez.",
+    "scratchCredential": "Credencial GCP (Compute Engine)",
+    "scratchCredentialDefault": "La GCP por defecto del catálogo, o la cuenta de la VM",
+    "scratchCredentialHint": "Necesita crear, adjuntar, desadjuntar y borrar discos en el proyecto de la VM.",
+    "scratchDiskType": "Tipo de disco por defecto",
+    "scratch_defaultSizeGb": "Tamaño por defecto (GB)",
+    "scratch_defaultSizeGbHint": "Se usa sin historial. Con historial: último backup + margen, nunca menos que este valor.",
+    "scratch_maxSizeGb": "Tamaño máximo (GB)",
+    "scratch_maxSizeGbHint": "Tope del tamaño automático y del que fije cada evento (control de costo).",
+    "scratch_sizeMarginPct": "Margen sobre el último backup (%)",
+    "scratch_sizeMarginPctHint": "Holgura para el crecimiento de la BD entre backups.",
+    "scratch_gcIntervalMinutes": "Revisión de discos huérfanos (min)",
+    "scratch_gcIntervalMinutesHint": "Cada cuánto se buscan discos temporales que quedaron vivos (caída o reinicio) para liberarlos.",
+    "scratchTest": "Probar configuración",
+    "scratchTesting": "Probando…"
   }
 }

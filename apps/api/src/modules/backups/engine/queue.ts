@@ -11,11 +11,13 @@ import { runExecution } from "./runner.js";
  *   veces en paralelo; en Cloud SQL, la instancia solo admite una operación).
  * - Los dumps corren en este servidor: como mucho `maxConcurrentDumps` a la vez.
  *   Los exports de Cloud SQL no cuentan (los genera la instancia en GCP).
+ * - Un solo dump paralelo (`pg_parallel`) a la vez: su disco temporal se monta en
+ *   una ruta única (Configuración → Disco temporal).
  */
 const TICK_MS = 30_000;
 
 /** Ejecuciones lanzadas por la cola y aún en curso en este proceso. */
-const active = new Map<string, { serverId: string | null; dump: boolean }>();
+const active = new Map<string, ActiveRun>();
 let pumping = false;
 let again = false;
 let timer: NodeJS.Timeout | null = null;
@@ -25,7 +27,14 @@ export function enqueueExecution(): void {
   void pump();
 }
 
-type Active = ReadonlyMap<string, { serverId: string | null; dump: boolean }>;
+interface ActiveRun {
+  serverId: string | null;
+  dump: boolean;
+  /** Usa el disco temporal (pg_parallel). */
+  scratch: boolean;
+}
+
+type Active = ReadonlyMap<string, ActiveRun>;
 
 /**
  * Qué ejecuciones de la cola se pueden lanzar ya (en orden de llegada), dadas las
@@ -36,23 +45,28 @@ export function selectRunnable(
   busyServerIds: string[],
   running: Active,
   maxConcurrentDumps: number,
-): { id: string; serverId: string | null; dump: boolean }[] {
+): ({ id: string } & ActiveRun)[] {
   const busy = new Set(busyServerIds);
   let dumps = 0;
+  let scratchBusy = false;
   for (const a of running.values()) {
     if (a.serverId) busy.add(a.serverId);
     if (a.dump) dumps++;
+    if (a.scratch) scratchBusy = true;
   }
-  const out: { id: string; serverId: string | null; dump: boolean }[] = [];
+  const out: ({ id: string } & ActiveRun)[] = [];
   for (const q of queued) {
     if (running.has(q.id)) continue;
     if (q.serverId && busy.has(q.serverId)) continue;
     // Sin evento (serverId null) no consume hueco: el runner la cierra como fallida.
     const dump = q.serverId !== null && q.method !== "cloudsql_export";
+    const scratch = q.serverId !== null && q.method === "pg_parallel";
     if (dump && dumps >= maxConcurrentDumps) continue;
+    if (scratch && scratchBusy) continue;
+    if (scratch) scratchBusy = true;
     if (dump) dumps++;
     if (q.serverId) busy.add(q.serverId);
-    out.push({ id: q.id, serverId: q.serverId, dump });
+    out.push({ id: q.id, serverId: q.serverId, dump, scratch });
   }
   return out;
 }
@@ -72,7 +86,7 @@ async function pump(): Promise<void> {
         repo.findBusyServerIds(),
         getBackupSettings(),
       ]);
-      for (const r of selectRunnable(queued, busyIds, active, maxConcurrentDumps)) start(r.id, r.serverId, r.dump);
+      for (const r of selectRunnable(queued, busyIds, active, maxConcurrentDumps)) start(r);
     } while (again);
   } catch (err) {
     logger.error({ err }, "Fallo en la cola de ejecuciones");
@@ -81,8 +95,8 @@ async function pump(): Promise<void> {
   }
 }
 
-function start(id: string, serverId: string | null, dump: boolean): void {
-  active.set(id, { serverId, dump });
+function start({ id, ...run }: { id: string } & ActiveRun): void {
+  active.set(id, run);
   void runExecution(id)
     .catch((err) => logger.error({ err, executionId: id }, "Error al disparar el motor"))
     .finally(() => {

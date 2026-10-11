@@ -37,6 +37,7 @@ const serverFields = {
   mongoSrv: z.boolean().default(false),
   connOptions: connOptionsSchema.default({}),
   isCloudSql: z.boolean().default(false),
+  isAlloyDb: z.boolean().default(false),
   gcpProject: z.string().max(255).nullish().transform((v) => v ?? null),
   gcpInstance: z.string().max(255).nullish().transform((v) => v ?? null),
   // Service account GCP para la API de Cloud SQL (null = la GCP por defecto o ADC).
@@ -58,6 +59,7 @@ const updateSchema = z.object({
   mongoSrv: z.boolean().optional(),
   connOptions: connOptionsSchema.optional(),
   isCloudSql: z.boolean().optional(),
+  isAlloyDb: z.boolean().optional(),
   gcpProject: serverFields.gcpProject,
   gcpInstance: serverFields.gcpInstance,
   cloudCredentialId: serverFields.cloudCredentialId,

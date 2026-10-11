@@ -26,6 +26,7 @@ export interface ServerData {
   mongoSrv: boolean;
   connOptions: Record<string, string>;
   isCloudSql: boolean;
+  isAlloyDb: boolean;
   gcpProject: string | null;
   gcpInstance: string | null;
   cloudCredentialId: string | null;
@@ -36,6 +37,16 @@ export interface ServerData {
 /** SRV y opciones de conexión solo aplican a MongoDB: en otro motor se limpian. */
 function mongoFieldsFor<T extends Partial<ServerData>>(data: T, engine: DbEngine): T {
   return engine === "mongo" ? data : { ...data, mongoSrv: false, connOptions: {} };
+}
+
+/**
+ * AlloyDB solo aplica a PostgreSQL (en otro motor se limpia) y no puede combinarse
+ * con Cloud SQL.
+ */
+function platformFieldsFor<T extends Partial<ServerData>>(data: T, engine: DbEngine, isCloudSql: boolean): T {
+  if (engine !== "postgres") return data.isAlloyDb === undefined ? data : { ...data, isAlloyDb: false };
+  if (data.isAlloyDb && isCloudSql) throw HttpError.badRequest("Una instancia no puede ser Cloud SQL y AlloyDB a la vez");
+  return data;
 }
 
 async function assertCredentialExists(credentialId: string | null | undefined): Promise<void> {
@@ -66,7 +77,8 @@ export async function createServer(data: ServerData): Promise<ServerDto> {
   }
   await assertCredentialExists(data.credentialId);
   await assertCloudCredential(data.cloudCredentialId);
-  const id = await repo.insertServer(mongoFieldsFor(data, data.engine) as ServerFields);
+  const fields = platformFieldsFor(mongoFieldsFor(data, data.engine), data.engine, data.isCloudSql);
+  const id = await repo.insertServer(fields as ServerFields);
   return getServer(id);
 }
 
@@ -82,7 +94,10 @@ export async function updateServer(id: string, data: Partial<ServerData>): Promi
   await assertCredentialExists(data.credentialId);
   await assertCloudCredential(data.cloudCredentialId, existing.cloudCredentialId);
   // Si deja de ser MongoDB se limpian SRV/opciones; si lo es, solo se tocan si vienen.
-  const fields = mongoFieldsFor(data, data.engine ?? existing.engine);
+  const engine = data.engine ?? existing.engine;
+  const fields = platformFieldsFor(mongoFieldsFor(data, engine), engine, data.isCloudSql ?? existing.isCloudSql);
+  // Pasar a Cloud SQL quita la marca de AlloyDB si no se envió (evita violar el CHECK).
+  if (fields.isCloudSql && fields.isAlloyDb === undefined && existing.isAlloyDb) fields.isAlloyDb = false;
   await repo.updateServerFields(id, fields as Partial<ServerFields>);
   return getServer(id);
 }

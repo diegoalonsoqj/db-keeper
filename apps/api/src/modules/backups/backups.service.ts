@@ -13,6 +13,12 @@ import { resolveBackupFile } from "./engine/files.js";
 import { parseGcsUri } from "./engine/gcs.js";
 import { normalizeRetention } from "./retention.js";
 import { normalizeExclusions } from "./exclusions.js";
+import { normalizeParallelOptions } from "./parallel-options.js";
+import { cpus } from "node:os";
+import { getBackupSettings, getScratchSettings } from "../settings/settings.service.js";
+import { isCancellable, requestCancel } from "./engine/cancel.js";
+import { isDirectoryArtifact, suggestParallelJobs, type ParallelEnvironmentDto } from "@dbkeeper/shared";
+import { detectInstanceIdentity } from "../../lib/gce-metadata.js";
 
 export interface JobData {
   name: string;
@@ -36,8 +42,8 @@ async function validateRefs(data: Partial<JobData>): Promise<void> {
   if (data.bucketId && !(await storageRepo.findById(data.bucketId))) {
     throw HttpError.badRequest("El bucket seleccionado no existe");
   }
-  if (data.method === "gcloud" && !data.bucketId) {
-    throw HttpError.badRequest("El método gcloud requiere un bucket de destino");
+  if ((data.method === "gcloud" || data.method === "pg_parallel") && !data.bucketId) {
+    throw HttpError.badRequest(`El método ${data.method} requiere un bucket de destino`);
   }
 }
 
@@ -61,6 +67,35 @@ async function assertCloudSqlExport(serverId: string, bucketId: string | null): 
   if (target.provider !== "gcp") {
     throw HttpError.badRequest("El export de Cloud SQL requiere un bucket de GCP");
   }
+}
+
+/**
+ * Dump paralelo: solo PostgreSQL, con el disco temporal habilitado (Configuración →
+ * Disco temporal) y un bucket de GCP (la carpeta del dump se sube allí).
+ */
+async function assertParallel(serverId: string, bucketId: string | null): Promise<void> {
+  const server = await serversRepo.findById(serverId);
+  if (!server) throw HttpError.badRequest("La instancia seleccionada no existe");
+  if (server.engine !== "postgres") throw HttpError.badRequest("El dump paralelo solo está disponible para PostgreSQL");
+  if (!(await getScratchSettings()).enabled) {
+    throw HttpError.badRequest("El dump paralelo requiere habilitar el disco temporal (Configuración → Disco temporal)");
+  }
+  const target = bucketId ? await storageRepo.findById(bucketId) : null;
+  if (!target || target.type !== "bucket" || !target.bucket || target.provider !== "gcp") {
+    throw HttpError.badRequest("El dump paralelo requiere un bucket de GCP de destino");
+  }
+}
+
+/** Valida las opciones propias del método (pg_parallel) o las limpia si no aplica. */
+async function parallelOptions(options: Record<string, unknown>, method: BackupMethod, serverId: string) {
+  if (method !== "pg_parallel") return normalizeParallelOptions(options, method, { vcpus: 0, maxSizeGb: 0, dumpMaxHours: 0, isAlloyDb: false });
+  const [scratch, bs, server] = await Promise.all([getScratchSettings(), getBackupSettings(), serversRepo.findById(serverId)]);
+  return normalizeParallelOptions(options, method, {
+    vcpus: cpus().length,
+    maxSizeGb: scratch.maxSizeGb,
+    dumpMaxHours: bs.dumpMaxHours,
+    isAlloyDb: server?.isAlloyDb ?? false,
+  });
 }
 
 /**
@@ -143,11 +178,15 @@ export async function createJob(data: JobData): Promise<BackupJobDto> {
   await assertActiveBucket(data.bucketId);
   if (data.method === "cloudsql_export") await assertCloudSqlExport(data.serverId, data.bucketId);
   else await assertDumpable(data.serverId);
+  if (data.method === "pg_parallel") await assertParallel(data.serverId, data.bucketId);
   const databases = cleanDatabases(data.databases);
   if (databases.length === 0) throw HttpError.badRequest("Selecciona al menos una base de datos");
   const environment = await resolveEnvironment(data.serverId, data.credentialId);
   const { databases: _omit, ...fields } = data;
-  const options = normalizeExclusions(applyRetention(data.options, data.method), databases);
+  const options = normalizeExclusions(
+    await parallelOptions(applyRetention(data.options, data.method), data.method, data.serverId),
+    databases,
+  );
   const id = await repo.insertJob({ ...fields, options, environment }, databases);
   return getJob(id);
 }
@@ -169,14 +208,17 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   } else {
     await assertDumpable(serverId);
   }
+  const method = data.method ?? current.method;
+  const bucketId = data.bucketId !== undefined ? data.bucketId : current.bucketId;
+  if (method === "pg_parallel") await assertParallel(serverId, bucketId);
   const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
   // Recalcula si cambian las opciones, el método (al pasar a bucket se quita la
   // retención) o las BDs (se descartan exclusiones de BDs ya no incluidas).
-  if (data.options !== undefined || data.method !== undefined || databases) {
+  if (data.options !== undefined || data.method !== undefined || databases || data.serverId !== undefined) {
     fields.options = normalizeExclusions(
-      applyRetention(data.options ?? current.options, data.method ?? current.method),
+      await parallelOptions(applyRetention(data.options ?? current.options, method), method, serverId),
       databases ?? current.databases,
     );
   }
@@ -235,6 +277,24 @@ export async function retryExecution(executionId: string): Promise<ExecutionDto>
   return created;
 }
 
+/**
+ * Cancela una ejecución: si sigue en cola se cierra sin lanzarse; si está en curso,
+ * solo el dump paralelo es cancelable (detiene pg_dump o la subida y libera el disco).
+ */
+export async function cancelExecution(executionId: string, by: string): Promise<ExecutionDto> {
+  const exec = await repo.findExecutionById(executionId);
+  if (!exec) throw HttpError.notFound("Ejecución no encontrada");
+  const reason = `Cancelada por ${by}`;
+  if (exec.status === "pending" && (await repo.cancelPendingExecution(executionId, reason))) {
+    return (await repo.findExecutionById(executionId)) ?? exec;
+  }
+  if (exec.status !== "running" && exec.status !== "pending") throw HttpError.badRequest("La ejecución ya terminó");
+  if (!isCancellable(executionId) || !requestCancel(executionId, reason)) {
+    throw HttpError.conflict("Esta ejecución no se puede cancelar en curso (solo el dump paralelo admite cancelación)");
+  }
+  return exec;
+}
+
 /** Origen del archivo a descargar: disco local o un objeto en GCS. */
 export type DownloadSource =
   | { kind: "local"; filePath: string; fileName: string }
@@ -246,6 +306,12 @@ export async function getItemDownload(executionId: string, itemId: string): Prom
   if (!item) throw HttpError.notFound("Ítem de ejecución no encontrado");
   if (item.prunedAt) throw HttpError.notFound("El backup se eliminó por la política de retención");
   if (!item.fileName) throw HttpError.badRequest("Esta base de datos no generó un archivo");
+  if (isDirectoryArtifact(item.fileName)) {
+    throw HttpError.badRequest(
+      `Backup en formato directorio (carpeta en el bucket): no se descarga desde la web. ` +
+        `Cópialo con: gcloud storage cp -r ${item.fileName} <destino>`,
+    );
+  }
 
   // Objeto en GCS: resolver credenciales por el bucket y servir por streaming.
   if (item.fileName.startsWith("gs://")) {
@@ -271,4 +337,21 @@ export async function getItemDownload(executionId: string, itemId: string): Prom
     throw HttpError.notFound("El archivo de backup ya no está disponible");
   }
   return { kind: "local", filePath, fileName: path.basename(item.fileName) };
+}
+
+/** Datos para el formulario del dump paralelo: vCPU de esta máquina, VM y disco por defecto. */
+export async function getParallelEnvironment(): Promise<ParallelEnvironmentDto> {
+  const [scratch, bs, vm] = await Promise.all([getScratchSettings(), getBackupSettings(), detectInstanceIdentity()]);
+  const vcpus = cpus().length;
+  return {
+    enabled: scratch.enabled,
+    vcpus,
+    suggestedJobs: suggestParallelJobs(vcpus),
+    gce: vm,
+    mountPoint: scratch.mountPoint,
+    diskType: scratch.diskType,
+    defaultSizeGb: scratch.defaultSizeGb,
+    maxSizeGb: scratch.maxSizeGb,
+    dumpMaxHours: bs.dumpMaxHours,
+  };
 }

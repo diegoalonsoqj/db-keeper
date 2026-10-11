@@ -62,3 +62,37 @@ export async function detectComputeIdentity(): Promise<ComputeIdentity> {
   cache = { at: Date.now(), value };
   return value;
 }
+
+/** VM de GCE donde corre DBKeeper: necesaria para crear y adjuntar el disco temporal. */
+export interface InstanceIdentity {
+  project: string;
+  /** Zona corta (`us-east1-c`): el disco se crea en la misma zona que la VM. */
+  zone: string;
+  instance: string;
+  /** Tipo de máquina corto (`n2-highcpu-16`); null si no se pudo leer. */
+  machineType: string | null;
+}
+
+let instanceCache: { at: number; value: InstanceIdentity | null } | null = null;
+
+/** Último segmento de `projects/123/zones/us-east1-c` (formato de los metadatos). */
+const lastSegment = (s: string): string => s.slice(s.lastIndexOf("/") + 1);
+
+/** Proyecto, zona, nombre y tipo de la VM; null fuera de GCE. */
+export async function detectInstanceIdentity(): Promise<InstanceIdentity | null> {
+  if (instanceCache && Date.now() - instanceCache.at < CACHE_MS) return instanceCache.value;
+  let value: InstanceIdentity | null;
+  try {
+    const [project, zone, instance, machineType] = await Promise.all([
+      get("project/project-id"),
+      get("instance/zone"),
+      get("instance/name"),
+      get("instance/machine-type").catch(() => ""),
+    ]);
+    value = { project, zone: lastSegment(zone), instance, machineType: machineType ? lastSegment(machineType) : null };
+  } catch {
+    value = null;
+  }
+  instanceCache = { at: Date.now(), value };
+  return value;
+}

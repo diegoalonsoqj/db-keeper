@@ -88,7 +88,7 @@ export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
 
 /** Versión mayor de pg_dump (cacheada; cambia solo si se reinstala y reinicia la app). */
 let pgDumpMajor: Promise<number | null> | null = null;
-function getPgDumpMajor(): Promise<number | null> {
+export function getPgDumpMajor(): Promise<number | null> {
   pgDumpMajor ??= new Promise((resolve) => {
     execFile(env.PG_DUMP_PATH, ["--version"], { windowsHide: true, timeout: 10_000 }, (err, stdout) => {
       const m = /(\d+)(?:\.\d+)?/.exec(String(stdout));
@@ -99,7 +99,7 @@ function getPgDumpMajor(): Promise<number | null> {
 }
 
 /** `--exclude-extension` existe desde pg_dump 17; con uno anterior, fallar con un mensaje claro. */
-async function assertExcludeExtensionSupported(): Promise<void> {
+export async function assertExcludeExtensionSupported(): Promise<void> {
   const major = await getPgDumpMajor();
   if (major !== null && major < 17) {
     throw new Error(

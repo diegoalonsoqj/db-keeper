@@ -1,4 +1,4 @@
-import { DEFAULT_BACKUP_SETTINGS, DEFAULT_SECURITY_SETTINGS } from "@dbkeeper/shared";
+import { DEFAULT_BACKUP_SETTINGS, DEFAULT_SCRATCH_SETTINGS, DEFAULT_SECURITY_SETTINGS, mountPointError } from "@dbkeeper/shared";
 import type {
   BackupSettings,
   EmailProvider,
@@ -9,12 +9,14 @@ import type {
   LdapTestResultDto,
   SecuritySettings,
   NotificationSettings,
+  ScratchDiskSettings,
   SettingsDto,
 } from "@dbkeeper/shared";
 import { env } from "../../config/env.js";
 import { decryptSecret, encryptSecret } from "../../lib/crypto.js";
 import { HttpError } from "../../lib/http-error.js";
 import { tryAuthenticateLdap, type LdapConfig } from "../auth/ldap.js";
+import { assertAssignable } from "../cloud-credentials/cloud-credentials.service.js";
 import * as repo from "./settings.repository.js";
 
 const GENERAL_KEY = "general";
@@ -22,6 +24,7 @@ const LDAP_KEY = "ldap";
 const NOTIF_KEY = "notifications";
 const SECURITY_KEY = "security";
 const BACKUPS_KEY = "backups";
+const SCRATCH_KEY = "scratch";
 
 const DEFAULT_GENERAL: GeneralSettings = { timezone: "America/Lima", defaultLanguage: "es-419" };
 
@@ -205,6 +208,27 @@ export async function updateBackupSettings(patch: Partial<BackupSettings>): Prom
   return next;
 }
 
+/** Disco temporal del dump paralelo (con los valores por defecto para claves faltantes). */
+export async function getScratchSettings(): Promise<ScratchDiskSettings> {
+  const stored = await repo.getSetting<Partial<ScratchDiskSettings>>(SCRATCH_KEY);
+  return { ...DEFAULT_SCRATCH_SETTINGS, ...(stored ?? {}) };
+}
+
+export async function updateScratchSettings(patch: Partial<ScratchDiskSettings>): Promise<ScratchDiskSettings> {
+  const current = await getScratchSettings();
+  const next = { ...current, ...patch };
+  if (next.cloudCredentialId && next.cloudCredentialId !== current.cloudCredentialId) {
+    await assertAssignable(next.cloudCredentialId, "gcp");
+  }
+  const mpErr = mountPointError(next.mountPoint);
+  if (mpErr) throw HttpError.badRequest(`Punto de montaje: ${mpErr}`);
+  if (next.maxSizeGb < next.defaultSizeGb) {
+    throw HttpError.badRequest("El tamaño máximo del disco no puede ser menor que el tamaño por defecto");
+  }
+  await repo.upsertSetting(SCRATCH_KEY, next);
+  return next;
+}
+
 export async function getGeneral(): Promise<GeneralSettings> {
   return (await repo.getSetting<GeneralSettings>(GENERAL_KEY)) ?? DEFAULT_GENERAL;
 }
@@ -212,7 +236,7 @@ export async function getGeneral(): Promise<GeneralSettings> {
 export async function getSettings(): Promise<SettingsDto> {
   const general = await getGeneral();
   const ldap = ldapToDto((await getStoredLdap()) ?? withLdapDefaults(EMPTY_LDAP));
-  return { general, ldap, notifications: notifToDto(await getStoredNotif()), security: await getSecurity(), backups: await getBackupSettings() };
+  return { general, ldap, notifications: notifToDto(await getStoredNotif()), security: await getSecurity(), backups: await getBackupSettings(), scratch: await getScratchSettings() };
 }
 
 export async function updateGeneral(patch: Partial<GeneralSettings>): Promise<GeneralSettings> {

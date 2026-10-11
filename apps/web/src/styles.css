@@ -10,6 +10,7 @@
   --muted: #8d96a5;
   --danger: #ef4444;
   --success: #22c55e;
+  --warning: #f59e0b;
   color-scheme: dark;
 
   /* Cyan · oscuro */
@@ -26,6 +27,7 @@
   --muted: #5b6474;
   --danger: #dc2626;
   --success: #16a34a;
+  --warning: #b45309;
   color-scheme: light;
 
   /* Cyan · claro */
@@ -488,6 +490,12 @@ a {
 }
 .success {
   color: var(--success);
+}
+.warning {
+  color: var(--warning);
+  border-left: 3px solid var(--warning);
+  padding-left: 0.5rem;
+  margin: 0.25rem 0;
 }
 
 /* ---- Tables ---- */
@@ -1123,4 +1131,14 @@ pre.log.log-modal {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 1.1rem 0;
+}
+
+/* Configuración → Disco temporal: resultado de "Probar configuración". */
+.check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
 }

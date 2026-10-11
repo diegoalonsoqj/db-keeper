@@ -199,7 +199,26 @@
     "bucketRequired": "The gcloud method requires a destination bucket.",
     "methodCloudSqlExport": "Cloud SQL export (.bak to bucket)",
     "methodCloudSqlExportHint": "The Cloud SQL instance itself writes a FULL copy-only .bak to the bucket; no database credential is used. The instance's service account needs roles/storage.objectCreator on the bucket.",
-    "retentionBucketNote": "The app never deletes backups from buckets: retention only applies to local storage. Use the bucket lifecycle rules in GCS to clean it up."
+    "retentionBucketNote": "The app never deletes backups from buckets: retention only applies to local storage. Use the bucket lifecycle rules in GCS to clean it up.",
+    "methodParallel": "Parallel dump (directory)",
+    "methodParallelHint": "pg_dump -Fd -j N on a new temporary GCE disk created and deleted on every run; the folder is uploaded to the bucket and verified. For AlloyDB and large databases.",
+    "parallel": "Parallel dump",
+    "parallelEnv": "VM {{vm}} ({{zone}}, {{machine}}, {{vcpus}} vCPU) · temporary disk at {{mount}}",
+    "parallelJobs": "Parallel workers (-j)",
+    "parallelJobsHint": "Empty = {{suggested}} (vCPU − 2, max 14; this machine has {{vcpus}} vCPU). Opens {{conns}} database connections during the dump. Compression runs on this VM: more workers, more CPU.",
+    "noPrivileges": "Remove privileges (GRANT/REVOKE) from the backup",
+    "noPrivilegesHint": "By default the backup keeps privileges on schemas, tables, sequences and functions, like the current script.",
+    "noPrivilegesWarning": "The backup will not include privileges (pg_dump --no-privileges). After restoring, no user or role will have access to the objects until GRANTs are issued manually. Use it when restoring on another instance where those roles do not exist.",
+    "diskSizeGb": "Temporary disk size (GB)",
+    "diskSizeAuto": "Automatic",
+    "diskSizeHint": "Empty = automatic: last successful backup + margin (at least {{def}} GB). Max {{max}} GB (Settings → Temporary disk).",
+    "diskType": "Disk type",
+    "diskTypeDefault": "Default ({{type}})",
+    "maxHours": "Max dump duration per database (hours)",
+    "maxHoursHint": "Empty = 12 h. Cap: {{max}} h (Settings → Backups). When exceeded the dump stops and the disk is released.",
+    "stderrIgnore": "Ignore in the console",
+    "stderrIgnoreHint": "One pattern per line (literal text). pg_dump lines containing it are neither shown nor stored. Max {{lines}} lines of {{len}} characters.",
+    "excludeEventTriggersParallelHint": "With the parallel dump, event triggers cannot be removed from the dump: they are marked as skipped in restore.list; restore with pg_restore -L restore.list."
   },
   "schedule": {
     "title": "Schedule",
@@ -254,13 +273,29 @@
     "verifyNow": "Verify now",
     "verifyStarted": "Verification started",
     "verifyAlert": "Integrity compromised: the file changed or no longer exists",
-    "verifyStatus": {"running": "Verifying…", "ok": "Matches", "mismatch": "Mismatch", "missing": "File missing", "error": "Verification error"},
-    "verifyMode": {"quick": "Quick", "deep": "Deep"},
+    "verifyStatus": {
+      "running": "Verifying…",
+      "ok": "Matches",
+      "mismatch": "Mismatch",
+      "missing": "File missing",
+      "error": "Verification error"
+    },
+    "verifyMode": {
+      "quick": "Quick",
+      "deep": "Deep"
+    },
     "log": "View log",
     "liveConsole": "Live console",
     "retry": "Retry",
     "retried": "Retry started for “{{name}}”.",
-    "empty": "No executions"
+    "empty": "No executions",
+    "cancel": "Cancel",
+    "cancelRunningConfirm": "Cancel \"{{name}}\"? The running dump or upload stops and the temporary disk is released. Databases already uploaded are kept.",
+    "cancelPendingConfirm": "Cancel \"{{name}}\"? It is still queued and will not run.",
+    "cancelRequested": "Cancellation requested",
+    "copyDirCommand": "Copy command to download the folder",
+    "dirCommandCopied": "gcloud command copied",
+    "verifyHelpDir": "Folder backup: manifest.json is re-read (its fingerprint must match) and each file size and CRC32C in the bucket is compared, without downloading the data."
   },
   "servers": {
     "title": "Instances",
@@ -302,7 +337,10 @@
     "mongoConnSrv": "Atlas / SRV (mongodb+srv)",
     "connOptions": "Connection options",
     "connOptionsHint": "Optional. Format key=value&key=value. Supported: authSource, replicaSet, readPreference, appName, retryWrites, w, tls, directConnection.",
-    "connSrvDefaults": "SRV uses TLS and, unless you set readPreference, {{readPreference}} (reads from a secondary to spare the primary)."
+    "connSrvDefaults": "SRV uses TLS and, unless you set readPreference, {{readPreference}} (reads from a secondary to spare the primary).",
+    "platform": "Platform",
+    "platformSelf": "PostgreSQL (self-managed)",
+    "platformAlloyDbHint": "AlloyDB: new events suggest the parallel dump with its noise filter."
   },
   "environments": {
     "intro": "Catalog of environments to classify instances (used in the backup file name).",
@@ -495,6 +533,26 @@
     "cloudSqlVerifyIntervalMinutes": "Check in the background every (minutes)",
     "cloudSqlVerifyIntervalMinutesHint": "How often exports past the active follow-up are checked.",
     "cloudSqlExportMaxHours": "Absolute cap (hours)",
-    "cloudSqlExportMaxHoursHint": "After this time the export is marked failed (it may continue in GCP). Must be at least the active follow-up."
+    "cloudSqlExportMaxHoursHint": "After this time the export is marked failed (it may continue in GCP). Must be at least the active follow-up.",
+    "navScratch": "Temporary disk",
+    "scratch": "Temporary disk (parallel dump)",
+    "scratchDesc": "The parallel dump (AlloyDB) creates a NEW disk on every run on the VM where DBKeeper runs, formats and mounts it, dumps the databases, uploads the folders to the bucket and deletes it. Requires the root helper and the sudoers rule (ops/README-scratch.md).",
+    "scratchEnabled": "Enable the parallel dump with temporary disk",
+    "scratchMountPoint": "Mount point",
+    "scratchMountPointHint": "Absolute path; it must also be allowed in the helper (ALLOWED_MOUNTS). Only one run with a disk at a time.",
+    "scratchCredential": "GCP credential (Compute Engine)",
+    "scratchCredentialDefault": "The default GCP credential, or the VM account",
+    "scratchCredentialHint": "Needs to create, attach, detach and delete disks in the VM project.",
+    "scratchDiskType": "Default disk type",
+    "scratch_defaultSizeGb": "Default size (GB)",
+    "scratch_defaultSizeGbHint": "Used without history. With history: last backup + margin, never below this value.",
+    "scratch_maxSizeGb": "Max size (GB)",
+    "scratch_maxSizeGbHint": "Cap for the automatic size and for the size set by each event (cost control).",
+    "scratch_sizeMarginPct": "Margin over the last backup (%)",
+    "scratch_sizeMarginPctHint": "Headroom for database growth between backups.",
+    "scratch_gcIntervalMinutes": "Orphan disk check (min)",
+    "scratch_gcIntervalMinutesHint": "How often to look for temporary disks left alive (crash or restart) to release them.",
+    "scratchTest": "Test configuration",
+    "scratchTesting": "Testing…"
   }
 }

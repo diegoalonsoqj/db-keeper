@@ -184,6 +184,7 @@ interface ExecutionRow {
   started_at: Date | null;
   finished_at: Date | null;
   created_at: Date;
+  method: ExecutionDto["method"];
   items: ExecutionDto["items"];
 }
 
@@ -191,6 +192,7 @@ function toExecutionDto(row: ExecutionRow): ExecutionDto {
   return {
     id: row.id,
     jobId: row.job_id,
+    method: row.method ?? null,
     label: row.label,
     environment: row.environment,
     status: row.status,
@@ -203,7 +205,7 @@ function toExecutionDto(row: ExecutionRow): ExecutionDto {
 }
 
 const SELECT_EXECUTION = `
-  SELECT e.*,
+  SELECT e.*, j.method,
     COALESCE(
       json_agg(
         json_build_object(
@@ -219,6 +221,7 @@ const SELECT_EXECUTION = `
       ) FILTER (WHERE i.id IS NOT NULL), '[]'
     ) AS items
   FROM core.executions e
+  LEFT JOIN core.backup_jobs j ON j.id = e.job_id
   LEFT JOIN core.execution_items i ON i.execution_id = e.id
 `;
 
@@ -255,7 +258,7 @@ export async function createExecution(
 }
 
 export async function findExecutionById(id: string): Promise<ExecutionDto | null> {
-  const { rows } = await query<ExecutionRow>(`${SELECT_EXECUTION} WHERE e.id = $1 GROUP BY e.id`, [id]);
+  const { rows } = await query<ExecutionRow>(`${SELECT_EXECUTION} WHERE e.id = $1 GROUP BY e.id, j.method`, [id]);
   return rows[0] ? toExecutionDto(rows[0]) : null;
 }
 
@@ -281,6 +284,26 @@ export async function markExecutionRunning(id: string): Promise<void> {
     "UPDATE core.executions SET status = 'running', started_at = COALESCE(started_at, now()) WHERE id = $1",
     [id],
   );
+}
+
+/**
+ * Cancela una ejecución que sigue en cola (`pending`): la cierra como fallida con
+ * el motivo en cada ítem. Condicional: si la cola ya la lanzó, no hace nada (false).
+ */
+export async function cancelPendingExecution(id: string, reason: string): Promise<boolean> {
+  // Una sola sentencia: ejecución e ítems se cierran juntos o no se cierra nada.
+  const { rows } = await query<{ n: string }>(
+    `WITH e AS (
+       UPDATE core.executions SET status = 'failed', finished_at = now()
+       WHERE id = $1 AND status = 'pending' RETURNING id
+     ), i AS (
+       UPDATE core.execution_items SET status = 'failed', log = $2, finished_at = now()
+       WHERE execution_id IN (SELECT id FROM e) AND status = 'pending' RETURNING 1
+     )
+     SELECT count(*)::text AS n FROM e`,
+    [id, reason],
+  );
+  return rows[0]?.n === "1";
 }
 
 /** Cierra la ejecución con su estado final (`success`/`failed`) y finished_at. */
@@ -519,7 +542,7 @@ export async function listExecutions(p: {
   const params: unknown[] = [p.limit, p.offset];
   if (p.jobId) params.push(p.jobId);
   const { rows } = await query<ExecutionRow>(
-    `${SELECT_EXECUTION} ${where} GROUP BY e.id ORDER BY e.created_at DESC LIMIT $1 OFFSET $2`,
+    `${SELECT_EXECUTION} ${where} GROUP BY e.id, j.method ORDER BY e.created_at DESC LIMIT $1 OFFSET $2`,
     params,
   );
   return { items: rows.map(toExecutionDto), total };
@@ -578,4 +601,22 @@ export async function listJobIdsWithRetention(): Promise<string[]> {
         OR (options #>> '{retention,keepLast}') IS NOT NULL`,
   );
   return rows.map((r) => r.id);
+}
+
+/**
+ * Mayor tamaño entre los últimos backups exitosos de cada BD del evento (bytes), o
+ * null sin historial. Dimensiona el disco temporal del dump paralelo.
+ */
+export async function findLastSuccessBytes(jobId: string, dbNames: string[]): Promise<number | null> {
+  const { rows } = await query<{ bytes: string | null }>(
+    `SELECT max(b)::text AS bytes FROM (
+       SELECT DISTINCT ON (i.db_name) i.file_bytes AS b
+       FROM core.execution_items i
+       JOIN core.executions e ON e.id = i.execution_id
+       WHERE e.job_id = $1 AND i.status = 'success' AND i.file_bytes IS NOT NULL AND i.db_name = ANY($2::text[])
+       ORDER BY i.db_name, i.finished_at DESC
+     ) t`,
+    [jobId, dbNames],
+  );
+  return rows[0]?.bytes != null ? Number(rows[0].bytes) : null;
 }

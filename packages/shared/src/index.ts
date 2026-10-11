@@ -28,9 +28,11 @@ export type DbEngine = (typeof DB_ENGINES)[number];
 
 /**
  * Método de generación de backup: dump local, dump subido a un bucket (`gcloud`) o
- * export gestionado por Cloud SQL (`cloudsql_export`: la instancia escribe en GCS).
+ * export gestionado por Cloud SQL (`cloudsql_export`: la instancia escribe en GCS) o
+ * dump paralelo de PostgreSQL (`pg_parallel`: `pg_dump -Fd -j N` en un disco temporal
+ * de GCE y subida de la carpeta al bucket; pensado para AlloyDB y BDs grandes).
  */
-export const BACKUP_METHODS = ["dump", "gcloud", "cloudsql_export"] as const;
+export const BACKUP_METHODS = ["dump", "gcloud", "cloudsql_export", "pg_parallel"] as const;
 export type BackupMethod = (typeof BACKUP_METHODS)[number];
 
 /** Estado de un evento de backup o de cada ítem (por BD). */
@@ -71,3 +73,4 @@ export const DEFAULT_PAGE_SIZE: number = PAGE_SIZES[0];
 export * from "./auth.js";
 export * from "./resources.js";
 export * from "./mongo.js";
+export * from "./scratch.js";

@@ -5,4 +5,5 @@ export const METHOD_LABELS: Record<BackupMethod, string> = {
   dump: "backups.methodDump",
   gcloud: "backups.methodGcloud",
   cloudsql_export: "backups.methodCloudSqlExport",
+  pg_parallel: "backups.methodParallel",
 };

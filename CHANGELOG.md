@@ -3,6 +3,37 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 36] — Dump paralelo con disco temporal (AlloyDB) · 2026-10-11
+
+### Añadido
+- **Método `pg_parallel` (Dump paralelo, directorio)** para PostgreSQL/AlloyDB grandes:
+  por ejecución crea un disco **nuevo** de GCE en la VM de DBKeeper, lo formatea y monta
+  (`/backup-alloydb`), corre `pg_dump -Fd -j N` por BD, valida el TOC con
+  `pg_restore --list`, sube la carpeta al bucket en paralelo con hashes al vuelo, verifica
+  cada objeto (tamaño + CRC32C) y sube `manifest.json` como marca de backup completo. Al
+  final (también si falla o se cancela) desmonta, desadjunta y borra el disco.
+- Opciones del evento: workers (`-j`, sugerido vCPU − 2, máx. 14), **quitar permisos
+  (GRANT/REVOKE)** (desmarcado por defecto, como el script), tamaño/tipo de disco
+  (automático: último backup + margen), duración máxima por BD y patrones de ruido de
+  stderr (por defecto el de AlloyDB `TopTransactionContext IS NOT NULL`).
+- Configuración → **Disco temporal**: habilitar, punto de montaje, credencial GCP, tipo y
+  tamaños, margen, revisión de huérfanos y **Probar configuración** (VM, credencial,
+  permisos IAM, helper, binarios; no crea nada).
+- Instancias: **Plataforma** PostgreSQL / Cloud SQL / AlloyDB (migración `0030`).
+- **Cancelar ejecución** (`POST /backups/executions/:id/cancel`): en cola se cierra sin
+  lanzarse; un dump paralelo en curso se detiene (pg_dump y workers) y libera el disco.
+- Recolector de discos temporales huérfanos (etiqueta `dbkeeper=scratch`) al arrancar y
+  periódicamente. Si no se puede desmontar, el disco no se borra y se avisa.
+- Helper root `ops/dbkeeper-scratch.sh` + guía `ops/README-scratch.md` (sudoers acotado,
+  rol IAM personalizado). Identifica el disco por `/dev/disk/by-id/google-*` y nunca
+  formatea un disco con firma, particiones, montado o de arranque.
+- "Verificar ahora" para backups en carpeta: relee `manifest.json` y compara cada objeto.
+
+### Cambiado
+- La cola lanza un solo `pg_parallel` a la vez (punto de montaje único).
+- `ExecutionDto` incluye `method`. Los backups en carpeta (URI terminada en `/`) no se
+  descargan por la web: se copia el comando `gcloud storage cp -r`.
+
 ## [Etapa 4 · parte 35] — Excluir event triggers del backup (PostgreSQL) · 2026-10-05
 
 ### Añadido
