@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { siblingBinary } from "../lib/bin-path.js";
 
 /**
  * Configuración 12-factor. El `.env` se mantiene mínimo (ver spec §13):
@@ -39,8 +40,9 @@ const envSchema = z.object({
   DUMP_PROCESS_NICE: z.coerce.number().int().min(0).max(19).default(10),
 
   // --- Dump paralelo (pg_parallel) con disco temporal de GCE ---
-  // pg_restore valida el TOC del dump en formato directorio antes de subirlo.
-  PG_RESTORE_PATH: z.string().default("pg_restore"),
+  // pg_restore valida el TOC del dump en formato directorio antes de subirlo (no
+  // restaura nada). Vacío = el de la misma carpeta que PG_DUMP_PATH (ver pgRestorePath).
+  PG_RESTORE_PATH: z.string().optional().transform((v) => v?.trim() || undefined),
   // Helper root que formatea/monta/desmonta el disco temporal (se invoca con sudo -n).
   // No es editable desde la web a propósito: es el binario que corre como root.
   SCRATCH_HELPER_PATH: z.string().default("/usr/local/sbin/dbkeeper-scratch"),
@@ -100,6 +102,8 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+/** pg_restore: el indicado o el hermano de PG_DUMP_PATH (misma versión). */
+export const pgRestorePath = env.PG_RESTORE_PATH ?? siblingBinary(env.PG_DUMP_PATH, "pg_restore");
 export type Env = typeof env;
 export const isProd = env.APP_ENV === "production";
 // Por defecto la cookie es secure en producción; COOKIE_SECURE permite forzarlo

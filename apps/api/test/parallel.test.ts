@@ -14,6 +14,8 @@ import { diffUploaded } from "../src/modules/backups/engine/gcs-dir.js";
 import { scratchDiskName } from "../src/modules/backups/engine/scratch-disk.js";
 import { selectRunnable } from "../src/modules/backups/engine/queue.js";
 import { normalizeParallelOptions } from "../src/modules/backups/parallel-options.js";
+import { siblingBinary } from "../src/lib/bin-path.js";
+import path from "node:path";
 
 const GB = 1024 ** 3;
 
@@ -187,5 +189,21 @@ describe("cola: dump paralelo", () => {
   it("espera si ya hay uno en curso", () => {
     const running = new Map([["x", { serverId: "s9", dump: true, scratch: true }]]);
     expect(selectRunnable([q("a", "s1", "pg_parallel")], [], running, 5)).toEqual([]);
+  });
+});
+
+describe("siblingBinary", () => {
+  it("toma pg_restore de la misma carpeta que pg_dump", () => {
+    const dump = "/usr/lib/postgresql/18/bin/pg_dump";
+    expect(siblingBinary(dump, "pg_restore")).toBe(path.join(path.dirname(dump), "pg_restore"));
+  });
+
+  it("conserva la extensión .exe en Windows", () => {
+    const dump = "C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe";
+    expect(siblingBinary(dump, "pg_restore")).toBe(path.join(path.dirname(dump), "pg_restore.exe"));
+  });
+
+  it("si pg_dump está en el PATH, usa pg_restore del PATH", () => {
+    expect(siblingBinary("pg_dump", "pg_restore")).toBe("pg_restore");
   });
 });

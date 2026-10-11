@@ -31,6 +31,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
 ### Cambiado
 - La cola lanza un solo `pg_parallel` a la vez (punto de montaje único).
+- `pg_restore` (solo lee el TOC del dump para validarlo; no restaura) se toma por defecto
+  de la misma carpeta que `PG_DUMP_PATH`: misma versión y sin variable extra en `.env`.
 - `ExecutionDto` incluye `method`. Los backups en carpeta (URI terminada en `/`) no se
   descargan por la web: se copia el comando `gcloud storage cp -r`.
 

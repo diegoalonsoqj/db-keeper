@@ -17,7 +17,8 @@ que el servidor (AlloyDB 14 → sirve el cliente 18), un bucket de GCP en Almace
 ```bash
 # Ubuntu minimal: mkfs.ext4, blkid/lsblk/findmnt/mount (util-linux) y udevadm
 sudo apt-get update && sudo apt-get install -y e2fsprogs util-linux udev
-# Cliente PostgreSQL (pg_dump + pg_restore); ajusta PG_DUMP_PATH/PG_RESTORE_PATH si no están en el PATH
+# Cliente PostgreSQL (pg_dump + pg_restore, mismo paquete). Basta con PG_DUMP_PATH:
+# pg_restore se toma de la misma carpeta (PG_RESTORE_PATH solo si está en otra).
 pg_dump --version && pg_restore --version
 ```
 

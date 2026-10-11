@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { cpus } from "node:os";
 import { mountPointError, type ScratchCheckDto, type ScratchDiskSettings } from "@dbkeeper/shared";
-import { env } from "../../../config/env.js";
+import { env, pgRestorePath } from "../../../config/env.js";
 import { logger } from "../../../config/logger.js";
 import { detectInstanceIdentity } from "../../../lib/gce-metadata.js";
 import {
@@ -220,7 +220,7 @@ export async function preflightScratch(settings: ScratchDiskSettings): Promise<S
     }
   }
 
-  for (const bin of [env.PG_DUMP_PATH, env.PG_RESTORE_PATH]) {
+  for (const bin of [env.PG_DUMP_PATH, pgRestorePath]) {
     try {
       add(bin, true, await binaryVersion(bin));
     } catch (err) {

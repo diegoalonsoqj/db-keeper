@@ -1,7 +1,7 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { access, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { env } from "../../../config/env.js";
+import { env, pgRestorePath } from "../../../config/env.js";
 import { pipeStderrLines, describeDumpExit, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
@@ -227,13 +227,13 @@ async function runPgDumpDir(args: string[], input: ParallelDumpInput): Promise<n
 function pgRestoreList(dir: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
-      env.PG_RESTORE_PATH,
+      pgRestorePath,
       ["--list", dir],
       { windowsHide: true, maxBuffer: 256 * 1024 * 1024, timeout: 10 * 60_000 },
       (err, stdout, stderr) => {
         if (err) {
           const msg = (err as NodeJS.ErrnoException).code === "ENOENT"
-            ? `No se encontró pg_restore (${env.PG_RESTORE_PATH}). Instálalo o ajusta PG_RESTORE_PATH.`
+            ? `No se encontró pg_restore (${pgRestorePath}). Viene en el mismo paquete que pg_dump; si está en otra carpeta, indica PG_RESTORE_PATH.`
             : `pg_restore --list falló: ${String(stderr).trim() || err.message}`;
           reject(new Error(msg));
         } else resolve(String(stdout));
