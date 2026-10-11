@@ -3,6 +3,27 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 38] — Avisos agrupados por ejecución · 2026-10-11
+
+### Cambiado
+- Asunto fijo por ejecución, sin estado, para que inicio, fin, interrupción, disco
+  temporal e integridad queden en un mismo hilo:
+  `[DBKeeper] <instancia> · <evento> · <fecha> · #<código>`. La instancia se omite si el
+  nombre del evento ya la contiene (convención `BK - <instancia>`). La fecha es la de la
+  ejecución (no cambia si termina al día siguiente).
+- El estado va en la vista previa del correo (texto oculto al inicio): "Completado — 2 BD,
+  3.2 GB en 12m 4s", "Con errores — 1 de 2 BD falló (clientes)", etc.
+- Resumen del aviso con filas **Instancia** y **Ejecución** (`#código`).
+
+### Añadido
+- Código de ejecución (`executionCode`: 8 primeros caracteres del id) visible en
+  Ejecuciones, bajo el nombre del evento, para cruzarlo con los avisos.
+- SMTP: cabeceras `In-Reply-To`/`References` por ejecución (hilo más fiable). La API
+  notify agrupa solo por asunto.
+- Telegram en hilo: el primer aviso de la ejecución queda como raíz (migración `0031`,
+  `executions.telegram_chat_id/telegram_message_id`) y los siguientes se envían como
+  respuesta, incluso la alerta de integridad días después.
+
 ## [Etapa 4 · parte 37] — API de correo "notify" y plantilla HTML · 2026-10-11
 
 ### Cambiado

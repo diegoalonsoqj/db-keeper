@@ -8,8 +8,10 @@ type TelegramConfig = NotifRuntimeConfig["telegram"];
  * saltos de línea deben ser `\n` reales (el orquestador arma el HTML con `\n` y solo
  * `<b>`). Lanza si falta el token/chat o si la API responde con error; el orquestador
  * captura el fallo. El token nunca se incluye en los mensajes de error.
+ * `replyTo`: id del mensaje al que se responde (hilo); si ya no existe, se envía igual.
+ * Devuelve el id del mensaje enviado.
  */
-export async function sendTelegram(cfg: TelegramConfig, html: string): Promise<void> {
+export async function sendTelegram(cfg: TelegramConfig, html: string, replyTo?: number | null): Promise<number | null> {
   if (!cfg.botToken) throw new Error("Falta el bot token de Telegram");
   if (!cfg.chatId) throw new Error("Falta el chat de destino de Telegram");
 
@@ -21,6 +23,7 @@ export async function sendTelegram(cfg: TelegramConfig, html: string): Promise<v
       text: html,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}),
     }),
   });
   if (!res.ok) {
@@ -28,4 +31,6 @@ export async function sendTelegram(cfg: TelegramConfig, html: string): Promise<v
     const body = await res.text().catch(() => "");
     throw new Error(`Telegram respondió ${res.status}: ${body.slice(0, 500)}`);
   }
+  const data = (await res.json().catch(() => null)) as { result?: { message_id?: number } } | null;
+  return data?.result?.message_id ?? null;
 }

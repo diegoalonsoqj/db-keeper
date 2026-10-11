@@ -33,6 +33,8 @@ export interface ItemLog {
 
 export interface ParallelRunInput {
   executionId: string;
+  /** Fecha de la ejecución (para el asunto del aviso, el mismo en todo el hilo). */
+  runAt: Date;
   job: BackupJobDto;
   server: ServerDto;
   host: string;
@@ -286,14 +288,18 @@ async function release(
     const msg = err instanceof Error ? err.message : String(err);
     lines.push(`ERROR liberando el disco temporal: ${msg}`);
     logger.error({ err, executionId: input.executionId, disk: diskName }, "No se pudo liberar el disco temporal");
+    // Mismo evento (no "… — disco temporal") para que el aviso caiga en el hilo de la ejecución.
     void notifyBackup({
       event: "failure",
-      jobName: `${input.job.name} — disco temporal`,
+      executionId: input.executionId,
+      runAt: input.runAt,
+      instance: input.server.name,
+      jobName: input.job.name,
       engine: input.server.engine,
       environment: input.environment,
       databases: [],
       storage: `${ctx.target.zone}/${diskName}`,
-      items: [{ dbName: diskName, status: "failed", error: msg }],
+      items: [{ dbName: `Disco temporal ${diskName}`, status: "failed", error: msg }],
     });
   }
   if (lastItem) {

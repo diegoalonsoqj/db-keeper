@@ -245,6 +245,7 @@
   },
   "executions": {
     "intro": "Run history of backup events.",
+    "codeHint": "Run code: shown in the email subject and in Telegram alerts.",
     "event": "Event",
     "status": "Status",
     "origin": "Origin",

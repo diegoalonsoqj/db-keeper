@@ -136,8 +136,12 @@ function judge(item: ItemForVerify, actual: Parameters<typeof compareChecksums>[
 
 /** Aviso por los canales configurados cuando el archivo cambió o desapareció. */
 function alert(item: ItemForVerify, out: Outcome): void {
+  // Misma ejecución y fecha que el backup original: el aviso entra en su hilo.
   void notifyBackup({
     event: "integrity",
+    executionId: item.executionId,
+    runAt: item.executionCreatedAt,
+    instance: item.serverName,
     jobName: item.jobName,
     engine: item.engine ?? "",
     databases: [item.dbName],

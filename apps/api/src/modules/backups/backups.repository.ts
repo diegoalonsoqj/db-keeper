@@ -421,6 +421,10 @@ export interface ItemForVerify {
   verifyStatus: VerifyStatus | null;
   jobName: string;
   engine: string | null;
+  /** Para el aviso: mismo asunto (hilo) que la ejecución original. */
+  executionId: string;
+  executionCreatedAt: Date;
+  serverName: string | null;
 }
 
 export async function findItemForVerify(executionId: string, itemId: string): Promise<ItemForVerify | null> {
@@ -436,10 +440,13 @@ export async function findItemForVerify(executionId: string, itemId: string): Pr
     verify_status: VerifyStatus | null;
     job_name: string;
     engine: string | null;
+    execution_created_at: Date;
+    server_name: string | null;
   }>(
     `SELECT i.db_name, i.status, i.file_name, i.file_bytes, i.pruned_at,
             i.file_sha256, i.file_md5, i.file_crc32c, i.verify_status,
-            COALESCE(j.name, e.label) AS job_name, s.engine
+            COALESCE(j.name, e.label) AS job_name, s.engine,
+            e.created_at AS execution_created_at, s.name AS server_name
      FROM core.execution_items i
      JOIN core.executions e ON e.id = i.execution_id
      LEFT JOIN core.backup_jobs j ON j.id = e.job_id
@@ -459,6 +466,9 @@ export async function findItemForVerify(executionId: string, itemId: string): Pr
     verifyStatus: r.verify_status,
     jobName: r.job_name,
     engine: r.engine,
+    executionId,
+    executionCreatedAt: r.execution_created_at,
+    serverName: r.server_name,
   };
 }
 

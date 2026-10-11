@@ -245,6 +245,7 @@
   },
   "executions": {
     "intro": "Historial de ejecuciones de los eventos de backup.",
+    "codeHint": "Código de la ejecución: aparece en el asunto de los correos y en los avisos de Telegram.",
     "event": "Evento",
     "status": "Estado",
     "origin": "Origen",

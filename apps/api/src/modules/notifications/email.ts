@@ -5,6 +5,12 @@ export interface EmailMessage {
   subject: string;
   text: string;
   html: string;
+  /**
+   * Hilo (SMTP): id estable que se pone en In-Reply-To/References para que los
+   * clientes agrupen todos los avisos de una ejecución. La API notify solo agrupa
+   * por asunto (no admite cabeceras).
+   */
+  threadId?: string;
 }
 
 /** Config de correo ya resuelta (rama del NotifRuntimeConfig). */
@@ -40,7 +46,15 @@ async function sendViaSmtp(cfg: EmailConfig, msg: EmailMessage): Promise<void> {
     subject: msg.subject,
     text: msg.text,
     html: msg.html,
+    ...(msg.threadId ? threadHeaders(msg.threadId, cfg.from) : {}),
   });
+}
+
+/** Cabeceras de hilo: todos los avisos de la ejecución referencian el mismo id raíz. */
+export function threadHeaders(threadId: string, from: string): { references: string; inReplyTo: string } {
+  const domain = parseAddress(from).email.split("@")[1] || "dbkeeper.local";
+  const root = `<${threadId}@${domain}>`;
+  return { references: root, inReplyTo: root };
 }
 
 /** Separa `Nombre <correo>` en sus partes; sin `<…>`, todo es el correo. */

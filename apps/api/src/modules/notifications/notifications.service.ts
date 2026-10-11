@@ -1,9 +1,11 @@
+import { executionCode } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
 import { formatBytes } from "../../lib/format.js";
 import * as settings from "../settings/settings.service.js";
 import type { NotifRuntimeConfig } from "../settings/settings.service.js";
 import { sendEmail } from "./email.js";
 import { escapeHtml, renderEmail, type EmailTone } from "./email-template.js";
+import * as repo from "./notifications.repository.js";
 import { sendTelegram } from "./telegram.js";
 
 /** `integrity`: "Verificar ahora" detectó un archivo alterado o faltante. */
@@ -20,6 +22,12 @@ export interface BackupItemResult {
 /** Datos de una corrida de backup para componer el aviso. */
 export interface BackupNotification {
   event: BackupEvent;
+  /** Ejecución a la que pertenece el aviso: define el hilo (asunto, SMTP, Telegram). */
+  executionId: string;
+  /** Fecha de la ejecución (creación): la misma en todos sus avisos aunque termine otro día. */
+  runAt: Date;
+  /** Nombre de la instancia (null si ya no existe). */
+  instance?: string | null;
   jobName: string;
   engine: string;
   environment?: string | null;
@@ -32,7 +40,7 @@ export interface BackupNotification {
   items?: BackupItemResult[];
 }
 
-/** Etiqueta corta (sin emoji) para el asunto del correo. */
+/** Etiqueta corta (sin emoji) del evento, para el título del cuerpo. */
 const EVENT_LABEL: Record<BackupEvent, string> = {
   start: "Backup iniciado",
   success: "Backup completado",
@@ -93,10 +101,10 @@ function formatDuration(ms: number | null | undefined): string {
 
 /** Filas (emoji + etiqueta + valor) del resumen, comunes a todos los canales. */
 function summaryRows(n: BackupNotification): { emoji: string; label: string; value: string }[] {
-  const rows = [
-    { emoji: "🏷️", label: "Evento", value: n.jobName },
-    { emoji: "🗄️", label: "Motor", value: engineLabel(n.engine) },
-  ];
+  const rows = [{ emoji: "🏷️", label: "Evento", value: n.jobName }];
+  if (n.instance) rows.push({ emoji: "🖥️", label: "Instancia", value: n.instance });
+  rows.push({ emoji: "🔖", label: "Ejecución", value: `#${executionCode(n.executionId)}` });
+  rows.push({ emoji: "🗄️", label: "Motor", value: engineLabel(n.engine) });
   if (n.environment) rows.push({ emoji: "🌎", label: "Ambiente", value: n.environment });
   rows.push({ emoji: "💾", label: "Bases de datos", value: n.databases.join(", ") || "—" });
   if (n.storage) rows.push({ emoji: "🗂️", label: "Almacenamiento", value: n.storage });
@@ -117,9 +125,40 @@ function detailItems(n: BackupNotification): { ok: boolean; emoji: string; text:
   }));
 }
 
+/**
+ * Asunto fijo por ejecución (sin estado) para que inicio, fin e integridad queden en
+ * un mismo hilo: `[DBKeeper] <instancia> · <evento> · <fecha> · #<código>`. La
+ * instancia se omite si el nombre del evento ya la contiene (p. ej. "BK - <instancia>").
+ */
+export function backupSubject(n: Pick<BackupNotification, "executionId" | "runAt" | "instance" | "jobName">): string {
+  const showInstance = n.instance && !n.jobName.toLowerCase().includes(n.instance.toLowerCase());
+  const date = n.runAt.toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `[DBKeeper] ${showInstance ? `${n.instance} · ` : ""}${n.jobName} · ${date} · #${executionCode(n.executionId)}`;
+}
+
+/** Estado en una línea: vista previa del correo en la bandeja (el asunto no lo lleva). */
+export function statusLine(n: BackupNotification): string {
+  const status = EVENT_EMAIL[n.event].status;
+  const items = n.items ?? [];
+  const failed = items.filter((i) => i.status === "failed").map((i) => i.dbName);
+  const names = (list: string[]): string => (list.length > 3 ? `${list.slice(0, 3).join(", ")}…` : list.join(", "));
+  switch (n.event) {
+    case "start":
+      return `${status} — ${n.databases.length} ${n.databases.length === 1 ? "base de datos" : "bases de datos"}`;
+    case "success":
+      return `${status} — ${items.length || n.databases.length} BD, ${formatBytes(n.totalBytes)} en ${formatDuration(n.durationMs)}`;
+    case "failure":
+      return failed.length
+        ? `${status} — ${failed.length} de ${items.length} BD ${failed.length === 1 ? "falló" : "fallaron"} (${names(failed)})`
+        : status;
+    case "integrity":
+      return `${status} — archivo alterado o faltante: ${names(n.databases)}`;
+  }
+}
+
 /** Texto plano del correo (alternativa al HTML), sin emojis. */
 function buildText(n: BackupNotification): string {
-  const parts = [`${EVENT_LABEL[n.event]}: ${n.jobName}`, EVENT_EMAIL[n.event].intro, ""];
+  const parts = [statusLine(n), "", `${EVENT_LABEL[n.event]}: ${n.jobName}`, EVENT_EMAIL[n.event].intro, ""];
   for (const r of summaryRows(n)) parts.push(`${r.label}: ${r.value}`);
   const det = detailItems(n);
   if (det) {
@@ -137,6 +176,7 @@ function buildEmailHtml(n: BackupNotification): string {
     tone: ev.tone,
     status: ev.status,
     title: `${EVENT_LABEL[n.event]}: ${n.jobName}`,
+    preheader: statusLine(n),
     intro: ev.intro,
     rows: summaryRows(n).map(({ label, value }) => ({ label, value })),
     details: n.items && det
@@ -182,14 +222,14 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (!eventEnabled(cfg, n.event)) return;
 
-  const subject = `[DBKeeper] ${EVENT_LABEL[n.event]}: ${n.jobName}`;
+  const subject = backupSubject(n);
   const text = buildText(n);
 
   const tasks: Promise<void>[] = [];
 
   if (cfg.email.enabled) {
     tasks.push(
-      sendEmail(cfg.email, { subject, text, html: buildEmailHtml(n) }).catch((err) => {
+      sendEmail(cfg.email, { subject, text, html: buildEmailHtml(n), threadId: `dbkeeper-exec-${n.executionId}` }).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar correo de notificación");
       }),
     );
@@ -197,13 +237,42 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, buildTelegramHtml(n)).catch((err) => {
+      sendTelegramThreaded(cfg.telegram, n.executionId, buildTelegramHtml(n)).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
       }),
     );
   }
 
   await Promise.all(tasks);
+}
+
+/**
+ * Envíos de Telegram en curso por ejecución: se encadenan para que el aviso de fin
+ * espere a que el de inicio guarde su id (en un backup rápido ambos salen casi juntos).
+ */
+const telegramChains = new Map<string, Promise<void>>();
+
+/**
+ * Telegram en hilo: el primer aviso de la ejecución queda como raíz (se guarda su id)
+ * y los siguientes se envían como respuesta a él, aunque lleguen días después.
+ */
+function sendTelegramThreaded(cfg: NotifRuntimeConfig["telegram"], executionId: string, html: string): Promise<void> {
+  const prev = telegramChains.get(executionId) ?? Promise.resolve();
+  const run = prev.then(async () => {
+    const root = await repo.findTelegramRoot(executionId).catch((err) => {
+      logger.warn({ err, executionId }, "No se pudo leer el hilo de Telegram de la ejecución");
+      return null;
+    });
+    const replyTo = root && root.chatId === cfg.chatId ? root.messageId : null;
+    const messageId = await sendTelegram(cfg, html, replyTo);
+    if (messageId && !replyTo) await repo.saveTelegramRoot(executionId, cfg.chatId, messageId);
+  });
+  const settled = run.catch(() => {});
+  telegramChains.set(executionId, settled);
+  void settled.then(() => {
+    if (telegramChains.get(executionId) === settled) telegramChains.delete(executionId);
+  });
+  return run;
 }
 
 /** Resultado de un canal en el envío de prueba. `ok=null` = canal no habilitado. */

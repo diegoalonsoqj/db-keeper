@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import {
   DEFAULT_PAGE_SIZE,
+  executionCode,
   isDirectoryArtifact,
   PGDIR_MANIFEST,
   type ExecutionDto,
@@ -409,7 +410,13 @@ export function ExecutionsPage() {
             {data.items.map((e) => (
               <Fragment key={e.id}>
                 <tr>
-                  <td>{e.label}</td>
+                  <td>
+                    {e.label}
+                    <br />
+                    <small className="muted" title={t("executions.codeHint")}>
+                      #{executionCode(e.id)}
+                    </small>
+                  </td>
                   <td>
                     <span className={`badge badge-${e.status}`}>{t(`status.${e.status}`)}</span>
                   </td>

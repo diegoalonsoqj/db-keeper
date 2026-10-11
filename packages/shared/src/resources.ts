@@ -239,6 +239,14 @@ export interface ExecutionDto {
 }
 
 /**
+ * Código corto de una ejecución (8 primeros caracteres del id, en mayúsculas): va en
+ * el asunto de los avisos y en la pantalla de Ejecuciones para cruzar ambos.
+ */
+export function executionCode(id: string): string {
+  return id.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
+/**
  * Evento empujado por SSE al cambiar el estado de una ejecución. Lleva el
  * snapshot completo de la ejecución tras la transición (el cliente reemplaza el
  * registro por `id`). Ver `docs/REALTIME-QUEUE-DESIGN.md`.

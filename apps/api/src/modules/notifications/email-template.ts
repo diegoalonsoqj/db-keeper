@@ -23,6 +23,8 @@ export interface EmailContent {
   /** Etiqueta del estado (p. ej. "Completado"). */
   status: string;
   title: string;
+  /** Vista previa que la bandeja muestra junto al asunto (no se ve en el cuerpo). */
+  preheader?: string;
   intro?: string;
   rows?: EmailRow[];
   details?: EmailDetail[] | null;
@@ -76,12 +78,21 @@ function detailsTable(details: EmailDetail[]): string {
 <tr>${th("Base de datos")}${th("Estado")}${th("Tamaño / motivo")}</tr>${trs}</table>`;
 }
 
+/**
+ * Texto oculto al inicio del cuerpo: los clientes lo usan como vista previa. El
+ * relleno de espacios invisibles evita que la vista previa siga con el texto del cuerpo.
+ */
+function preheaderBlock(text: string): string {
+  return `<div style="display:none;font-size:1px;color:#f1f5f9;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${escapeHtml(text)}${"&#847;&zwnj;&nbsp;".repeat(60)}</div>`;
+}
+
 /** Documento HTML completo del correo. */
 export function renderEmail(c: EmailContent): string {
   const tone = TONES[c.tone];
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(c.title)}</title></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:${FONT}">
+${c.preheader ? preheaderBlock(c.preheader) : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9">
 <tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid ${BORDER};border-radius:12px;border-collapse:separate;overflow:hidden">
