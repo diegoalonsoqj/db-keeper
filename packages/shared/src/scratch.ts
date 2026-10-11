@@ -24,6 +24,8 @@ export interface ScratchDiskSettings {
   sizeMarginPct: number;
   /** Cada cuánto se buscan discos temporales huérfanos para liberarlos. */
   gcIntervalMinutes: number;
+  /** Archivos del dump que se suben al bucket a la vez. */
+  uploadConcurrency: number;
 }
 
 export const SCRATCH_SETTINGS_LIMITS = {
@@ -31,6 +33,7 @@ export const SCRATCH_SETTINGS_LIMITS = {
   maxSizeGb: { min: 10, max: 65_536 },
   sizeMarginPct: { min: 0, max: 200 },
   gcIntervalMinutes: { min: 5, max: 1440 },
+  uploadConcurrency: { min: 1, max: 32 },
 } as const;
 
 export const DEFAULT_SCRATCH_SETTINGS: ScratchDiskSettings = {
@@ -42,6 +45,7 @@ export const DEFAULT_SCRATCH_SETTINGS: ScratchDiskSettings = {
   maxSizeGb: 2000,
   sizeMarginPct: 25,
   gcIntervalMinutes: 30,
+  uploadConcurrency: 8,
 };
 
 /** Rutas del sistema donde nunca se monta el disco temporal. */

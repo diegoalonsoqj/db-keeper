@@ -552,6 +552,8 @@
     "scratch_sizeMarginPctHint": "Headroom for database growth between backups.",
     "scratch_gcIntervalMinutes": "Orphan disk check (min)",
     "scratch_gcIntervalMinutesHint": "How often to look for temporary disks left alive (crash or restart) to release them.",
+    "scratch_uploadConcurrency": "Parallel uploads to the bucket",
+    "scratch_uploadConcurrencyHint": "Dump files uploaded at the same time. More speeds up the upload but uses more network and memory.",
     "scratchTest": "Test configuration",
     "scratchTesting": "Testing…"
   }

@@ -47,8 +47,6 @@ const envSchema = z.object({
   // No es editable desde la web a propósito: es el binario que corre como root.
   SCRATCH_HELPER_PATH: z.string().default("/usr/local/sbin/dbkeeper-scratch"),
   SUDO_PATH: z.string().default("sudo"),
-  // Archivos del dump subidos a GCS en paralelo.
-  GCS_UPLOAD_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(8),
 
   // Confianza en X-Forwarded-For para obtener la IP real del cliente (auditoría y límite
   // de intentos). "false" (por defecto) = se usa la IP de la conexión: correcto si la app

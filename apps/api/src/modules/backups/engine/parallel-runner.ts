@@ -2,7 +2,6 @@ import { rm } from "node:fs/promises";
 import { cpus } from "node:os";
 import path from "node:path";
 import type { BackupJobDto, BackupSettings, ExecutionItemDto, ServerDto } from "@dbkeeper/shared";
-import { env } from "../../../config/env.js";
 import { logger } from "../../../config/logger.js";
 import { formatBytes } from "../../../lib/format.js";
 import { getScratchSettings } from "../../settings/settings.service.js";
@@ -76,6 +75,7 @@ export async function runParallelItems(input: ParallelRunInput): Promise<BackupI
   const pre = (line: string): void => void preamble.push(line);
   let ctx: ScratchContext | null = null;
   let diskName: string | null = null;
+  let uploadConcurrency = 1;
   let lastItem: { id: string; dbName: string } | null = null;
 
   const pending = input.items.filter((i) => i.status === "pending");
@@ -85,6 +85,7 @@ export async function runParallelItems(input: ParallelRunInput): Promise<BackupI
       const scratch = await getScratchSettings();
       if (!scratch.enabled) throw new Error("El disco temporal está deshabilitado (Configuración → Disco temporal)");
       ctx = await resolveScratchContext(scratch);
+      uploadConcurrency = scratch.uploadConcurrency;
       const lastBytes = await repo.findLastSuccessBytes(job.id, pending.map((i) => i.dbName));
       const size = computeDiskSize({
         override: opts.diskSizeGb,
@@ -126,7 +127,7 @@ export async function runParallelItems(input: ParallelRunInput): Promise<BackupI
         results.push({ dbName: item.dbName, status: "failed", error: reason });
         continue;
       }
-      results.push(await runItem(input, item, { ctx: ctx!, diskName: diskName!, signal, opts, pgDumpMajor, preamble: idx === 0 ? preamble : null }));
+      results.push(await runItem(input, item, { ctx: ctx!, diskName: diskName!, signal, opts, pgDumpMajor, uploadConcurrency, preamble: idx === 0 ? preamble : null }));
       lastItem = { id: item.id, dbName: item.dbName };
       await emitExecution(executionId);
     }
@@ -146,6 +147,7 @@ async function runItem(
     signal: AbortSignal;
     opts: ReturnType<typeof readParallelOptions>;
     pgDumpMajor: number | null;
+    uploadConcurrency: number;
     preamble: string[] | null;
   },
 ): Promise<BackupItemResult> {
@@ -214,7 +216,7 @@ async function runItem(
     const prefix = [input.gcs.prefix, input.safeFileName(input.server.name), name].filter(Boolean).join("/");
     const restoreDir = `/restore/${name}`;
     const up = await uploadDirectoryToGcs({ bucket: input.gcs.bucket, serviceAccountJson: input.gcs.serviceAccountJson }, dir, prefix, {
-      concurrency: env.GCS_UPLOAD_CONCURRENCY,
+      concurrency: p.uploadConcurrency,
       signal: p.signal,
       onLog: ls.onLog,
       manifestExtra: {

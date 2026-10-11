@@ -132,6 +132,7 @@ const scratchSchema = z.object({
   maxSizeGb: z.number().int().min(L.maxSizeGb.min).max(L.maxSizeGb.max).optional(),
   sizeMarginPct: z.number().int().min(L.sizeMarginPct.min).max(L.sizeMarginPct.max).optional(),
   gcIntervalMinutes: z.number().int().min(L.gcIntervalMinutes.min).max(L.gcIntervalMinutes.max).optional(),
+  uploadConcurrency: z.number().int().min(L.uploadConcurrency.min).max(L.uploadConcurrency.max).optional(),
 });
 
 settingsRouter.patch("/scratch", authorize("settings:write"), async (req, res, next) => {

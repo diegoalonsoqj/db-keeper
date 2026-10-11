@@ -552,6 +552,8 @@
     "scratch_sizeMarginPctHint": "Holgura para el crecimiento de la BD entre backups.",
     "scratch_gcIntervalMinutes": "Revisión de discos huérfanos (min)",
     "scratch_gcIntervalMinutesHint": "Cada cuánto se buscan discos temporales que quedaron vivos (caída o reinicio) para liberarlos.",
+    "scratch_uploadConcurrency": "Subidas en paralelo al bucket",
+    "scratch_uploadConcurrencyHint": "Archivos del dump que se suben a la vez. Más acelera la subida pero usa más red y memoria.",
     "scratchTest": "Probar configuración",
     "scratchTesting": "Probando…"
   }

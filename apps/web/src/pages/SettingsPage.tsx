@@ -629,7 +629,7 @@ export function SettingsPage() {
             ))}
           </select>
         </label>
-        {(["defaultSizeGb", "maxSizeGb", "sizeMarginPct", "gcIntervalMinutes"] as const).map((key) => (
+        {(["defaultSizeGb", "maxSizeGb", "sizeMarginPct", "gcIntervalMinutes", "uploadConcurrency"] as const).map((key) => (
           <label key={key}>
             {t(`settings.scratch_${key}`)}
             <NumberInput
