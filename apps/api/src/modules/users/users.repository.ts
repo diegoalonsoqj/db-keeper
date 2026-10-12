@@ -112,6 +112,19 @@ export async function countUsers(): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
+/** Superadmins activos, sin contar `excludeUserId` (para no dejar el sistema sin ninguno). */
+export async function countActiveSuperadmins(excludeUserId: string): Promise<number> {
+  const { rows } = await query<{ count: string }>(
+    `SELECT count(DISTINCT u.id)::text AS count
+     FROM auth.users u
+     JOIN auth.user_roles ur ON ur.user_id = u.id
+     JOIN auth.roles r ON r.id = ur.role_id
+     WHERE r.key = 'superadmin' AND u.is_active AND u.id <> $1`,
+    [excludeUserId],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
 export interface CreateUserInput {
   username: string;
   email: string | null;

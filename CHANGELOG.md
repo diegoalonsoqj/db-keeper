@@ -3,6 +3,23 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 43] — Seguridad: escalada de privilegios y nombres de BD · 2026-10-11
+
+### Seguridad
+- **Escalada de privilegios (usuarios y roles):** `users:write` ya no basta para volverse
+  superadmin. Reglas (`modules/auth/privileges.ts`):
+  - Solo un superadmin asigna/quita el rol superadmin.
+  - Nadie asigna roles ni otorga permisos a un rol que él mismo no tiene.
+  - Nadie modifica (contraseña, estado, roles) ni elimina a un usuario con más permisos
+    que él (incluido cualquier superadmin, salvo otro superadmin).
+  - Nadie cambia sus propios roles ni desactiva su propia cuenta.
+  - Siempre queda al menos un superadmin activo.
+- **Robo de credenciales por nombre de BD:** se rechazan nombres que `pg_dump` tomaría
+  como cadena de conexión (`host=… dbname=…`, `postgresql://…`) o que `pg_dump`/
+  `mysqldump` tomarían como opción (empiezan con `-`), y caracteres de control
+  (`databaseNameError`). Se valida en la API (eventos y descubrimiento) y otra vez en el
+  motor antes de lanzar el dump (cubre eventos ya guardados y reintentos).
+
 ## [Etapa 4 · parte 42] — Volver a la página pedida tras el login · 2026-10-11
 
 ### Cambiado

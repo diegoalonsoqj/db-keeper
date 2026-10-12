@@ -54,7 +54,7 @@ usersRouter.get("/:id", authorize("users:read"), async (req, res, next) => {
 usersRouter.post("/", authorize("users:write"), async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    const user = await service.createUser(data);
+    const user = await service.createUser(req.auth!, data);
     await recordAudit(req, { action: "users.create", entityType: "user", entityId: user.id, detail: { username: user.username } });
     ok(res, user, 201);
   } catch (err) {
@@ -65,7 +65,7 @@ usersRouter.post("/", authorize("users:write"), async (req, res, next) => {
 usersRouter.patch("/:id", authorize("users:write"), async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
-    const user = await service.updateUser(String(req.params.id), data);
+    const user = await service.updateUser(req.auth!, String(req.params.id), data);
     await recordAudit(req, { action: "users.update", entityType: "user", entityId: user.id });
     ok(res, user);
   } catch (err) {
@@ -77,7 +77,7 @@ usersRouter.delete("/:id", authorize("users:delete"), async (req, res, next) => 
   try {
     const id = String(req.params.id);
     if (req.auth!.user.id === id) throw HttpError.badRequest("No puedes eliminar tu propio usuario");
-    await service.deleteUser(id);
+    await service.deleteUser(req.auth!, id);
     await recordAudit(req, { action: "users.delete", entityType: "user", entityId: id });
     ok(res, { deleted: true });
   } catch (err) {

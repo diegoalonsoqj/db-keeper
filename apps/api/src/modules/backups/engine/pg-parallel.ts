@@ -7,6 +7,7 @@ import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
 import { quotedPatternArgs } from "./pg-args.js";
 import { assertExcludeExtensionSupported } from "./postgres.js";
+import { assertSafeDbName } from "./db-name.js";
 
 export interface ParallelDumpInput {
   host: string;
@@ -107,6 +108,7 @@ export function countTocEntries(list: string): number {
  * valida el TOC con `pg_restore --list`.
  */
 export async function dumpPostgresDirectory(input: ParallelDumpInput): Promise<ParallelDumpResult> {
+  assertSafeDbName(input.dbName);
   if (input.excludeExtensions.length > 0) await assertExcludeExtensionSupported();
   const exists = await access(input.destDir).then(
     () => true,

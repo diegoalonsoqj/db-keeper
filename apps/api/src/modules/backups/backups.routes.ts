@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   BACKUP_METHODS,
+  databaseNameError,
   EXECUTION_ORIGINS,
   EXECUTION_SORTS,
   EXECUTION_STATES,
@@ -22,6 +23,16 @@ import { verifyItemNow } from "./integrity.js";
 export const backupsRouter: Router = Router();
 backupsRouter.use(authenticate);
 
+/** Nombre de BD seguro para pg_dump/mysqldump (ver databaseNameError). */
+const dbNameSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .superRefine((v, ctx) => {
+    const err = databaseNameError(v);
+    if (err) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${err}: ${v}` });
+  });
+
 const jobFields = {
   name: z.string().min(1).max(120),
   serverId: z.string().uuid(),
@@ -30,7 +41,7 @@ const jobFields = {
   bucketId: z.string().uuid().nullish().transform((v) => v ?? null),
   options: z.record(z.unknown()).default({}),
   isActive: z.boolean().default(true),
-  databases: z.array(z.string().min(1).max(255)).min(1).max(2000),
+  databases: z.array(dbNameSchema).min(1).max(2000),
 };
 
 const createSchema = z.object({ ...jobFields });
@@ -43,7 +54,7 @@ const updateSchema = z.object({
   bucketId: jobFields.bucketId,
   options: z.record(z.unknown()).optional(),
   isActive: z.boolean().optional(),
-  databases: z.array(z.string().min(1).max(255)).min(1).max(2000).optional(),
+  databases: z.array(dbNameSchema).min(1).max(2000).optional(),
 });
 
 const executionListSchema = listQuerySchema(EXECUTION_SORTS).extend({

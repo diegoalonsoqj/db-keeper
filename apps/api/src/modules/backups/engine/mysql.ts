@@ -10,6 +10,7 @@ import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, describeDumpExit, NATIVE_CLIENT_STDERR_ENCODING } from "./log-lines.js";
 import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
+import { assertSafeDbName } from "./db-name.js";
 
 const GZIP_LEVEL = 6;
 
@@ -21,6 +22,7 @@ const GZIP_LEVEL = 6;
  * (no en la línea de comandos) y los argumentos van como array (sin shell).
  */
 export async function dumpMysql(input: DumpInput): Promise<DumpResult> {
+  assertSafeDbName(input.dbName);
   const filePath = `${input.destPathNoExt}${input.compress ? ".sql.gz" : ".sql"}`;
   const cleanDefiners = input.cleanDefiners !== false; // por defecto sí
   const args = [

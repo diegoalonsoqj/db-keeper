@@ -36,7 +36,7 @@ rolesRouter.get("/", authorize("roles:read"), async (_req, res, next) => {
 rolesRouter.post("/", authorize("roles:write"), async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    const role = await service.createRole(data);
+    const role = await service.createRole(req.auth!, data);
     await recordAudit(req, { action: "roles.create", entityType: "role", entityId: role.id, detail: { key: role.key } });
     ok(res, role, 201);
   } catch (err) {
@@ -47,7 +47,7 @@ rolesRouter.post("/", authorize("roles:write"), async (req, res, next) => {
 rolesRouter.patch("/:id", authorize("roles:write"), async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
-    const role = await service.updateRole(String(req.params.id), data);
+    const role = await service.updateRole(req.auth!, String(req.params.id), data);
     await recordAudit(req, { action: "roles.update", entityType: "role", entityId: role.id });
     ok(res, role);
   } catch (err) {

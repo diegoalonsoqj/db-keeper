@@ -12,6 +12,7 @@ import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
 import { pgDumpFilter } from "./pg-filter.js";
 import { quotedPatternArgs } from "./pg-args.js";
+import { assertSafeDbName } from "./db-name.js";
 
 /** Nivel de compresión gzip del dump (1=rápido … 9=máximo). */
 const GZIP_LEVEL = 6;
@@ -27,6 +28,7 @@ const GZIP_LEVEL = 6;
  * inyección.
  */
 export async function dumpPostgres(input: DumpInput): Promise<DumpResult> {
+  assertSafeDbName(input.dbName);
   const filePath = `${input.destPathNoExt}${input.compress ? ".sql.gz" : ".sql"}`;
   const args = [
     "--no-owner", // no emite ALTER ... OWNER

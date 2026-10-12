@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { databaseNameError } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authorize } from "../../middleware/auth.js";
 import * as service from "./databases.service.js";
@@ -18,7 +19,11 @@ const discoverBodySchema = z.object({
 // Descubrimiento en vivo: lista las BDs reales de la instancia (reutilizado por el
 // asistente de eventos de backup). La selección se persiste en el evento, no aquí.
 const schemasBodySchema = z.object({
-  dbName: z.string().min(1).max(255),
+  dbName: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((v) => databaseNameError(v) === null, "Nombre de base de datos inválido"),
   credentialId: z.string().uuid().nullish().transform((v) => v ?? null),
 });
 
