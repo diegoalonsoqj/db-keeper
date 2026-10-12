@@ -1,5 +1,6 @@
-import type { DbEngine, ServerDto } from "@dbkeeper/shared";
+import type { DbEngine, ServerDto, ServerPlatform, ServerSort, SortDir } from "@dbkeeper/shared";
 import { query } from "../../db/pool.js";
+import { orderBy, SqlWhere } from "../../lib/list-query.js";
 
 interface ServerRow {
   id: string;
@@ -55,17 +56,46 @@ const SELECT_SERVER = `
   LEFT JOIN secrets.credentials c ON c.id = s.credential_id
 `;
 
-export async function listServers(p: {
+export interface ServerListQuery {
   limit: number;
   offset: number;
-}): Promise<{ items: ServerDto[]; total: number }> {
-  const totalRes = await query<{ count: string }>(
-    "SELECT count(*)::text AS count FROM core.servers",
-  );
+  /** Nombre, host o instancia de Cloud SQL. */
+  q?: string;
+  engine?: DbEngine;
+  platform?: ServerPlatform;
+  environment?: string;
+  sort?: ServerSort;
+  dir?: SortDir;
+}
+
+const SERVER_ORDER: Record<ServerSort, string> = {
+  name: "lower(s.name)",
+  engine: "s.engine",
+  host: "lower(COALESCE(s.host, s.gcp_instance))",
+  port: "s.port",
+  environment: "s.environment",
+  credential: "lower(c.name)",
+};
+
+const PLATFORM_WHERE: Record<ServerPlatform, string> = {
+  standard: "NOT s.is_cloud_sql AND NOT s.is_alloydb",
+  cloudsql: "s.is_cloud_sql",
+  alloydb: "s.is_alloydb",
+};
+
+export async function listServers(p: ServerListQuery): Promise<{ items: ServerDto[]; total: number }> {
+  const w = new SqlWhere()
+    .eq("s.engine", p.engine)
+    .eq("s.environment", p.environment)
+    .search(["s.name", "s.host", "s.gcp_instance"], p.q);
+  if (p.platform) w.add(PLATFORM_WHERE[p.platform]);
+  const totalRes = await query<{ count: string }>(`SELECT count(*)::text AS count FROM core.servers s ${w.sql}`, w.params);
   const total = Number(totalRes.rows[0]?.count ?? 0);
+  const order = orderBy(SERVER_ORDER, p.sort, p.dir, { sort: "name", dir: "asc" }, "s.id");
+  const n = w.params.length;
   const { rows } = await query<ServerRow>(
-    `${SELECT_SERVER} ORDER BY s.name LIMIT $1 OFFSET $2`,
-    [p.limit, p.offset],
+    `${SELECT_SERVER} ${w.sql} ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
+    [...w.params, p.limit, p.offset],
   );
   return { items: rows.map(toServer), total };
 }

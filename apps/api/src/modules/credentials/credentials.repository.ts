@@ -1,5 +1,6 @@
-import type { CredentialDto } from "@dbkeeper/shared";
+import type { CredentialDto, CredentialSort, SortDir } from "@dbkeeper/shared";
 import { query } from "../../db/pool.js";
+import { orderBy, SqlWhere } from "../../lib/list-query.js";
 
 interface CredentialRow {
   id: string;
@@ -26,17 +27,32 @@ function toDto(row: CredentialRow): CredentialDto {
   };
 }
 
-export async function listCredentials(p: {
+export interface CredentialListQuery {
   limit: number;
   offset: number;
-}): Promise<{ items: CredentialDto[]; total: number }> {
-  const totalRes = await query<{ count: string }>(
-    "SELECT count(*)::text AS count FROM secrets.credentials",
-  );
+  /** Nombre o usuario. */
+  q?: string;
+  environment?: string;
+  sort?: CredentialSort;
+  dir?: SortDir;
+}
+
+const CREDENTIAL_ORDER: Record<CredentialSort, string> = {
+  name: "lower(name)",
+  username: "lower(username)",
+  environment: "environment",
+  description: "lower(description)",
+};
+
+export async function listCredentials(p: CredentialListQuery): Promise<{ items: CredentialDto[]; total: number }> {
+  const w = new SqlWhere().eq("environment", p.environment).search(["name", "username"], p.q);
+  const totalRes = await query<{ count: string }>(`SELECT count(*)::text AS count FROM secrets.credentials ${w.sql}`, w.params);
   const total = Number(totalRes.rows[0]?.count ?? 0);
+  const order = orderBy(CREDENTIAL_ORDER, p.sort, p.dir, { sort: "name", dir: "asc" }, "id");
+  const n = w.params.length;
   const { rows } = await query<CredentialRow>(
-    "SELECT * FROM secrets.credentials ORDER BY name LIMIT $1 OFFSET $2",
-    [p.limit, p.offset],
+    `SELECT * FROM secrets.credentials ${w.sql} ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
+    [...w.params, p.limit, p.offset],
   );
   return { items: rows.map(toDto), total };
 }

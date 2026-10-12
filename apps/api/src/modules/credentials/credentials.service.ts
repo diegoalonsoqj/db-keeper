@@ -4,7 +4,7 @@ import { encryptSecret } from "../../lib/crypto.js";
 import { isForeignKeyViolation } from "../../lib/pg-error.js";
 import * as repo from "./credentials.repository.js";
 
-export async function listCredentials(p: { limit: number; offset: number }) {
+export async function listCredentials(p: repo.CredentialListQuery) {
   return repo.listCredentials(p);
 }
 

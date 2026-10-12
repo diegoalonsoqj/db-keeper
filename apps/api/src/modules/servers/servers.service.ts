@@ -6,7 +6,7 @@ import { assertAssignable, resolveGcpServiceAccountJson } from "../cloud-credent
 import * as repo from "./servers.repository.js";
 import type { ServerFields } from "./servers.repository.js";
 
-export async function listServers(p: { limit: number; offset: number }) {
+export async function listServers(p: repo.ServerListQuery) {
   return repo.listServers(p);
 }
 

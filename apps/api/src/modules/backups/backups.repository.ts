@@ -1,5 +1,19 @@
-import type { BackupJobDto, BackupMethod, ExecutionDto, FileChecksums, VerifyMode, VerifyStatus } from "@dbkeeper/shared";
+import {
+  parseExecutionCode,
+  type BackupJobDto,
+  type BackupMethod,
+  type ExecutionDto,
+  type ExecutionOrigin,
+  type ExecutionSort,
+  type ExecutionState,
+  type FileChecksums,
+  type JobSort,
+  type SortDir,
+  type VerifyMode,
+  type VerifyStatus,
+} from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
+import { orderBy, SqlWhere } from "../../lib/list-query.js";
 
 interface JobRow {
   id: string;
@@ -50,17 +64,49 @@ const SELECT_JOB = `
   LEFT JOIN core.backup_job_databases jd ON jd.job_id = j.id
 `;
 
-export async function listJobs(p: {
+export interface JobListQuery {
   limit: number;
   offset: number;
-}): Promise<{ items: BackupJobDto[]; total: number }> {
+  q?: string;
+  serverId?: string;
+  method?: BackupMethod;
+  environment?: string;
+  /** true = con programación activa; false = solo manual. */
+  scheduled?: boolean;
+  active?: boolean;
+  sort?: JobSort;
+  dir?: SortDir;
+}
+
+const JOB_ORDER: Record<JobSort, string> = {
+  name: "lower(j.name)",
+  server: "lower(s.name)",
+  environment: "j.environment",
+  method: "j.method",
+  destination: "lower(b.name)",
+  active: "j.is_active",
+};
+
+export async function listJobs(p: JobListQuery): Promise<{ items: BackupJobDto[]; total: number }> {
+  const w = new SqlWhere()
+    .eq("j.server_id", p.serverId)
+    .eq("j.method", p.method)
+    .eq("j.environment", p.environment)
+    .eq("j.is_active", p.active)
+    .search(["j.name"], p.q);
+  if (p.scheduled !== undefined) {
+    w.add(`${p.scheduled ? "" : "NOT "}EXISTS (SELECT 1 FROM core.backup_schedules bs WHERE bs.job_id = j.id AND bs.is_active)`);
+  }
   const totalRes = await query<{ count: string }>(
-    "SELECT count(*)::text AS count FROM core.backup_jobs",
+    `SELECT count(*)::text AS count FROM core.backup_jobs j ${w.sql}`,
+    w.params,
   );
   const total = Number(totalRes.rows[0]?.count ?? 0);
+  const order = orderBy(JOB_ORDER, p.sort, p.dir, { sort: "name", dir: "asc" }, "j.id");
+  const n = w.params.length;
   const { rows } = await query<JobRow>(
-    `${SELECT_JOB} GROUP BY j.id, s.name, c.name, b.name ORDER BY j.name LIMIT $1 OFFSET $2`,
-    [p.limit, p.offset],
+    `${SELECT_JOB} ${w.sql} GROUP BY j.id, s.name, c.name, b.name ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
+    [...w.params, p.limit, p.offset],
   );
   return { items: rows.map(toJobDto), total };
 }
@@ -537,23 +583,51 @@ export async function findBusyServerIds(): Promise<string[]> {
   return rows.map((r) => r.server_id);
 }
 
-export async function listExecutions(p: {
+export interface ExecutionListQuery {
   limit: number;
   offset: number;
   jobId?: string;
-}): Promise<{ items: ExecutionDto[]; total: number }> {
-  const where = p.jobId ? "WHERE e.job_id = $3" : "";
-  const whereCount = p.jobId ? "WHERE job_id = $1" : "";
-  const totalRes = await query<{ count: string }>(
-    `SELECT count(*)::text AS count FROM core.executions ${whereCount}`,
-    p.jobId ? [p.jobId] : [],
-  );
+  /** Nombre del evento o código de ejecución (`#3F2504E0`). */
+  q?: string;
+  status?: ExecutionState;
+  origin?: ExecutionOrigin;
+  environment?: string;
+  /**
+   * Rango sobre la creación, como en Auditoría: `from` = inicio del primer día y `to` =
+   * inicio del último día (inclusivo), ambos en la zona del navegador.
+   */
+  from?: Date;
+  to?: Date;
+  sort?: ExecutionSort;
+  dir?: SortDir;
+}
+
+const EXECUTION_ORDER: Record<ExecutionSort, string> = {
+  created: "e.created_at",
+  finished: "e.finished_at",
+  label: "lower(e.label)",
+  status: "e.status",
+  environment: "e.environment",
+  databases: "count(i.id)",
+  duration: "(e.finished_at - e.started_at)",
+  size: "sum(i.file_bytes)",
+};
+
+export async function listExecutions(p: ExecutionListQuery): Promise<{ items: ExecutionDto[]; total: number }> {
+  const w = new SqlWhere().eq("e.job_id", p.jobId).eq("e.status", p.status).eq("e.origin", p.origin).eq("e.environment", p.environment);
+  if (p.from) w.add(`e.created_at >= ${w.param(p.from)}`);
+  if (p.to) w.add(`e.created_at < ${w.param(p.to)}::timestamptz + interval '1 day'`);
+  // El código del asunto de los avisos es el prefijo del id (sin guiones en sus 8 primeros caracteres).
+  const code = p.q ? parseExecutionCode(p.q) : null;
+  w.search(["e.label"], p.q, code ? [`e.id::text LIKE ${w.param(`${code}%`)}`] : []);
+
+  const totalRes = await query<{ count: string }>(`SELECT count(*)::text AS count FROM core.executions e ${w.sql}`, w.params);
   const total = Number(totalRes.rows[0]?.count ?? 0);
-  const params: unknown[] = [p.limit, p.offset];
-  if (p.jobId) params.push(p.jobId);
+  const order = orderBy(EXECUTION_ORDER, p.sort, p.dir, { sort: "created", dir: "desc" }, "e.id");
+  const n = w.params.length;
   const { rows } = await query<ExecutionRow>(
-    `${SELECT_EXECUTION} ${where} GROUP BY e.id, j.method ORDER BY e.created_at DESC LIMIT $1 OFFSET $2`,
-    params,
+    `${SELECT_EXECUTION} ${w.sql} GROUP BY e.id, j.method ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
+    [...w.params, p.limit, p.offset],
   );
   return { items: rows.map(toExecutionDto), total };
 }

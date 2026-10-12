@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import { AUTH_TYPES, USER_SORTS } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
-import { paginationSchema } from "../../lib/pagination.js";
+import { boolParam, listQuerySchema } from "../../lib/list-query.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./users.service.js";
 
@@ -28,9 +29,15 @@ const updateSchema = z.object({
   roleKeys: z.array(z.string()).optional(),
 });
 
+const userListSchema = listQuerySchema(USER_SORTS).extend({
+  role: z.string().trim().max(60).optional().transform((v) => v || undefined),
+  authType: z.enum(AUTH_TYPES).optional(),
+  active: boolParam,
+});
+
 usersRouter.get("/", authorize("users:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listUsers(paginationSchema.parse(req.query)));
+    ok(res, await service.listUsers(userListSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

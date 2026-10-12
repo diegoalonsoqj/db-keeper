@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { AUDIT_SORTS, SORT_DIRS } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { listAudit } from "./audit.service.js";
@@ -15,6 +16,8 @@ const querySchema = z.object({
   username: z.string().max(255).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  sort: z.enum(AUDIT_SORTS).optional(),
+  dir: z.enum(SORT_DIRS).optional(),
 });
 
 auditRouter.get("/", authorize("audit:read"), async (req, res, next) => {

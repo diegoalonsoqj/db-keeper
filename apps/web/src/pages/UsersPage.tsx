@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, type Paginated, type RoleDto, type UserDto } from "@dbkeeper/shared";
+import { AUTH_TYPES, type Paginated, type RoleDto, type UserDto, type UserSort } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+import { ListToolbar } from "../components/ListToolbar";
+import { SortTh } from "../components/SortTh";
+import { useListParams } from "../lib/useListParams";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
@@ -44,12 +47,15 @@ export function UsersPage() {
 
   const [data, setData] = useState<Paginated<UserDto>>({ items: [], total: 0 });
   const [roles, setRoles] = useState<RoleDto[]>([]);
-  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
+  const list = useListParams<"role" | "authType" | "active", UserSort>({
+    filters: ["role", "authType", "active"],
+    defaultSort: { key: "username", dir: "asc" },
+  });
   const [form, setForm] = useState<FormState | null>(null);
 
   async function reload() {
     const [u, r] = await Promise.all([
-      api.get<Paginated<UserDto>>(`/users?limit=${page.limit}&offset=${page.offset}`),
+      api.get<Paginated<UserDto>>(`/users?${list.apiQuery}`),
       api.get<RoleDto[]>("/roles"),
     ]);
     setData(u);
@@ -59,7 +65,7 @@ export function UsersPage() {
   useEffect(() => {
     reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [list.apiQuery]);
 
   function startCreate() {
     setForm({ ...emptyForm });
@@ -130,19 +136,65 @@ export function UsersPage() {
         {canWrite && <button onClick={startCreate}>{t("users.new")}</button>}
       </div>
 
+      <ListToolbar
+        search={list.q}
+        onSearch={(q) => list.update({ q })}
+        searchPlaceholder={t("users.searchPlaceholder")}
+        hasFilters={list.hasFilters}
+        onClear={list.clear}
+      >
+        <label>
+          {t("users.roles")}
+          <select value={list.filters.role} onChange={(e) => list.update({ role: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {roles.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("users.authType")}
+          <select value={list.filters.authType} onChange={(e) => list.update({ authType: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {AUTH_TYPES.map((a) => (
+              <option key={a} value={a}>
+                {a === "ad" ? t("users.ad") : t("users.local")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("users.status")}
+          <select value={list.filters.active} onChange={(e) => list.update({ active: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            <option value="true">{t("common.active")}</option>
+            <option value="false">{t("common.inactive")}</option>
+          </select>
+        </label>
+      </ListToolbar>
+
       <div className="table-wrap">
         <table className="grid">
         <thead>
           <tr>
-            <th>{t("users.username")}</th>
-            <th>{t("users.fullName")}</th>
-            <th>{t("users.authType")}</th>
+            <SortTh sortKey="username" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("users.username")}</SortTh>
+            <SortTh sortKey="fullName" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("users.fullName")}</SortTh>
+            <SortTh sortKey="authType" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("users.authType")}</SortTh>
             <th>{t("users.roles")}</th>
-            <th>{t("users.status")}</th>
+            <SortTh sortKey="status" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("users.status")}</SortTh>
             {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
           </tr>
         </thead>
         <tbody>
+          {data.items.length === 0 && (
+            <tr>
+              <td colSpan={canWrite || canDelete ? 6 : 5} className="muted">
+                {list.hasFilters ? t("list.noResults") : t("list.empty")}
+              </td>
+            </tr>
+          )}
           {data.items.map((u) => (
             <tr key={u.id}>
               <td>{u.username}</td>
@@ -169,7 +221,7 @@ export function UsersPage() {
         </tbody>
         </table>
       </div>
-      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+      <Pagination total={data.total} limit={list.limit} offset={list.offset} onChange={list.setPage} />
 
       {form && (
         <Modal

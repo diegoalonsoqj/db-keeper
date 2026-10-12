@@ -94,7 +94,8 @@
     "lastLogin": "Último ingreso",
     "created": "Usuario creado",
     "updated": "Usuario actualizado",
-    "deleted": "Usuario eliminado"
+    "deleted": "Usuario eliminado",
+    "searchPlaceholder": "Usuario, nombre o correo"
   },
   "roles": {
     "title": "Roles y permisos",
@@ -117,9 +118,7 @@
     "ip": "IP",
     "empty": "Sin registros",
     "from": "Desde",
-    "to": "Hasta",
-    "apply": "Aplicar",
-    "clear": "Limpiar"
+    "to": "Hasta"
   },
   "pagination": {
     "perPage": "Por página",
@@ -218,7 +217,11 @@
     "maxHoursHint": "Vacío = 12 h. Tope: {{max}} h (Configuración → Backups). Al superarlo se detiene el dump y se libera el disco.",
     "stderrIgnore": "Ignorar en la consola",
     "stderrIgnoreHint": "Una línea por patrón (texto literal). Las líneas de pg_dump que lo contengan no se muestran ni se guardan. Máx. {{lines}} líneas de {{len}} caracteres.",
-    "excludeEventTriggersParallelHint": "Con dump paralelo los event triggers no se pueden quitar del dump: se marcan como omitidos en restore.list y se restaura con pg_restore -L restore.list."
+    "excludeEventTriggersParallelHint": "Con dump paralelo los event triggers no se pueden quitar del dump: se marcan como omitidos en restore.list y se restaura con pg_restore -L restore.list.",
+    "searchPlaceholder": "Nombre del evento",
+    "scheduleFilter": "Programación",
+    "scheduled": "Programado",
+    "manualOnly": "Solo manual"
   },
   "schedule": {
     "title": "Programar",
@@ -296,7 +299,8 @@
     "cancelRequested": "Cancelación solicitada",
     "copyDirCommand": "Copiar comando para descargar la carpeta",
     "dirCommandCopied": "Comando de gcloud copiado",
-    "verifyHelpDir": "Backup en carpeta: se relee manifest.json (su huella debe coincidir) y se compara el tamaño y CRC32C de cada archivo en el bucket, sin descargar los datos."
+    "verifyHelpDir": "Backup en carpeta: se relee manifest.json (su huella debe coincidir) y se compara el tamaño y CRC32C de cada archivo en el bucket, sin descargar los datos.",
+    "searchPlaceholder": "Evento o código (#3F2504E0)"
   },
   "servers": {
     "title": "Instancias",
@@ -341,7 +345,11 @@
     "connSrvDefaults": "En SRV se usa TLS y, si no indicas readPreference, {{readPreference}} (lee de un secundario para no cargar el primario).",
     "platform": "Plataforma",
     "platformSelf": "PostgreSQL (autogestionado)",
-    "platformAlloyDbHint": "AlloyDB: al crear un evento se sugiere el dump paralelo con su filtro de ruido."
+    "platformAlloyDbHint": "AlloyDB: al crear un evento se sugiere el dump paralelo con su filtro de ruido.",
+    "searchPlaceholder": "Nombre, host o instancia",
+    "platform_standard": "Autogestionada",
+    "platform_cloudsql": "Cloud SQL",
+    "platform_alloydb": "AlloyDB"
   },
   "environments": {
     "intro": "Catálogo de ambientes disponibles para clasificar instancias (se usa en el nombre del backup).",
@@ -373,7 +381,8 @@
     "extraPlaceholder": "{ \"type\": \"service_account\", ... }",
     "extraHint": "Opcional. JSON cifrado (p. ej. clave de servicio GCP).",
     "extraHintKeep": "Hay datos extra guardados. Déjalo vacío para conservarlos.",
-    "extraInvalid": "El JSON de datos extra no es válido."
+    "extraInvalid": "El JSON de datos extra no es válido.",
+    "searchPlaceholder": "Nombre o usuario"
   },
   "storage": {
     "intro": "Destinos de almacenamiento para los backups: carpeta local o bucket en la nube. Marca uno por defecto de cada tipo.",
@@ -559,5 +568,14 @@
     "scratch_uploadConcurrencyHint": "Archivos del dump que se suben a la vez. Más acelera la subida pero usa más red y memoria.",
     "scratchTest": "Probar configuración",
     "scratchTesting": "Probando…"
+  },
+  "list": {
+    "search": "Buscar",
+    "clear": "Limpiar",
+    "all": "Todos",
+    "noResults": "Sin resultados para la búsqueda o los filtros.",
+    "empty": "Sin registros",
+    "from": "Desde",
+    "to": "Hasta"
   }
 }

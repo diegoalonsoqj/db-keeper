@@ -2,11 +2,14 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import {
-  DEFAULT_PAGE_SIZE,
+  EXECUTION_ORIGINS,
+  EXECUTION_STATES,
   executionCode,
   isDirectoryArtifact,
   PGDIR_MANIFEST,
+  type BackupJobDto,
   type ExecutionDto,
+  type ExecutionSort,
   type ExecutionItemDto,
   type Paginated,
   type VerifyMode,
@@ -21,6 +24,9 @@ import { useConfirm } from "../components/ConfirmDialog";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Pagination } from "../components/Pagination";
+import { ListToolbar } from "../components/ListToolbar";
+import { SortTh } from "../components/SortTh";
+import { useListParams } from "../lib/useListParams";
 
 /** Modal con el log de una BD: streamea en vivo mientras corre y hace auto-scroll. */
 function LogModal({
@@ -178,7 +184,12 @@ export function ExecutionsPage() {
   const environments = useEnvironments();
   const toast = useToast();
   const [data, setData] = useState<Paginated<ExecutionDto>>({ items: [], total: 0 });
-  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
+  const list = useListParams<"status" | "origin" | "environment" | "jobId" | "from" | "to", ExecutionSort>({
+    filters: ["status", "origin", "environment", "jobId", "from", "to"],
+    dateFilters: ["from", "to"],
+    defaultSort: { key: "created", dir: "desc" },
+  });
+  const [jobs, setJobs] = useState<BackupJobDto[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Si el stream SSE está conectado, no hace falta sondear; si cae, se reactiva.
   const [streamOn, setStreamOn] = useState(false);
@@ -195,14 +206,22 @@ export function ExecutionsPage() {
 
   const load = useCallback(() => {
     return api
-      .get<Paginated<ExecutionDto>>(`/backups/executions?limit=${page.limit}&offset=${page.offset}`)
+      .get<Paginated<ExecutionDto>>(`/backups/executions?${list.apiQuery}`)
       .then(setData)
       .catch((e) => toast.error(errMsg(e)));
-  }, [page, toast]);
+  }, [list.apiQuery, toast]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Opciones del filtro de evento.
+  useEffect(() => {
+    api
+      .get<Paginated<BackupJobDto>>("/backups?limit=100")
+      .then((r) => setJobs(r.items))
+      .catch(() => {});
+  }, []);
 
   // Progreso en vivo por SSE: reemplaza el snapshot de la ejecución que cambió.
   const itemsRef = useRef(data.items);
@@ -212,7 +231,7 @@ export function ExecutionsPage() {
       const exists = itemsRef.current.some((e) => e.id === execution.id);
       if (!exists) {
         // Ejecución nueva (p. ej. recién lanzada): refrescar la primera página.
-        if (page.offset === 0) void load();
+        if (list.offset === 0) void load();
         return;
       }
       setData((prev) => ({
@@ -220,7 +239,7 @@ export function ExecutionsPage() {
         items: prev.items.map((e) => (e.id === execution.id ? execution : e)),
       }));
     },
-    [load, page.offset],
+    [load, list.offset],
   );
   const onLog = useCallback(({ executionId, dbName, lines }: { executionId: string; dbName: string; lines: string[] }) => {
     const key = `${executionId}::${dbName}`;
@@ -383,19 +402,80 @@ export function ExecutionsPage() {
         <p className="page-desc muted">{t("executions.intro")}</p>
       </div>
 
+      <ListToolbar
+        search={list.q}
+        onSearch={(q) => list.update({ q })}
+        searchPlaceholder={t("executions.searchPlaceholder")}
+        hasFilters={list.hasFilters}
+        onClear={list.clear}
+      >
+        <label>
+          {t("executions.status")}
+          <select value={list.filters.status} onChange={(e) => list.update({ status: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {EXECUTION_STATES.map((st) => (
+              <option key={st} value={st}>
+                {t(`status.${st}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("executions.origin")}
+          <select value={list.filters.origin} onChange={(e) => list.update({ origin: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {EXECUTION_ORIGINS.map((o) => (
+              <option key={o} value={o}>
+                {t(`executions.origin_${o}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("executions.environment")}
+          <select value={list.filters.environment} onChange={(e) => list.update({ environment: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {environments.map((en) => (
+              <option key={en.code} value={en.code}>
+                {en.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("executions.event")}
+          <select value={list.filters.jobId} onChange={(e) => list.update({ jobId: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {jobs.map((j) => (
+              <option key={j.id} value={j.id}>
+                {j.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("list.from")}
+          <input type="date" value={list.filters.from} max={list.filters.to || undefined} onChange={(e) => list.update({ from: e.target.value })} />
+        </label>
+        <label>
+          {t("list.to")}
+          <input type="date" value={list.filters.to} min={list.filters.from || undefined} onChange={(e) => list.update({ to: e.target.value })} />
+        </label>
+      </ListToolbar>
+
       <div className="table-wrap">
         <table className="grid">
           <thead>
             <tr>
-              <th>{t("executions.event")}</th>
-              <th>{t("executions.status")}</th>
+              <SortTh sortKey="label" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("executions.event")}</SortTh>
+              <SortTh sortKey="status" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("executions.status")}</SortTh>
               <th>{t("executions.origin")}</th>
-              <th>{t("executions.environment")}</th>
-              <th>{t("executions.databases")}</th>
-              <th>{t("executions.created")}</th>
-              <th>{t("executions.finished")}</th>
-              <th>{t("executions.duration")}</th>
-              <th>{t("executions.size")}</th>
+              <SortTh sortKey="environment" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("executions.environment")}</SortTh>
+              <SortTh sortKey="databases" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort} firstDir="desc">{t("executions.databases")}</SortTh>
+              <SortTh sortKey="created" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort} firstDir="desc">{t("executions.created")}</SortTh>
+              <SortTh sortKey="finished" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort} firstDir="desc">{t("executions.finished")}</SortTh>
+              <SortTh sortKey="duration" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort} firstDir="desc">{t("executions.duration")}</SortTh>
+              <SortTh sortKey="size" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort} firstDir="desc">{t("executions.size")}</SortTh>
               <th>{t("common.actions")}</th>
             </tr>
           </thead>
@@ -403,7 +483,7 @@ export function ExecutionsPage() {
             {data.items.length === 0 && (
               <tr>
                 <td colSpan={COLS} className="muted">
-                  {t("executions.empty")}
+                  {list.hasFilters ? t("list.noResults") : t("executions.empty")}
                 </td>
               </tr>
             )}
@@ -545,7 +625,7 @@ export function ExecutionsPage() {
           </tbody>
         </table>
       </div>
-      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+      <Pagination total={data.total} limit={list.limit} offset={list.offset} onChange={list.setPage} />
 
       {logFor &&
         (() => {

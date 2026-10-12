@@ -143,7 +143,7 @@ function cleanDatabases(names: string[]): string[] {
     .filter((n) => n && !seen.has(n.toLowerCase()) && seen.add(n.toLowerCase()));
 }
 
-export async function listJobs(p: { limit: number; offset: number }) {
+export async function listJobs(p: repo.JobListQuery) {
   return repo.listJobs(p);
 }
 
@@ -248,7 +248,7 @@ export async function runNow(jobId: string): Promise<ExecutionDto> {
   return exec;
 }
 
-export async function listExecutions(p: { limit: number; offset: number; jobId?: string }) {
+export async function listExecutions(p: repo.ExecutionListQuery) {
   return repo.listExecutions(p);
 }
 

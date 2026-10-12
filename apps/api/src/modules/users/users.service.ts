@@ -9,7 +9,7 @@ function toDto(u: repo.UserWithSecret): UserDto {
   return dto;
 }
 
-export async function listUsers(p: { limit: number; offset: number }): Promise<Paginated<UserDto>> {
+export async function listUsers(p: repo.UserListQuery): Promise<Paginated<UserDto>> {
   const { items, total } = await repo.listUsers(p);
   return { items: items.map(toDto), total };
 }

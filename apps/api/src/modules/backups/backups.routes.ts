@@ -1,9 +1,17 @@
 import { Router } from "express";
 import { z } from "zod";
-import { BACKUP_METHODS, SCHEDULE_MODES, VERIFY_MODES } from "@dbkeeper/shared";
+import {
+  BACKUP_METHODS,
+  EXECUTION_ORIGINS,
+  EXECUTION_SORTS,
+  EXECUTION_STATES,
+  JOB_SORTS,
+  SCHEDULE_MODES,
+  VERIFY_MODES,
+} from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
-import { paginationSchema } from "../../lib/pagination.js";
+import { boolParam, listQuerySchema, textParam } from "../../lib/list-query.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./backups.service.js";
 import * as schedules from "./schedules.service.js";
@@ -38,12 +46,27 @@ const updateSchema = z.object({
   databases: z.array(z.string().min(1).max(255)).min(1).max(2000).optional(),
 });
 
+const executionListSchema = listQuerySchema(EXECUTION_SORTS).extend({
+  jobId: z.string().uuid().optional(),
+  status: z.enum(EXECUTION_STATES).optional(),
+  origin: z.enum(EXECUTION_ORIGINS).optional(),
+  environment: textParam,
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
+const jobListSchema = listQuerySchema(JOB_SORTS).extend({
+  serverId: z.string().uuid().optional(),
+  method: z.enum(BACKUP_METHODS).optional(),
+  environment: textParam,
+  scheduled: boolParam,
+  active: boolParam,
+});
+
 // Las ejecuciones se listan antes de "/:id" para que no las capture el parámetro.
 backupsRouter.get("/executions", authorize("backups:read"), async (req, res, next) => {
   try {
-    const p = paginationSchema.parse(req.query);
-    const jobId = z.string().uuid().optional().parse(req.query.jobId);
-    ok(res, await service.listExecutions({ ...p, jobId }));
+    ok(res, await service.listExecutions(executionListSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }
@@ -204,7 +227,7 @@ backupsRouter.delete("/:id/schedule", authorize("backups:schedule"), async (req,
 
 backupsRouter.get("/", authorize("backups:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listJobs(paginationSchema.parse(req.query)));
+    ok(res, await service.listJobs(jobListSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

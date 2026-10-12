@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarClock, Pencil, Play, Trash2 } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, type BackupJobDto, type Paginated } from "@dbkeeper/shared";
+import { BACKUP_METHODS, type BackupJobDto, type JobSort, type Paginated, type ServerDto } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useEnvironments, environmentLabel } from "../lib/environments";
 import { useStorageTargets, defaultLocalTarget } from "../lib/storage";
@@ -10,6 +10,9 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Pagination } from "../components/Pagination";
+import { ListToolbar } from "../components/ListToolbar";
+import { SortTh } from "../components/SortTh";
+import { useListParams } from "../lib/useListParams";
 import { BackupJobModal } from "../components/BackupJobModal";
 import { ScheduleModal } from "../components/ScheduleModal";
 
@@ -27,17 +30,29 @@ export function BackupsPage() {
   const confirm = useConfirm();
 
   const [data, setData] = useState<Paginated<BackupJobDto>>({ items: [], total: 0 });
-  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
+  const list = useListParams<"serverId" | "method" | "environment" | "scheduled" | "active", JobSort>({
+    filters: ["serverId", "method", "environment", "scheduled", "active"],
+    defaultSort: { key: "name", dir: "asc" },
+  });
+  const [servers, setServers] = useState<ServerDto[]>([]);
   const [modal, setModal] = useState<{ job: BackupJobDto | null } | null>(null);
   const [scheduleJob, setScheduleJob] = useState<BackupJobDto | null>(null);
 
   async function reload() {
-    setData(await api.get<Paginated<BackupJobDto>>(`/backups?limit=${page.limit}&offset=${page.offset}`));
+    setData(await api.get<Paginated<BackupJobDto>>(`/backups?${list.apiQuery}`));
   }
   useEffect(() => {
     reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [list.apiQuery]);
+
+  // Opciones del filtro de instancia (sin permiso de instancias, el filtro queda vacío).
+  useEffect(() => {
+    api
+      .get<Paginated<ServerDto>>("/servers?limit=100")
+      .then((r) => setServers(r.items))
+      .catch(() => {});
+  }, []);
 
   async function run(job: BackupJobDto) {
     try {
@@ -66,21 +81,86 @@ export function BackupsPage() {
         {canManage && <button onClick={() => setModal({ job: null })}>{t("backups.new")}</button>}
       </div>
 
+      <ListToolbar
+        search={list.q}
+        onSearch={(q) => list.update({ q })}
+        searchPlaceholder={t("backups.searchPlaceholder")}
+        hasFilters={list.hasFilters}
+        onClear={list.clear}
+      >
+        <label>
+          {t("backups.server")}
+          <select value={list.filters.serverId} onChange={(e) => list.update({ serverId: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {servers.map((sv) => (
+              <option key={sv.id} value={sv.id}>
+                {sv.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("backups.method")}
+          <select value={list.filters.method} onChange={(e) => list.update({ method: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {BACKUP_METHODS.map((m) => (
+              <option key={m} value={m}>
+                {t(METHOD_LABELS[m])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("backups.environment")}
+          <select value={list.filters.environment} onChange={(e) => list.update({ environment: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {environments.map((en) => (
+              <option key={en.code} value={en.code}>
+                {en.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("backups.scheduleFilter")}
+          <select value={list.filters.scheduled} onChange={(e) => list.update({ scheduled: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            <option value="true">{t("backups.scheduled")}</option>
+            <option value="false">{t("backups.manualOnly")}</option>
+          </select>
+        </label>
+        <label>
+          {t("backups.active")}
+          <select value={list.filters.active} onChange={(e) => list.update({ active: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            <option value="true">{t("common.active")}</option>
+            <option value="false">{t("common.inactive")}</option>
+          </select>
+        </label>
+      </ListToolbar>
+
       <div className="table-wrap">
         <table className="grid">
           <thead>
             <tr>
-              <th>{t("backups.name")}</th>
-              <th>{t("backups.server")}</th>
-              <th>{t("backups.environment")}</th>
-              <th>{t("backups.method")}</th>
+              <SortTh sortKey="name" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("backups.name")}</SortTh>
+              <SortTh sortKey="server" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("backups.server")}</SortTh>
+              <SortTh sortKey="environment" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("backups.environment")}</SortTh>
+              <SortTh sortKey="method" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("backups.method")}</SortTh>
               <th>{t("backups.databases")}</th>
-              <th>{t("backups.destination")}</th>
-              <th>{t("backups.active")}</th>
+              <SortTh sortKey="destination" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("backups.destination")}</SortTh>
+              <SortTh sortKey="active" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("backups.active")}</SortTh>
               <th>{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
+            {data.items.length === 0 && (
+              <tr>
+                <td colSpan={8} className="muted">
+                  {list.hasFilters ? t("list.noResults") : t("list.empty")}
+                </td>
+              </tr>
+            )}
             {data.items.map((j) => (
               <tr key={j.id}>
                 <td>{j.name}</td>
@@ -142,7 +222,7 @@ export function BackupsPage() {
           </tbody>
         </table>
       </div>
-      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+      <Pagination total={data.total} limit={list.limit} offset={list.offset} onChange={list.setPage} />
 
       {modal && (
         <BackupJobModal

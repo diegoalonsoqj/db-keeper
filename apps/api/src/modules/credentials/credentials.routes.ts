@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import { CREDENTIAL_SORTS } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
-import { paginationSchema } from "../../lib/pagination.js";
+import { listQuerySchema, textParam } from "../../lib/list-query.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as service from "./credentials.service.js";
 
@@ -30,9 +31,11 @@ const updateSchema = z.object({
   description: z.string().max(500).nullable().optional(),
 });
 
+const credentialListSchema = listQuerySchema(CREDENTIAL_SORTS).extend({ environment: textParam });
+
 credentialsRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listCredentials(paginationSchema.parse(req.query)));
+    ok(res, await service.listCredentials(credentialListSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
 import {
-  DEFAULT_PAGE_SIZE,
   type CredentialDto,
+  type CredentialSort,
   type EnvironmentDto,
   type Paginated,
 } from "@dbkeeper/shared";
@@ -17,6 +17,9 @@ import { useConfirm } from "../components/ConfirmDialog";
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+import { ListToolbar } from "../components/ListToolbar";
+import { SortTh } from "../components/SortTh";
+import { useListParams } from "../lib/useListParams";
 
 interface FormState {
   id: string | null;
@@ -50,12 +53,15 @@ export function CredentialsPage() {
 
   const [data, setData] = useState<Paginated<CredentialDto>>({ items: [], total: 0 });
   const [environments, setEnvironments] = useState<EnvironmentDto[]>([]);
-  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
+  const list = useListParams<"environment", CredentialSort>({
+    filters: ["environment"],
+    defaultSort: { key: "name", dir: "asc" },
+  });
   const [form, setForm] = useState<FormState | null>(null);
 
   async function reload() {
     const [creds, envs] = await Promise.all([
-      api.get<Paginated<CredentialDto>>(`/credentials?limit=${page.limit}&offset=${page.offset}`),
+      api.get<Paginated<CredentialDto>>(`/credentials?${list.apiQuery}`),
       api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
     ]);
     setData(creds);
@@ -64,7 +70,7 @@ export function CredentialsPage() {
   useEffect(() => {
     reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [list.apiQuery]);
 
   function startEdit(c: CredentialDto) {
     setForm({
@@ -135,19 +141,46 @@ export function CredentialsPage() {
         {canWrite && <button onClick={() => setForm({ ...emptyForm })}>{t("credentials.new")}</button>}
       </div>
 
+      <ListToolbar
+        search={list.q}
+        onSearch={(q) => list.update({ q })}
+        searchPlaceholder={t("credentials.searchPlaceholder")}
+        hasFilters={list.hasFilters}
+        onClear={list.clear}
+      >
+        <label>
+          {t("credentials.environment")}
+          <select value={list.filters.environment} onChange={(e) => list.update({ environment: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {environments.map((en) => (
+              <option key={en.code} value={en.code}>
+                {en.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </ListToolbar>
+
       <div className="table-wrap">
         <table className="grid">
         <thead>
           <tr>
-            <th>{t("credentials.name")}</th>
-            <th>{t("credentials.username")}</th>
-            <th>{t("credentials.environment")}</th>
-            <th>{t("credentials.description")}</th>
+            <SortTh sortKey="name" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("credentials.name")}</SortTh>
+            <SortTh sortKey="username" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("credentials.username")}</SortTh>
+            <SortTh sortKey="environment" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("credentials.environment")}</SortTh>
+            <SortTh sortKey="description" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("credentials.description")}</SortTh>
             <th>{t("credentials.extra")}</th>
             {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
           </tr>
         </thead>
         <tbody>
+          {data.items.length === 0 && (
+            <tr>
+              <td colSpan={canWrite || canDelete ? 6 : 5} className="muted">
+                {list.hasFilters ? t("list.noResults") : t("list.empty")}
+              </td>
+            </tr>
+          )}
           {data.items.map((c) => (
             <tr key={c.id}>
               <td>{c.name}</td>
@@ -174,7 +207,7 @@ export function CredentialsPage() {
         </tbody>
         </table>
       </div>
-      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+      <Pagination total={data.total} limit={list.limit} offset={list.offset} onChange={list.setPage} />
 
       {form && (
         <Modal

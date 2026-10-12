@@ -94,7 +94,8 @@
     "lastLogin": "Last login",
     "created": "User created",
     "updated": "User updated",
-    "deleted": "User deleted"
+    "deleted": "User deleted",
+    "searchPlaceholder": "User, name or email"
   },
   "roles": {
     "title": "Roles & permissions",
@@ -117,9 +118,7 @@
     "ip": "IP",
     "empty": "No records",
     "from": "From",
-    "to": "To",
-    "apply": "Apply",
-    "clear": "Clear"
+    "to": "To"
   },
   "pagination": {
     "perPage": "Per page",
@@ -218,7 +217,11 @@
     "maxHoursHint": "Empty = 12 h. Cap: {{max}} h (Settings → Backups). When exceeded the dump stops and the disk is released.",
     "stderrIgnore": "Ignore in the console",
     "stderrIgnoreHint": "One pattern per line (literal text). pg_dump lines containing it are neither shown nor stored. Max {{lines}} lines of {{len}} characters.",
-    "excludeEventTriggersParallelHint": "With the parallel dump, event triggers cannot be removed from the dump: they are marked as skipped in restore.list; restore with pg_restore -L restore.list."
+    "excludeEventTriggersParallelHint": "With the parallel dump, event triggers cannot be removed from the dump: they are marked as skipped in restore.list; restore with pg_restore -L restore.list.",
+    "searchPlaceholder": "Event name",
+    "scheduleFilter": "Schedule",
+    "scheduled": "Scheduled",
+    "manualOnly": "Manual only"
   },
   "schedule": {
     "title": "Schedule",
@@ -296,7 +299,8 @@
     "cancelRequested": "Cancellation requested",
     "copyDirCommand": "Copy command to download the folder",
     "dirCommandCopied": "gcloud command copied",
-    "verifyHelpDir": "Folder backup: manifest.json is re-read (its fingerprint must match) and each file size and CRC32C in the bucket is compared, without downloading the data."
+    "verifyHelpDir": "Folder backup: manifest.json is re-read (its fingerprint must match) and each file size and CRC32C in the bucket is compared, without downloading the data.",
+    "searchPlaceholder": "Event or code (#3F2504E0)"
   },
   "servers": {
     "title": "Instances",
@@ -341,7 +345,11 @@
     "connSrvDefaults": "SRV uses TLS and, unless you set readPreference, {{readPreference}} (reads from a secondary to spare the primary).",
     "platform": "Platform",
     "platformSelf": "PostgreSQL (self-managed)",
-    "platformAlloyDbHint": "AlloyDB: new events suggest the parallel dump with its noise filter."
+    "platformAlloyDbHint": "AlloyDB: new events suggest the parallel dump with its noise filter.",
+    "searchPlaceholder": "Name, host or instance",
+    "platform_standard": "Self-managed",
+    "platform_cloudsql": "Cloud SQL",
+    "platform_alloydb": "AlloyDB"
   },
   "environments": {
     "intro": "Catalog of environments to classify instances (used in the backup file name).",
@@ -373,7 +381,8 @@
     "extraPlaceholder": "{ \"type\": \"service_account\", ... }",
     "extraHint": "Optional. Encrypted JSON (e.g. GCP service account key).",
     "extraHintKeep": "Extra data is stored. Leave empty to keep it.",
-    "extraInvalid": "Extra data JSON is not valid."
+    "extraInvalid": "Extra data JSON is not valid.",
+    "searchPlaceholder": "Name or user"
   },
   "storage": {
     "intro": "Storage targets for backups: a local folder or a cloud bucket. Mark one default per type.",
@@ -559,5 +568,14 @@
     "scratch_uploadConcurrencyHint": "Dump files uploaded at the same time. More speeds up the upload but uses more network and memory.",
     "scratchTest": "Test configuration",
     "scratchTesting": "Testing…"
+  },
+  "list": {
+    "search": "Search",
+    "clear": "Clear",
+    "all": "All",
+    "noResults": "No results for the search or filters.",
+    "empty": "No records",
+    "from": "From",
+    "to": "To"
   }
 }

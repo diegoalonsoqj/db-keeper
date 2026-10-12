@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { DB_ENGINES, validateMongoOption } from "@dbkeeper/shared";
+import { DB_ENGINES, SERVER_PLATFORMS, SERVER_SORTS, validateMongoOption } from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
-import { paginationSchema } from "../../lib/pagination.js";
+import { listQuerySchema, textParam } from "../../lib/list-query.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { databasesRouter } from "../databases/databases.routes.js";
 import * as service from "./servers.service.js";
@@ -67,9 +67,15 @@ const updateSchema = z.object({
   credentialId: serverFields.credentialId,
 });
 
+const serverListSchema = listQuerySchema(SERVER_SORTS).extend({
+  engine: z.enum(DB_ENGINES).optional(),
+  platform: z.enum(SERVER_PLATFORMS).optional(),
+  environment: textParam,
+});
+
 serversRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   try {
-    ok(res, await service.listServers(paginationSchema.parse(req.query)));
+    ok(res, await service.listServers(serverListSchema.parse(req.query)));
   } catch (err) {
     next(err);
   }

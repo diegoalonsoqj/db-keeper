@@ -1,90 +1,100 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DEFAULT_PAGE_SIZE, type AuditEntryDto, type Paginated } from "@dbkeeper/shared";
+import { type AuditEntryDto, type AuditSort, type Paginated } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
+import { DebouncedInput, ListToolbar } from "../components/ListToolbar";
+import { SortTh } from "../components/SortTh";
+import { useListParams } from "../lib/useListParams";
 
-const EMPTY_FILTERS = { from: "", to: "", action: "", entityType: "", username: "" };
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 export function AuditPage() {
   const { t, i18n } = useTranslation();
   const toast = useToast();
   const [data, setData] = useState<Paginated<AuditEntryDto>>({ items: [], total: 0 });
-  const [filters, setFilters] = useState(EMPTY_FILTERS); // borrador (inputs)
-  const [applied, setApplied] = useState(EMPTY_FILTERS); // filtros en uso
-  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
+  const list = useListParams<"from" | "to" | "action" | "entityType" | "username", AuditSort>({
+    filters: ["from", "to", "action", "entityType", "username"],
+    dateFilters: ["from", "to"],
+    defaultSort: { key: "created", dir: "desc" },
+  });
 
   useEffect(() => {
-    const qs = new URLSearchParams({ limit: String(page.limit), offset: String(page.offset) });
-    for (const [k, v] of Object.entries(applied)) if (v) qs.set(k, v);
     api
-      .get<Paginated<AuditEntryDto>>(`/audit?${qs.toString()}`)
+      .get<Paginated<AuditEntryDto>>(`/audit?${list.apiQuery}`)
       .then(setData)
       .catch((e) => toast.error(errMsg(e)));
-  }, [applied, page, toast]);
-
-  function apply() {
-    setApplied(filters);
-    setPage((p) => ({ ...p, offset: 0 }));
-  }
-  function clear() {
-    setFilters(EMPTY_FILTERS);
-    setApplied(EMPTY_FILTERS);
-    setPage((p) => ({ ...p, offset: 0 }));
-  }
+  }, [list.apiQuery, toast]);
 
   const fmt = (iso: string) => new Date(iso).toLocaleString(i18n.language);
-  const set = (k: keyof typeof filters) => (e: { target: { value: string } }) =>
-    setFilters({ ...filters, [k]: e.target.value });
+  const sth = { sort: list.sort, dir: list.sortDir, onSort: list.toggleSort };
 
   return (
     <section>
-
-      <div className="filters">
+      <ListToolbar hasFilters={list.hasFilters} onClear={list.clear}>
         <label>
           {t("audit.from")}
-          <input type="date" value={filters.from} onChange={set("from")} />
+          <input
+            type="date"
+            value={list.filters.from}
+            max={list.filters.to || undefined}
+            onChange={(e) => list.update({ from: e.target.value })}
+          />
         </label>
         <label>
           {t("audit.to")}
-          <input type="date" value={filters.to} onChange={set("to")} />
+          <input
+            type="date"
+            value={list.filters.to}
+            min={list.filters.from || undefined}
+            onChange={(e) => list.update({ to: e.target.value })}
+          />
         </label>
         <label>
           {t("audit.action")}
-          <input value={filters.action} onChange={set("action")} placeholder="servers.create" />
+          <DebouncedInput value={list.filters.action} onCommit={(action) => list.update({ action })} placeholder="servers.create" />
         </label>
         <label>
           {t("audit.entity")}
-          <input value={filters.entityType} onChange={set("entityType")} placeholder="server" />
+          <DebouncedInput
+            value={list.filters.entityType}
+            onCommit={(entityType) => list.update({ entityType })}
+            placeholder="server"
+          />
         </label>
         <label>
           {t("audit.user")}
-          <input value={filters.username} onChange={set("username")} />
+          <DebouncedInput value={list.filters.username} onCommit={(username) => list.update({ username })} />
         </label>
-        <button onClick={apply}>{t("audit.apply")}</button>
-        <button className="secondary" onClick={clear}>
-          {t("audit.clear")}
-        </button>
-      </div>
+      </ListToolbar>
 
       <div className="table-wrap">
         <table className="grid">
           <thead>
             <tr>
-              <th>{t("audit.when")}</th>
-              <th>{t("audit.user")}</th>
-              <th>{t("audit.action")}</th>
-              <th>{t("audit.entity")}</th>
-              <th>{t("audit.ip")}</th>
+              <SortTh sortKey="created" firstDir="desc" {...sth}>
+                {t("audit.when")}
+              </SortTh>
+              <SortTh sortKey="username" {...sth}>
+                {t("audit.user")}
+              </SortTh>
+              <SortTh sortKey="action" {...sth}>
+                {t("audit.action")}
+              </SortTh>
+              <SortTh sortKey="entity" {...sth}>
+                {t("audit.entity")}
+              </SortTh>
+              <SortTh sortKey="ip" {...sth}>
+                {t("audit.ip")}
+              </SortTh>
             </tr>
           </thead>
           <tbody>
             {data.items.length === 0 && (
               <tr>
                 <td colSpan={5} className="muted">
-                  {t("audit.empty")}
+                  {list.hasFilters ? t("list.noResults") : t("audit.empty")}
                 </td>
               </tr>
             )}
@@ -102,7 +112,7 @@ export function AuditPage() {
           </tbody>
         </table>
       </div>
-      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+      <Pagination total={data.total} limit={list.limit} offset={list.offset} onChange={list.setPage} />
     </section>
   );
 }

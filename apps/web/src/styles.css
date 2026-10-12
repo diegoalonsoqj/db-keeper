@@ -656,6 +656,43 @@ pre.log.log-modal {
 .filters select {
   font-size: 0.85rem;
 }
+/* Barra común de listados: buscador más ancho que los filtros. */
+.list-toolbar .list-search {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+}
+.list-toolbar .list-search input {
+  width: 100%;
+}
+
+/* Encabezado ordenable: botón con el aspecto del th. */
+.sort-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+.sort-btn:hover,
+.sort-btn.active {
+  color: var(--text, inherit);
+}
+.sort-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.sort-icon {
+  font-size: 0.7em;
+  opacity: 0.45;
+}
+.sort-btn.active .sort-icon {
+  opacity: 1;
+  color: var(--accent);
+}
 .center {
   text-align: center;
 }

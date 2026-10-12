@@ -1,5 +1,6 @@
-import type { AuditEntryDto } from "@dbkeeper/shared";
+import type { AuditEntryDto, AuditSort, SortDir } from "@dbkeeper/shared";
 import { query } from "../../db/pool.js";
+import { escapeLike, orderBy } from "../../lib/list-query.js";
 
 interface AuditRow {
   id: string;
@@ -50,7 +51,17 @@ export interface AuditQuery {
   username?: string;
   from?: Date;
   to?: Date;
+  sort?: AuditSort;
+  dir?: SortDir;
 }
+
+const AUDIT_ORDER: Record<AuditSort, string> = {
+  created: "created_at",
+  username: "lower(username)",
+  action: "action",
+  entity: "entity_type",
+  ip: "ip",
+};
 
 export async function listAudit(
   q: AuditQuery,
@@ -60,7 +71,7 @@ export async function listAudit(
   let i = 1;
   if (q.action) (where.push(`action = $${i++}`), params.push(q.action));
   if (q.entityType) (where.push(`entity_type = $${i++}`), params.push(q.entityType));
-  if (q.username) (where.push(`username ILIKE $${i++}`), params.push(`%${q.username}%`));
+  if (q.username) (where.push(`username ILIKE $${i++}`), params.push(`%${escapeLike(q.username)}%`));
   if (q.from) (where.push(`created_at >= $${i++}`), params.push(q.from));
   // `to` se interpreta como día inclusivo: hasta el final de esa fecha.
   if (q.to) (where.push(`created_at < $${i++}::timestamptz + interval '1 day'`), params.push(q.to));
@@ -75,7 +86,7 @@ export async function listAudit(
   const { rows } = await query<AuditRow>(
     `SELECT id, user_id, username, action, entity_type, entity_id, ip, detail, created_at
      FROM audit.activity_log ${whereSql}
-     ORDER BY created_at DESC
+     ${orderBy(AUDIT_ORDER, q.sort, q.dir, { sort: "created", dir: "desc" }, "id")}
      LIMIT $${i++} OFFSET $${i}`,
     [...params, q.limit, q.offset],
   );

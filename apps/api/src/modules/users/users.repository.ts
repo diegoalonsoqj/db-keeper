@@ -1,5 +1,6 @@
-import type { AuthType, UiMode, UiPalette, UserDto } from "@dbkeeper/shared";
+import type { AuthType, SortDir, UiMode, UiPalette, UserDto, UserSort } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
+import { orderBy, SqlWhere } from "../../lib/list-query.js";
 
 /** Fila de auth.users tal como vive en la BD. */
 interface UserRow {
@@ -65,14 +66,43 @@ export async function findById(id: string): Promise<UserWithSecret | null> {
   return rows[0] ? toUser(rows[0]) : null;
 }
 
-export async function listUsers(p: {
+export interface UserListQuery {
   limit: number;
   offset: number;
-}): Promise<{ items: UserWithSecret[]; total: number }> {
-  const total = await countUsers();
+  /** Usuario, nombre o correo. */
+  q?: string;
+  /** Clave del rol. */
+  role?: string;
+  authType?: AuthType;
+  active?: boolean;
+  sort?: UserSort;
+  dir?: SortDir;
+}
+
+const USER_ORDER: Record<UserSort, string> = {
+  username: "lower(u.username)",
+  fullName: "lower(u.full_name)",
+  authType: "u.auth_type",
+  status: "u.is_active",
+};
+
+export async function listUsers(p: UserListQuery): Promise<{ items: UserWithSecret[]; total: number }> {
+  const w = new SqlWhere()
+    .eq("u.auth_type", p.authType)
+    .eq("u.is_active", p.active)
+    .search(["u.username", "u.full_name", "u.email"], p.q);
+  if (p.role) {
+    w.add(
+      `EXISTS (SELECT 1 FROM auth.user_roles fr JOIN auth.roles fro ON fro.id = fr.role_id WHERE fr.user_id = u.id AND fro.key = ${w.param(p.role)})`,
+    );
+  }
+  const totalRes = await query<{ count: string }>(`SELECT count(*)::text AS count FROM auth.users u ${w.sql}`, w.params);
+  const total = Number(totalRes.rows[0]?.count ?? 0);
+  const order = orderBy(USER_ORDER, p.sort, p.dir, { sort: "username", dir: "asc" }, "u.id");
+  const n = w.params.length;
   const { rows } = await query<UserRow>(
-    `${SELECT_USER} GROUP BY u.id ORDER BY u.username LIMIT $1 OFFSET $2`,
-    [p.limit, p.offset],
+    `${SELECT_USER} ${w.sql} GROUP BY u.id ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
+    [...w.params, p.limit, p.offset],
   );
   return { items: rows.map(toUser), total };
 }

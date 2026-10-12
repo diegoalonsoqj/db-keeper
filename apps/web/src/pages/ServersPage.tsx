@@ -3,12 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
 import {
   DB_ENGINES,
-  DEFAULT_PAGE_SIZE,
   DEFAULT_PORTS,
   MONGO_SRV_DEFAULT_READ_PREFERENCE,
   mongoOptionsFromText,
   mongoOptionsToText,
   parseMongoConnectionString,
+  SERVER_PLATFORMS,
+  type ServerSort,
   type CloudCredentialDto,
   type CloudSqlCheckDto,
   type CredentialDto,
@@ -27,6 +28,9 @@ import { useConfirm } from "../components/ConfirmDialog";
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
+import { ListToolbar } from "../components/ListToolbar";
+import { SortTh } from "../components/SortTh";
+import { useListParams } from "../lib/useListParams";
 
 interface FormState {
   id: string | null;
@@ -82,7 +86,10 @@ export function ServersPage() {
   // Resultado de "Probar Cloud SQL" (se limpia al abrir otro formulario).
   const [cloudCheck, setCloudCheck] = useState<CloudSqlCheckDto | null>(null);
   const [checking, setChecking] = useState(false);
-  const [page, setPage] = useState({ limit: DEFAULT_PAGE_SIZE, offset: 0 });
+  const list = useListParams<"engine" | "platform" | "environment", ServerSort>({
+    filters: ["engine", "platform", "environment"],
+    defaultSort: { key: "name", dir: "asc" },
+  });
   const [form, setForm] = useState<FormState | null>(null);
   // MongoDB: cadena pegada (transitoria: no se guarda) y aviso de lo aplicado.
   const [connString, setConnString] = useState("");
@@ -90,7 +97,7 @@ export function ServersPage() {
 
   async function reload() {
     const [srv, creds, envs, clouds] = await Promise.all([
-      api.get<Paginated<ServerDto>>(`/servers?limit=${page.limit}&offset=${page.offset}`),
+      api.get<Paginated<ServerDto>>(`/servers?${list.apiQuery}`),
       api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
       api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
       api.get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100"),
@@ -103,7 +110,7 @@ export function ServersPage() {
   useEffect(() => {
     reload().catch((e) => toast.error(errMsg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [list.apiQuery]);
 
   function startEdit(s: ServerDto) {
     setCloudCheck(null);
@@ -222,20 +229,69 @@ export function ServersPage() {
         {canWrite && <button onClick={() => { setCloudCheck(null); setConnString(""); setConnNotice(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
       </div>
 
+      <ListToolbar
+        search={list.q}
+        onSearch={(q) => list.update({ q })}
+        searchPlaceholder={t("servers.searchPlaceholder")}
+        hasFilters={list.hasFilters}
+        onClear={list.clear}
+      >
+        <label>
+          {t("servers.engine")}
+          <select value={list.filters.engine} onChange={(e) => list.update({ engine: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {DB_ENGINES.map((en) => (
+              <option key={en} value={en}>
+                {en}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("servers.platform")}
+          <select value={list.filters.platform} onChange={(e) => list.update({ platform: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {SERVER_PLATFORMS.map((p) => (
+              <option key={p} value={p}>
+                {t(`servers.platform_${p}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("servers.environment")}
+          <select value={list.filters.environment} onChange={(e) => list.update({ environment: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {environments.map((en) => (
+              <option key={en.code} value={en.code}>
+                {en.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </ListToolbar>
+
       <div className="table-wrap">
         <table className="grid">
         <thead>
           <tr>
-            <th>{t("servers.name")}</th>
-            <th>{t("servers.engine")}</th>
-            <th>{t("servers.host")}</th>
-            <th>{t("servers.port")}</th>
-            <th>{t("servers.environment")}</th>
-            <th>{t("servers.credential")}</th>
+            <SortTh sortKey="name" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("servers.name")}</SortTh>
+            <SortTh sortKey="engine" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("servers.engine")}</SortTh>
+            <SortTh sortKey="host" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("servers.host")}</SortTh>
+            <SortTh sortKey="port" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("servers.port")}</SortTh>
+            <SortTh sortKey="environment" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("servers.environment")}</SortTh>
+            <SortTh sortKey="credential" sort={list.sort} dir={list.sortDir} onSort={list.toggleSort}>{t("servers.credential")}</SortTh>
             {(canWrite || canDelete) && <th>{t("common.actions")}</th>}
           </tr>
         </thead>
         <tbody>
+          {data.items.length === 0 && (
+            <tr>
+              <td colSpan={canWrite || canDelete ? 7 : 6} className="muted">
+                {list.hasFilters ? t("list.noResults") : t("list.empty")}
+              </td>
+            </tr>
+          )}
           {data.items.map((s) => (
             <tr key={s.id}>
               <td>{s.name}</td>
@@ -263,7 +319,7 @@ export function ServersPage() {
         </tbody>
         </table>
       </div>
-      <Pagination total={data.total} limit={page.limit} offset={page.offset} onChange={setPage} />
+      <Pagination total={data.total} limit={list.limit} offset={list.offset} onChange={list.setPage} />
 
       {form && (
         <Modal

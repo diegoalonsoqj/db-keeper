@@ -3,6 +3,32 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 39] — Buscador, filtros y orden en los listados · 2026-10-11
+
+### Añadido
+- Barra común (`ListToolbar`) con buscador (se aplica al dejar de escribir), filtros
+  propios de cada tabla y "Limpiar"; orden por columna con clic en el encabezado
+  (`SortTh`). Todo se resuelve en la API (los listados están paginados) y queda en la
+  URL (`useListParams`): sobrevive a recargar y se puede compartir.
+  - **Ejecuciones**: evento o código `#XXXXXXXX`; estado, origen, ambiente, evento y
+    rango de fechas; orden por evento, estado, ambiente, BD, creada, finalizada,
+    duración y peso.
+  - **Eventos de backup**: nombre; instancia, método, ambiente, programado/solo manual,
+    activo.
+  - **Instancias**: nombre, host o instancia Cloud SQL; motor, plataforma
+    (autogestionada/Cloud SQL/AlloyDB), ambiente.
+  - **Credenciales**: nombre o usuario; ambiente.
+  - **Usuarios**: usuario, nombre o correo; rol, tipo (local/AD), estado.
+  - **Auditoría**: mismos filtros, ahora en la barra común (sin botón "Aplicar") y con
+    orden por columna.
+- API: `q`, `sort`, `dir` y filtros por listado, validados con Zod (las claves de orden
+  se traducen a expresiones SQL fijas) y siempre parametrizados; comodines de LIKE
+  escapados. Migración `0032`: índice `(status, created_at DESC)` en ejecuciones.
+
+### Corregido
+- Los filtros de fecha de Auditoría usan el día en la zona del navegador (antes, UTC).
+- El filtro de usuario de Auditoría escapa `%` y `_`.
+
 ## [Etapa 4 · parte 38] — Avisos agrupados por ejecución · 2026-10-11
 
 ### Cambiado
