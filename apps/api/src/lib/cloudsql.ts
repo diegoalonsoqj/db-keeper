@@ -1,4 +1,5 @@
 import { GoogleAuth } from "google-auth-library";
+import { describeGcpError } from "./gcp-error.js";
 
 /**
  * Cliente mínimo de la API REST de Cloud SQL Admin (v1). Se usa la API en vez del
@@ -74,11 +75,6 @@ function auth(serviceAccountJson: string | null): GoogleAuth {
   });
 }
 
-interface GaxiosLikeError {
-  message?: string;
-  response?: { status?: number; data?: { error?: { message?: string } } };
-}
-
 /** Llama a la API y traduce los errores a `CloudSqlError` con un mensaje legible. */
 async function call<T>(
   serviceAccountJson: string | null,
@@ -91,15 +87,14 @@ async function call<T>(
     const res = await client.request<T>({ url: `${BASE}${path}`, method, data });
     return res.data;
   } catch (err) {
-    const e = err as GaxiosLikeError;
-    const status = e.response?.status ?? null;
-    const apiMsg = e.response?.data?.error?.message ?? e.message ?? String(err);
+    const { status, message: apiMsg, authHint } = describeGcpError(err, serviceAccountJson);
     const hint =
-      status === 403
+      authHint ||
+      (status === 403
         ? " (revisa los permisos de la service account sobre la instancia)"
         : status === 404
           ? " (revisa el proyecto y el nombre de la instancia)"
-          : "";
+          : "");
     throw new CloudSqlError(`Cloud SQL API${status ? ` ${status}` : ""}: ${apiMsg}${hint}`, status);
   }
 }

@@ -1,4 +1,5 @@
 import { GoogleAuth } from "google-auth-library";
+import { describeGcpError } from "./gcp-error.js";
 
 /**
  * Cliente mínimo de la API REST de Compute Engine (v1) para el disco temporal del
@@ -70,11 +71,6 @@ function auth(serviceAccountJson: string | null): GoogleAuth {
   });
 }
 
-interface GaxiosLikeError {
-  message?: string;
-  response?: { status?: number; data?: { error?: { message?: string } } };
-}
-
 async function call<T>(
   serviceAccountJson: string | null,
   method: "GET" | "POST" | "DELETE",
@@ -86,10 +82,8 @@ async function call<T>(
     const res = await client.request<T>({ url, method, data });
     return res.data;
   } catch (err) {
-    const e = err as GaxiosLikeError;
-    const status = e.response?.status ?? null;
-    const apiMsg = e.response?.data?.error?.message ?? e.message ?? String(err);
-    const hint = status === 403 ? " (revisa los permisos de la credencial sobre Compute Engine)" : "";
+    const { status, message: apiMsg, authHint } = describeGcpError(err, serviceAccountJson);
+    const hint = authHint || (status === 403 ? " (revisa los permisos de la credencial sobre Compute Engine)" : "");
     throw new ComputeError(`Compute API${status ? ` ${status}` : ""}: ${apiMsg}${hint}`, status);
   }
 }
