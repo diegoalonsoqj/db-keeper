@@ -3,6 +3,14 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 42] — Volver a la página pedida tras el login · 2026-10-11
+
+### Cambiado
+- Al iniciar sesión se vuelve a la página que se pidió (con sus filtros, orden y
+  página), no siempre al Panel. Solo se aceptan rutas internas (`postLoginTarget`:
+  rechaza `//host`, `/\host`, URLs absolutas y el propio `/login`), sin redirección
+  abierta.
+
 ## [Etapa 4 · parte 41] — Dependencias con vulnerabilidades · 2026-10-11
 
 ### Seguridad

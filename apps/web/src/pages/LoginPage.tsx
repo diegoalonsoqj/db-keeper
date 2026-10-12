@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../lib/api";
+import { postLoginTarget } from "../lib/redirect";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { BrandLogo } from "../components/BrandLogo";
@@ -11,6 +12,7 @@ export function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,8 @@ export function LoginPage() {
     setBusy(true);
     try {
       await login(username, password);
-      navigate("/", { replace: true });
+      // Vuelve a la página pedida antes del login (p. ej. un enlace con filtros).
+      navigate(postLoginTarget(location.state), { replace: true });
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : t("login.error"));
     } finally {
