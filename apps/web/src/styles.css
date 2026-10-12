@@ -665,6 +665,141 @@ pre.log.log-modal {
   width: 100%;
 }
 
+/* Filtro de rango de fechas: un campo que abre el calendario. */
+.date-range {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.date-range-field {
+  display: flex;
+  align-items: center;
+}
+.date-range-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 13rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-align: left;
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.date-range-trigger.has-value {
+  color: var(--text);
+  padding-right: 1.9rem;
+}
+.date-range-trigger:hover {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.date-range-clear {
+  margin-left: -1.75rem;
+  padding: 0.2rem;
+  line-height: 0;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+}
+.date-range-clear:hover {
+  color: var(--text);
+  background: transparent;
+}
+.date-range-popover {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 30;
+  /* Ancho propio (no el del campo), para que los dos meses vayan lado a lado. */
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  overflow: auto;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.date-range-popover.right {
+  left: auto;
+  right: 0;
+}
+.date-range-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--border);
+}
+.date-range-presets button {
+  text-align: left;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+.date-range-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.date-range-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.date-range-popover .rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  --rdp-range_middle-background-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  --rdp-range_middle-color: var(--text);
+  --rdp-range_start-color: var(--on-accent);
+  --rdp-range_end-color: var(--on-accent);
+  --rdp-range_start-date-background-color: var(--accent);
+  --rdp-range_end-date-background-color: var(--accent);
+  --rdp-today-color: var(--accent);
+  --rdp-day-height: 2.1rem;
+  --rdp-day-width: 2.1rem;
+  --rdp-day_button-height: 2rem;
+  --rdp-day_button-width: 2rem;
+  --rdp-months-gap: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+.date-range-popover .rdp-chevron {
+  fill: var(--accent);
+}
+/* En pantallas angostas los atajos van arriba, en fila. */
+@media (max-width: 720px) {
+  .date-range-popover {
+    flex-direction: column;
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 2rem);
+  }
+  .date-range-popover.right {
+    left: auto;
+    right: 0;
+  }
+  .date-range-presets {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0 0 0.6rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 /* Encabezado ordenable: botón con el aspecto del th. */
 .sort-btn {
   all: unset;

@@ -116,9 +116,7 @@
     "action": "Action",
     "entity": "Entity",
     "ip": "IP",
-    "empty": "No records",
-    "from": "From",
-    "to": "To"
+    "empty": "No records"
   },
   "pagination": {
     "perPage": "Per page",
@@ -574,8 +572,23 @@
     "clear": "Clear",
     "all": "All",
     "noResults": "No results for the search or filters.",
-    "empty": "No records",
-    "from": "From",
-    "to": "To"
+    "empty": "No records"
+  },
+  "dateRange": {
+    "label": "Date",
+    "title": "Date range",
+    "any": "Any date",
+    "since": "From {{date}}",
+    "until": "Until {{date}}",
+    "clear": "Clear dates",
+    "apply": "Apply",
+    "pickStart": "Pick the start day",
+    "pickEnd": "Pick the end day (or the same day)",
+    "sinceButton": "From {{date}} onward",
+    "preset_today": "Today",
+    "preset_last7": "Last 7 days",
+    "preset_last30": "Last 30 days",
+    "preset_thisMonth": "This month",
+    "preset_prevMonth": "Previous month"
   }
 }

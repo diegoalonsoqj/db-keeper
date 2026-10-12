@@ -26,6 +26,7 @@ const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String
 import { Pagination } from "../components/Pagination";
 import { ListToolbar } from "../components/ListToolbar";
 import { SortTh } from "../components/SortTh";
+import { DateRangeFilter } from "../components/DateRangeFilter";
 import { useListParams } from "../lib/useListParams";
 
 /** Modal con el log de una BD: streamea en vivo mientras corre y hace auto-scroll. */
@@ -453,14 +454,12 @@ export function ExecutionsPage() {
             ))}
           </select>
         </label>
-        <label>
-          {t("list.from")}
-          <input type="date" value={list.filters.from} max={list.filters.to || undefined} onChange={(e) => list.update({ from: e.target.value })} />
-        </label>
-        <label>
-          {t("list.to")}
-          <input type="date" value={list.filters.to} min={list.filters.from || undefined} onChange={(e) => list.update({ to: e.target.value })} />
-        </label>
+        <DateRangeFilter
+          label={t("dateRange.label")}
+          from={list.filters.from}
+          to={list.filters.to}
+          onChange={(r) => list.update(r)}
+        />
       </ListToolbar>
 
       <div className="table-wrap">

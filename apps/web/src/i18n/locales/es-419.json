@@ -116,9 +116,7 @@
     "action": "Acción",
     "entity": "Entidad",
     "ip": "IP",
-    "empty": "Sin registros",
-    "from": "Desde",
-    "to": "Hasta"
+    "empty": "Sin registros"
   },
   "pagination": {
     "perPage": "Por página",
@@ -574,8 +572,23 @@
     "clear": "Limpiar",
     "all": "Todos",
     "noResults": "Sin resultados para la búsqueda o los filtros.",
-    "empty": "Sin registros",
-    "from": "Desde",
-    "to": "Hasta"
+    "empty": "Sin registros"
+  },
+  "dateRange": {
+    "label": "Fecha",
+    "title": "Rango de fechas",
+    "any": "Cualquier fecha",
+    "since": "Desde {{date}}",
+    "until": "Hasta {{date}}",
+    "clear": "Quitar fechas",
+    "apply": "Aplicar",
+    "pickStart": "Elige el día inicial",
+    "pickEnd": "Elige el día final (o el mismo día)",
+    "sinceButton": "Desde el {{date}} en adelante",
+    "preset_today": "Hoy",
+    "preset_last7": "Últimos 7 días",
+    "preset_last30": "Últimos 30 días",
+    "preset_thisMonth": "Este mes",
+    "preset_prevMonth": "Mes anterior"
   }
 }

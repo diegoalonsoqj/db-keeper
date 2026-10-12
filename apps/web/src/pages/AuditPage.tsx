@@ -6,6 +6,7 @@ import { useToast } from "../components/Toast";
 import { Pagination } from "../components/Pagination";
 import { DebouncedInput, ListToolbar } from "../components/ListToolbar";
 import { SortTh } from "../components/SortTh";
+import { DateRangeFilter } from "../components/DateRangeFilter";
 import { useListParams } from "../lib/useListParams";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
@@ -33,24 +34,12 @@ export function AuditPage() {
   return (
     <section>
       <ListToolbar hasFilters={list.hasFilters} onClear={list.clear}>
-        <label>
-          {t("audit.from")}
-          <input
-            type="date"
-            value={list.filters.from}
-            max={list.filters.to || undefined}
-            onChange={(e) => list.update({ from: e.target.value })}
-          />
-        </label>
-        <label>
-          {t("audit.to")}
-          <input
-            type="date"
-            value={list.filters.to}
-            min={list.filters.from || undefined}
-            onChange={(e) => list.update({ to: e.target.value })}
-          />
-        </label>
+        <DateRangeFilter
+          label={t("dateRange.label")}
+          from={list.filters.from}
+          to={list.filters.to}
+          onChange={(r) => list.update(r)}
+        />
         <label>
           {t("audit.action")}
           <DebouncedInput value={list.filters.action} onCommit={(action) => list.update({ action })} placeholder="servers.create" />

@@ -3,6 +3,20 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 40] — Selector de rango de fechas · 2026-10-11
+
+### Cambiado
+- Ejecuciones y Auditoría: los campos Desde/Hasta pasan a un solo filtro **Fecha** que
+  abre un calendario de rango (dos meses; uno en pantallas angostas): primer clic =
+  inicio, segundo = fin, dos clics en el mismo día = solo ese día; opción "Desde el …
+  en adelante". Atajos: Hoy, Últimos 7 días, Últimos 30 días, Este mes, Mes anterior.
+  Días futuros deshabilitados; colores del tema y la paleta activos.
+- La URL y la API no cambian (`from`/`to`): los enlaces guardados siguen valiendo.
+
+### Añadido
+- Dependencia `react-day-picker` 9.14.0 (calendario accesible, con locales es/en). Se
+  carga diferida al abrir el calendario (~23 KB gzip en un chunk aparte).
+
 ## [Etapa 4 · parte 39] — Buscador, filtros y orden en los listados · 2026-10-11
 
 ### Añadido
