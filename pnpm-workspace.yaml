@@ -3,3 +3,10 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: true
+# Cadena de suministro: no resolver versiones publicadas hace menos de 14 días
+# (minutos). Da tiempo a que se detecte y retire un paquete comprometido.
+minimumReleaseAge: 20160
+overrides:
+  # ldapts fija uuid 11.1.0 (GHSA: falta de chequeo de límites en v3/v5/v6 con buf);
+  # 11.1.1 es un parche compatible.
+  "ldapts>uuid": "11.1.1"

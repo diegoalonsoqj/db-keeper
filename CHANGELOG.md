@@ -3,6 +3,28 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 41] — Dependencias con vulnerabilidades · 2026-10-11
+
+### Seguridad
+- `pnpm audit`: de 19 avisos (1 crítico, 4 altos) a 3 sin parche aplicable hoy.
+  - API: `nodemailer` 8 → 10.0.11 (varios altos: lectura de archivos/SSRF, DoS en el
+    parser de direcciones, validación de dominios); `mysql2` 3.24.4; transitivas de
+    Express actualizadas dentro de rango: `proxy-addr` 2.0.8 (crítico: suplantación de
+    IP con trust proxy), `qs` 6.16, `body-parser` 2.3; `form-data` 2.5.6; `uuid` 11.1.1
+    para `ldapts` (override).
+  - Web: `react-router-dom` 6 → 7.18.4 (open redirect / XSS); `vite` 5 → 7.3.6 y
+    `@vitejs/plugin-react` 5.2.0 (lectura de archivos del servidor de desarrollo en
+    Windows); `browserslist`, `postcss`, `nanoid`, `esbuild` actualizados.
+  - Pendientes (riesgo bajo, documentado): `source-map-js` 1.2.2 (solo en tests de la
+    API; el parche tiene 11 días, entra solo por la política de abajo), `uuid` 8/9 dentro
+    de `@google-cloud/storage` (el aviso afecta v3/v5/v6 con `buf`; la librería usa v4) y
+    `sprintf-js` en `tedious` (sin versión corregida publicada).
+- `pnpm-workspace.yaml`: `minimumReleaseAge` de 14 días (no se instalan versiones
+  recién publicadas) y override `ldapts>uuid`. `vitest` 5.0.3 → 5.0.2 para cumplirla.
+
+### Notas
+- `nodemailer` 10 requiere Node.js 20 o superior.
+
 ## [Etapa 4 · parte 40] — Selector de rango de fechas · 2026-10-11
 
 ### Cambiado
