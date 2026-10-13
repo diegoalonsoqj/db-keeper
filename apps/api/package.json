@@ -24,6 +24,7 @@
     "jose": "^5.9.6",
     "ldapts": "^7.2.1",
     "mongodb": "^7.2.0",
+    "mongodb-v6": "npm:mongodb@6.9.0",
     "mssql": "^12.5.5",
     "mysql2": "^3.24.4",
     "nodemailer": "^10.0.11",
