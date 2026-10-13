@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isWireVersionTooLow } from "../src/modules/databases/discovery/mongo.js";
+import { isWireVersionTooLow } from "../src/lib/mongo-compat.js";
 
 describe("isWireVersionTooLow", () => {
   it("detecta el error de servidor demasiado viejo (MongoDB 3.6)", () => {
@@ -23,5 +23,14 @@ describe("isWireVersionTooLow", () => {
   it("no confunde otros errores de conexión", () => {
     expect(isWireVersionTooLow(new Error("Authentication failed."))).toBe(false);
     expect(isWireVersionTooLow("reports maximum wire version 6")).toBe(false);
+  });
+});
+
+describe("isWireVersionTooLow (mongodump, driver Go)", () => {
+  it("detecta el error de mongodump contra MongoDB 3.6", () => {
+    const stderr =
+      "Failed: can't create session: failed to connect to mongodb://u:***@db:27017/x?authSource=admin: server at db:27017 reports wire version 6, but this version of the Go driver requires at least 8 (MongoDB 4.2)";
+    expect(isWireVersionTooLow(new Error(`mongodump terminó con código 1: ${stderr}`))).toBe(true);
+    expect(isWireVersionTooLow(stderr)).toBe(true);
   });
 });

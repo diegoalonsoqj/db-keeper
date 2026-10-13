@@ -3,20 +3,10 @@ import { MongoClient } from "mongodb";
 import { MongoClient as LegacyMongoClient } from "mongodb-v6";
 import type { DiscoveredDatabase } from "@dbkeeper/shared";
 import { buildMongoUri } from "../../../lib/mongo-uri.js";
+import { isWireVersionTooLow } from "../../../lib/mongo-compat.js";
 import { DISCOVER_TIMEOUT_MS, type ConnInfo } from "./types.js";
 
 const SYSTEM = new Set(["admin", "local", "config"]);
-
-/**
- * Servidor más viejo de lo que soporta el driver actual. El driver lo informa en el
- * handshake o en la selección de servidor, con dos redacciones distintas.
- */
-const WIRE_VERSION_RE = /wire version \d+, but this version of the (Node\.js )?driver requires at least/i;
-
-export function isWireVersionTooLow(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  return WIRE_VERSION_RE.test(err.message) || (err.cause instanceof Error && WIRE_VERSION_RE.test(err.cause.message));
-}
 
 type ListedDb = { name: string; sizeOnDisk?: number };
 

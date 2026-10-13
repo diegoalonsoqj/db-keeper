@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import { buildMongoUri } from "../../../lib/mongo-uri.js";
+import { isWireVersionTooLow } from "../../../lib/mongo-compat.js";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, describeDumpExit } from "./log-lines.js";
@@ -29,7 +30,21 @@ export async function dumpMongo(input: DumpInput): Promise<DumpResult> {
   ];
 
   try {
-    await runMongodump(args, input.password, filePath, input.limits, input.onLog);
+    try {
+      await runMongodump(MAIN_BIN, args, input.password, filePath, input.limits, input.onLog);
+    } catch (err) {
+      if (!isWireVersionTooLow(err)) throw err;
+      // Servidor < 4.2 (p. ej. 3.6): las Database Tools recientes ya no lo soportan.
+      const legacy = env.MONGODUMP_LEGACY_PATH;
+      if (!legacy) {
+        throw new Error(
+          `${(err as Error).message}\nEl servidor es anterior a MongoDB 4.2: instala unas Database Tools compatibles (p. ej. 100.10.0) y configura MONGODUMP_LEGACY_PATH.`,
+        );
+      }
+      input.onLog?.(`Servidor anterior a MongoDB 4.2: reintentando con ${legacy}`);
+      await rm(filePath, { force: true });
+      await runMongodump({ path: legacy, envVar: "MONGODUMP_LEGACY_PATH" }, args, input.password, filePath, input.limits, input.onLog);
+    }
     const { size } = await stat(filePath);
     if (size === 0) throw new Error("El dump quedó vacío");
     if (input.compress) await verifyGzip(filePath);
@@ -45,7 +60,16 @@ function buildUri(input: DumpInput): string {
   return buildMongoUri({ ...input, srv: input.mongoSrv === true, options: input.connOptions });
 }
 
+interface MongodumpBin {
+  path: string;
+  /** Variable de entorno que lo configura (para el mensaje si no se encuentra). */
+  envVar: string;
+}
+
+const MAIN_BIN: MongodumpBin = { path: env.MONGODUMP_PATH, envVar: "MONGODUMP_PATH" };
+
 function runMongodump(
+  bin: MongodumpBin,
   args: string[],
   password: string,
   filePath: string,
@@ -53,7 +77,7 @@ function runMongodump(
   onLog?: (line: string) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(env.MONGODUMP_PATH, args, {
+    const child = spawn(bin.path, args, {
       env: process.env,
       windowsHide: true,
     });
@@ -70,7 +94,7 @@ function runMongodump(
       reject(
         new Error(
           err.message.includes("ENOENT")
-            ? `No se encontró mongodump (${env.MONGODUMP_PATH}). Instálalo o ajusta MONGODUMP_PATH.`
+            ? `No se encontró mongodump (${bin.path}). Instálalo o ajusta ${bin.envVar}.`
             : err.message,
         ),
       );

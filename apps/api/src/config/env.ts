@@ -29,6 +29,9 @@ const envSchema = z.object({
   PG_DUMP_PATH: z.string().default("pg_dump"),
   MYSQLDUMP_PATH: z.string().default("mysqldump"),
   MONGODUMP_PATH: z.string().default("mongodump"),
+  // mongodump para servidores anteriores a MongoDB 4.2 (Database Tools 100.10.0 o
+  // previas): se usa solo si el principal falla por wire version. Vacío = sin respaldo.
+  MONGODUMP_LEGACY_PATH: z.string().optional().transform((v) => v?.trim() || undefined),
   // Tiempos de backup: solo el VALOR INICIAL; se editan en Configuración → Backups
   // (lo guardado allí tiene prioridad). BACKUP_TIMEOUT_MS = tope total del dump (mín.
   // efectivo 24 h: el corte real es por inactividad).
