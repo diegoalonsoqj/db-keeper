@@ -55,6 +55,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [pgCompat, setPgCompat] = useState(job?.options?.pgCompat !== false);
   // Modo detallado: añade --verbose y muestra la consola en vivo.
   const [verbose, setVerbose] = useState(job?.options?.verbose === true);
+  const [keepLocalCopy, setKeepLocalCopy] = useState(job?.options?.keepLocalCopy === true);
   // SQL Server: carpeta de backup en el host de la instancia.
   const [sqlBackupDir, setSqlBackupDir] = useState(
     (job?.options?.sqlBackupDir as string | undefined) ?? "",
@@ -131,6 +132,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   // -Fd no genera SQL plano: la compatibilidad de versiones no aplica.
   const showPgCompat = dumpOpts.includes("pgCompat") && !isParallel;
   const showVerbose = dumpOpts.includes("verbose");
+  const showKeepLocalCopy = method === "gcloud" && engine !== "sqlserver";
   const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
   // Ambiente consolidado del evento: el de la instancia y el de la credencial
@@ -244,6 +246,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
     delete options.mongoSrv; // pasó a la instancia (conexión SRV)
     if (showVerbose) options.verbose = verbose;
     else delete options.verbose;
+    if (showKeepLocalCopy && keepLocalCopy) options.keepLocalCopy = true;
+    else delete options.keepLocalCopy;
     if (showSqlBackupDir) options.sqlBackupDir = sqlBackupDir.trim();
     else delete options.sqlBackupDir;
     for (const k of ["parallelJobs", "noPrivileges", "diskSizeGb", "diskType", "maxHours", "stderrIgnore"]) delete options[k];
@@ -622,6 +626,16 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
             {t("backups.verbose")}
           </label>
           <small>{t("backups.verboseHint")}</small>
+        </>
+      )}
+
+      {showKeepLocalCopy && (
+        <>
+          <label className="inline">
+            <input type="checkbox" checked={keepLocalCopy} onChange={(e) => setKeepLocalCopy(e.target.checked)} />
+            {t("backups.keepLocalCopy")}
+          </label>
+          <small>{t("backups.keepLocalCopyHint")}</small>
         </>
       )}
 

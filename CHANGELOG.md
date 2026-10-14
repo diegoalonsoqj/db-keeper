@@ -3,6 +3,18 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 44] — Copia local en eventos a bucket · 2026-10-14
+
+### Añadido
+- Opción de evento **`keepLocalCopy`** (solo método `gcloud`, checkbox en el modal): tras
+  subir y verificar el dump en el bucket, la copia local no se borra. La retención no
+  limpia estas copias (se gestionan a mano).
+
+### Cambiado
+- Si la subida al bucket (o su verificación) falla, el dump local ya generado **se
+  conserva** en vez de borrarse; el log del ítem indica la ruta y el comando
+  `gcloud storage cp` para subirlo a mano.
+
 ## [Etapa 4 · parte 43] — Seguridad: escalada de privilegios y nombres de BD · 2026-10-11
 
 ### Seguridad

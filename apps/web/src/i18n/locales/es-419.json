@@ -178,6 +178,8 @@
     "pgCompatHint": "Quita SET transaction_timeout y \\restrict/\\unrestrict que pg_dump 17+ emite, para restaurar en PostgreSQL 16 o anterior (p. ej. import de Cloud SQL). No altera los datos.",
     "verbose": "Modo detallado (--verbose)",
     "verboseHint": "Añade --verbose al motor y muestra su salida en vivo (consola) durante la ejecución. Útil para diagnóstico; en bases grandes genera mucha salida.",
+    "keepLocalCopy": "Conservar también una copia local",
+    "keepLocalCopyHint": "Tras subir y verificar en el bucket, el dump se queda además en el destino local. La retención no limpia estas copias: bórralas a mano o el disco se llenará.",
     "sqlBackupDir": "Carpeta de backup (en la instancia)",
     "sqlBackupDirHint": "SQL Server escribe el .bak en esta ruta del propio servidor (debe poder escribir el servicio de SQL). No se descarga ni sube; el peso/integridad se leen del servidor.",
     "retention": "Retención",

@@ -159,7 +159,8 @@ Cuerpo de creación:
       "days": 30,                   // purga backups con más de N días
       "keepLast": 7                 // conserva solo los últimos N (por evento)
     },
-    "verbose": false                // --verbose + consola en vivo por SSE (PG/MySQL/Mongo)
+    "verbose": false,               // --verbose + consola en vivo por SSE (PG/MySQL/Mongo)
+    "keepLocalCopy": false          // solo method=gcloud: conserva el dump local tras subirlo (la retención no lo limpia)
   },
   "isActive": true
 }
