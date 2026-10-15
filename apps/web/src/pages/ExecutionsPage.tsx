@@ -11,6 +11,7 @@ import {
   type ExecutionDto,
   type ExecutionSort,
   type ExecutionItemDto,
+  type JobGroupDto,
   type Paginated,
   type VerifyMode,
 } from "@dbkeeper/shared";
@@ -185,12 +186,13 @@ export function ExecutionsPage() {
   const environments = useEnvironments();
   const toast = useToast();
   const [data, setData] = useState<Paginated<ExecutionDto>>({ items: [], total: 0 });
-  const list = useListParams<"status" | "origin" | "environment" | "jobId" | "from" | "to", ExecutionSort>({
-    filters: ["status", "origin", "environment", "jobId", "from", "to"],
+  const list = useListParams<"status" | "origin" | "environment" | "jobId" | "groupId" | "from" | "to", ExecutionSort>({
+    filters: ["status", "origin", "environment", "jobId", "groupId", "from", "to"],
     dateFilters: ["from", "to"],
     defaultSort: { key: "created", dir: "desc" },
   });
   const [jobs, setJobs] = useState<BackupJobDto[]>([]);
+  const [groups, setGroups] = useState<JobGroupDto[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Si el stream SSE está conectado, no hace falta sondear; si cae, se reactiva.
   const [streamOn, setStreamOn] = useState(false);
@@ -222,6 +224,13 @@ export function ExecutionsPage() {
       .get<Paginated<BackupJobDto>>("/backups?limit=100")
       .then((r) => setJobs(r.items))
       .catch(() => {});
+    if (has("groups:read")) {
+      api
+        .get<Paginated<JobGroupDto>>("/groups?limit=100")
+        .then((r) => setGroups(r.items))
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Progreso en vivo por SSE: reemplaza el snapshot de la ejecución que cambió.
@@ -454,6 +463,19 @@ export function ExecutionsPage() {
             ))}
           </select>
         </label>
+        {groups.length > 0 && (
+          <label>
+            {t("executions.group")}
+            <select value={list.filters.groupId} onChange={(e) => list.update({ groupId: e.target.value })}>
+              <option value="">{t("list.all")}</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <DateRangeFilter
           label={t("dateRange.label")}
           from={list.filters.from}
@@ -495,6 +517,14 @@ export function ExecutionsPage() {
                     <small className="muted" title={t("executions.codeHint")}>
                       #{executionCode(e.id)}
                     </small>
+                    {e.groupName && (
+                      <>
+                        {" "}
+                        <span className="badge" title={t("executions.group")}>
+                          {t("groups.badge")}: {e.groupName}
+                        </span>
+                      </>
+                    )}
                   </td>
                   <td>
                     <span className={`badge badge-${e.status}`}>{t(`status.${e.status}`)}</span>

@@ -2,6 +2,7 @@ import { logger } from "../../config/logger.js";
 import * as repo from "./schedules.repository.js";
 import { nextRunForCron } from "./schedule-time.js";
 import { runScheduled } from "./backups.service.js";
+import { runGroup } from "../groups/groups.service.js";
 import { sweepRetention } from "./retention.js";
 
 const TICK_MS = 60_000; // un minuto
@@ -32,9 +33,10 @@ async function tick(): Promise<void> {
     });
     if (!claimed) continue;
     try {
-      await runScheduled(s.jobId);
+      if (s.groupId) await runGroup(s.groupId, "scheduled");
+      else if (s.jobId) await runScheduled(s.jobId);
     } catch (err) {
-      logger.error({ err, jobId: s.jobId }, "No se pudo disparar el backup programado");
+      logger.error({ err, jobId: s.jobId, groupId: s.groupId }, "No se pudo disparar el backup programado");
     }
   }
 

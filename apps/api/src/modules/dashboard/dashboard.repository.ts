@@ -36,10 +36,11 @@ export async function getDashboard(): Promise<DashboardDto> {
        ORDER BY e.created_at DESC
        LIMIT 6`,
     ),
-    query<{ job_id: string; name: string; mode: DashboardUpcoming["mode"]; next_run_at: Date }>(
-      `SELECT s.job_id, j.name, s.mode, s.next_run_at
+    query<{ id: string; is_group: boolean; name: string; mode: DashboardUpcoming["mode"]; next_run_at: Date }>(
+      `SELECT s.id, s.group_id IS NOT NULL AS is_group, COALESCE(j.name, g.name) AS name, s.mode, s.next_run_at
        FROM core.backup_schedules s
-       JOIN core.backup_jobs j ON j.id = s.job_id
+       LEFT JOIN core.backup_jobs j ON j.id = s.job_id
+       LEFT JOIN core.job_groups g ON g.id = s.group_id
        WHERE s.is_active = true AND s.next_run_at IS NOT NULL
        ORDER BY s.next_run_at ASC
        LIMIT 6`,
@@ -65,7 +66,8 @@ export async function getDashboard(): Promise<DashboardDto> {
       bytes: Number(r.bytes),
     })),
     upcoming: upcoming.rows.map((u) => ({
-      jobId: u.job_id,
+      scheduleId: u.id,
+      isGroup: u.is_group,
       jobName: u.name,
       mode: u.mode,
       nextRunAt: u.next_run_at.toISOString(),

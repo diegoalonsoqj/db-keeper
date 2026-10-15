@@ -16,6 +16,7 @@ import { serversRouter } from "./modules/servers/servers.routes.js";
 import { environmentsRouter } from "./modules/environments/environments.routes.js";
 import { credentialsRouter } from "./modules/credentials/credentials.routes.js";
 import { backupsRouter } from "./modules/backups/backups.routes.js";
+import { groupsRouter } from "./modules/groups/groups.routes.js";
 import { storageRouter } from "./modules/storage/storage.routes.js";
 import { cloudCredentialsRouter } from "./modules/cloud-credentials/cloud-credentials.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
@@ -88,6 +89,7 @@ export function createApp(): Express {
   app.use("/api/environments", environmentsRouter);
   app.use("/api/credentials", credentialsRouter);
   app.use("/api/backups", backupsRouter);
+  app.use("/api/groups", groupsRouter);
   app.use("/api/storage", storageRouter);
   app.use("/api/cloud-credentials", cloudCredentialsRouter);
   app.use("/api/settings", settingsRouter);

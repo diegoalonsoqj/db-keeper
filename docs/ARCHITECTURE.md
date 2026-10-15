@@ -153,6 +153,14 @@ salida mientras crece (`engine/progress.ts`) y lo empuja como `execution-progres
 en dumps grandes, sin depender de `--verbose`; no aplica a SQL Server). La Fase B (cola BullMQ + Redis pub/sub alimentando el
 mismo bus) está diseñada en `REALTIME-QUEUE-DESIGN.md` y aún no implementada.
 
+**Grupos de eventos** (`modules/groups/`, migración `0033`): `core.job_groups` y
+`core.job_group_members` (evento + `position`; un evento puede estar en varios grupos).
+`core.backup_schedules` apunta a un evento **o** a un grupo (`CHECK`). Al dispararse, el
+grupo inserta en una transacción una ejecución `pending` por evento activo (exports de Cloud
+SQL primero, luego por posición; `created_at = clock_timestamp()` fija ese orden en la cola) y
+la cola existente decide el paralelismo. `executions.group_id/group_name` (snapshot) alimentan
+el filtro del historial y la fila **Grupo** de los avisos, que siguen siendo uno por ejecución.
+
 **Retención** (`modules/backups/retention.ts`): cada evento puede definir
 `options.retention = { days, keepLast }`. Un backup exitoso se purga si supera `days` de
 antigüedad **o** queda fuera de los últimos `keepLast`; se borra el archivo (local o GCS) y

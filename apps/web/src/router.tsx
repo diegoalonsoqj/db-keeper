@@ -8,6 +8,7 @@ import { EnvironmentsPage } from "./pages/EnvironmentsPage";
 import { CredentialsPage } from "./pages/CredentialsPage";
 import { BackupsPage } from "./pages/BackupsPage";
 import { ExecutionsPage } from "./pages/ExecutionsPage";
+import { GroupsPage } from "./pages/GroupsPage";
 import { StoragePage } from "./pages/StoragePage";
 import { CloudCredentialsPage } from "./pages/CloudCredentialsPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -55,6 +56,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="backups:read">
             <BackupsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "groups",
+        element: (
+          <RequirePermission perm="groups:read">
+            <GroupsPage />
           </RequirePermission>
         ),
       },

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  Boxes,
   ChevronLeft,
   ChevronRight,
   Cloud,
@@ -53,6 +54,7 @@ export function AppLayout() {
     { to: "/environments", label: t("nav.environments"), icon: Layers, perm: "servers:read" },
     { to: "/credentials", label: t("nav.credentials"), icon: KeyRound, perm: "servers:read" },
     { to: "/backups", label: t("nav.backups"), icon: Play, perm: "backups:read" },
+    { to: "/groups", label: t("nav.groups"), icon: Boxes, perm: "groups:read" },
     { to: "/executions", label: t("nav.executions"), icon: History, perm: "backups:read" },
     { to: "/storage", label: t("nav.storage"), icon: HardDrive, perm: "servers:read" },
     { to: "/cloud-credentials", label: t("nav.cloud"), icon: Cloud, perm: "servers:read" },

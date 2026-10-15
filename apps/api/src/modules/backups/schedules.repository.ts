@@ -3,7 +3,8 @@ import { query } from "../../db/pool.js";
 
 interface Row {
   id: string;
-  job_id: string;
+  job_id: string | null;
+  group_id: string | null;
   mode: ScheduleMode;
   run_at: Date | null;
   cron: string | null;
@@ -19,6 +20,7 @@ function toDto(row: Row): ScheduleDto {
   return {
     id: row.id,
     jobId: row.job_id,
+    groupId: row.group_id,
     mode: row.mode,
     runAt: row.run_at?.toISOString() ?? null,
     cron: row.cron,
@@ -31,8 +33,17 @@ function toDto(row: Row): ScheduleDto {
   };
 }
 
-export async function findByJob(jobId: string): Promise<ScheduleDto | null> {
-  const { rows } = await query<Row>("SELECT * FROM core.backup_schedules WHERE job_id = $1", [jobId]);
+/** A quién pertenece una programación: un evento o un grupo. */
+export type ScheduleTarget = { jobId: string } | { groupId: string };
+
+/** Columna y valor del dueño (nombres fijos: no vienen del cliente). */
+function targetColumn(t: ScheduleTarget): { col: "job_id" | "group_id"; id: string } {
+  return "jobId" in t ? { col: "job_id", id: t.jobId } : { col: "group_id", id: t.groupId };
+}
+
+export async function findByTarget(target: ScheduleTarget): Promise<ScheduleDto | null> {
+  const { col, id } = targetColumn(target);
+  const { rows } = await query<Row>(`SELECT * FROM core.backup_schedules WHERE ${col} = $1`, [id]);
   return rows[0] ? toDto(rows[0]) : null;
 }
 
@@ -45,23 +56,51 @@ export interface ScheduleFields {
   nextRunAt: Date | null;
 }
 
-/** Crea o reemplaza la programación de un evento (una por evento). */
-export async function upsert(jobId: string, f: ScheduleFields): Promise<ScheduleDto> {
+/** Crea o reemplaza la programación de un evento o grupo (una por cada uno). */
+export async function upsert(target: ScheduleTarget, f: ScheduleFields): Promise<ScheduleDto> {
+  const { col, id } = targetColumn(target);
   const { rows } = await query<Row>(
-    `INSERT INTO core.backup_schedules (job_id, mode, run_at, cron, timezone, is_active, next_run_at)
+    `INSERT INTO core.backup_schedules (${col}, mode, run_at, cron, timezone, is_active, next_run_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7)
-     ON CONFLICT (job_id) DO UPDATE SET
+     ON CONFLICT (${col}) DO UPDATE SET
        mode = EXCLUDED.mode, run_at = EXCLUDED.run_at, cron = EXCLUDED.cron,
        timezone = EXCLUDED.timezone, is_active = EXCLUDED.is_active,
        next_run_at = EXCLUDED.next_run_at, last_run_at = NULL
      RETURNING *`,
-    [jobId, f.mode, f.runAt, f.cron, f.timezone, f.isActive, f.nextRunAt],
+    [id, f.mode, f.runAt, f.cron, f.timezone, f.isActive, f.nextRunAt],
   );
   return toDto(rows[0]!);
 }
 
-export async function deleteByJob(jobId: string): Promise<void> {
-  await query("DELETE FROM core.backup_schedules WHERE job_id = $1", [jobId]);
+export async function deleteByTarget(target: ScheduleTarget): Promise<void> {
+  const { col, id } = targetColumn(target);
+  await query(`DELETE FROM core.backup_schedules WHERE ${col} = $1`, [id]);
+}
+
+/**
+ * Programaciones que dispararían a la vez que la del grupo y comparten eventos con él:
+ * otros grupos con algún evento en común, o la programación propia de uno de sus
+ * eventos. Esos eventos se ejecutarían dos veces seguidas (la cola nunca los solapa).
+ */
+export async function findOverlapsForGroup(groupId: string, nextRunAt: Date): Promise<string[]> {
+  const { rows } = await query<{ label: string }>(
+    `SELECT 'grupo ' || g.name AS label
+     FROM core.backup_schedules s
+     JOIN core.job_groups g ON g.id = s.group_id
+     WHERE s.is_active AND s.group_id <> $1 AND s.next_run_at = $2
+       AND EXISTS (SELECT 1 FROM core.job_group_members a
+                   JOIN core.job_group_members b ON b.job_id = a.job_id
+                   WHERE a.group_id = $1 AND b.group_id = s.group_id)
+     UNION ALL
+     SELECT 'evento ' || j.name
+     FROM core.backup_schedules s
+     JOIN core.backup_jobs j ON j.id = s.job_id
+     JOIN core.job_group_members m ON m.job_id = s.job_id AND m.group_id = $1
+     WHERE s.is_active AND s.next_run_at = $2
+     ORDER BY 1`,
+    [groupId, nextRunAt],
+  );
+  return rows.map((r) => r.label);
 }
 
 /** Programaciones activas cuyo próximo disparo ya venció. */

@@ -185,6 +185,29 @@ Cuerpo de creación:
 > purgado (`pruned_at`) conservando el registro; la descarga de un ítem purgado responde
 > `404`. **SQL Server** se omite (el `.bak` queda en el host de la instancia).
 
+## Grupos de eventos — `/api/groups`
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/api/groups?limit&offset` | `groups:read` | Lista paginada (con sus eventos en orden y `nextRunAt`) |
+| GET | `/api/groups/:id` | `groups:read` | Detalle |
+| POST | `/api/groups` | `groups:write` | Crea `{ name, description?, isActive?, jobIds[] }` |
+| PATCH | `/api/groups/:id` | `groups:write` | Actualiza; `jobIds` reemplaza los eventos y su orden |
+| DELETE | `/api/groups/:id` | `groups:write` | Elimina el grupo (no sus eventos) |
+| POST | `/api/groups/:id/run` | `groups:run` | Lanza el grupo → `202 { executionIds, skipped }` |
+| GET/PUT/DELETE | `/api/groups/:id/schedule` | `groups:read` / `groups:write` | Programación (mismo cuerpo que la de un evento) |
+
+> Al dispararse (a mano o por su programación) se crea **una ejecución por evento activo**
+> (con `groupId`/`groupName`), en una transacción: primero los exports de Cloud SQL y luego
+> por el orden del grupo. La cola decide el paralelismo como con cualquier ejecución
+> (exports de instancias distintas en paralelo; dumps hasta `maxConcurrentDumps`; una
+> ejecución por instancia). Los eventos inactivos o sin BDs se omiten (`skipped`). Un grupo
+> inactivo no se dispara por programación, pero sí a mano. Un evento puede estar en varios
+> grupos y conserva su programación propia; el `PUT` de la programación devuelve
+> `warnings` si coincide en horario con otro grupo o evento que comparte eventos.
+> Cada aviso (correo/Telegram) sigue siendo por ejecución, con la fila **Grupo** y el
+> asunto `[DBKeeper] [<grupo>] …`. `GET /api/backups/executions?groupId=` filtra el historial.
+
 ## Ambientes — `/api/environments`
 
 Catálogo de ambientes que alimenta el selector de la instancia. Cada ambiente tiene
@@ -275,6 +298,7 @@ servicio cifrada). Un destino por defecto por tipo (`isDefault`). El motor escri
 | `roles` | `roles:read`, `roles:write` |
 | `servers` | `servers:read`, `servers:write`, `servers:delete` *(Etapa 2)* |
 | `backups` | `backups:read`, `backups:run`, `backups:schedule` *(Etapa 4+)* |
+| `groups` | `groups:read`, `groups:write`, `groups:run` |
 | `settings` | `settings:read`, `settings:write` *(Etapa 2)* |
 | `audit` | `audit:read` |
 

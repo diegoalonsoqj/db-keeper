@@ -142,6 +142,7 @@ function alert(item: ItemForVerify, out: Outcome): void {
     executionId: item.executionId,
     runAt: item.executionCreatedAt,
     instance: item.serverName,
+    group: item.groupName,
     jobName: item.jobName,
     engine: item.engine ?? "",
     databases: [item.dbName],

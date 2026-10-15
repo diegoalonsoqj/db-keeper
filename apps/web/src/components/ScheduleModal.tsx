@@ -5,10 +5,12 @@ import { api, ApiClientError } from "../lib/api";
 import { Modal } from "./Modal";
 
 interface Props {
-  jobId: string;
-  jobName: string;
+  /** Base de la API del dueño: `/backups/<id>` o `/groups/<id>`. */
+  path: string;
+  name: string;
   onClose: () => void;
-  onSaved?: () => void;
+  /** Recibe la programación guardada (null si se quitó), con sus avisos. */
+  onSaved?: (saved: ScheduleDto | null) => void;
 }
 
 type Frequency = "daily" | "weekly" | "monthly" | "advanced";
@@ -43,7 +45,7 @@ function parseCron(cron: string): { freq: Frequency; time: string; weekday: numb
   return { freq: "advanced", time: "21:00", weekday: 1, dom: 1 };
 }
 
-export function ScheduleModal({ jobId, jobName, onClose, onSaved }: Props) {
+export function ScheduleModal({ path, name, onClose, onSaved }: Props) {
   const { t, i18n } = useTranslation();
 
   const [mode, setMode] = useState<ScheduleMode | "none">("none");
@@ -60,7 +62,7 @@ export function ScheduleModal({ jobId, jobName, onClose, onSaved }: Props) {
 
   useEffect(() => {
     Promise.all([
-      api.get<ScheduleDto | null>(`/backups/${jobId}/schedule`),
+      api.get<ScheduleDto | null>(`${path}/schedule`),
       api.get<SettingsDto>("/settings"),
     ])
       .then(([sched, settings]) => {
@@ -82,7 +84,7 @@ export function ScheduleModal({ jobId, jobName, onClose, onSaved }: Props) {
         }
       })
       .catch((e) => setError(e instanceof ApiClientError ? e.message : String(e)));
-  }, [jobId]);
+  }, [path]);
 
   const cronPreview = mode === "recurring" ? buildCron(freq, time, weekday, dom, advanced) : "";
 
@@ -95,17 +97,18 @@ export function ScheduleModal({ jobId, jobName, onClose, onSaved }: Props) {
     setError(null);
     setMsg(null);
     try {
+      let saved: ScheduleDto | null = null;
       if (mode === "none") {
-        await api.delete(`/backups/${jobId}/schedule`);
+        await api.delete(`${path}/schedule`);
       } else if (mode === "once") {
         if (!runAt) return setError(t("schedule.runAtRequired"));
-        await api.put(`/backups/${jobId}/schedule`, { mode: "once", runAt, timezone });
+        saved = await api.put<ScheduleDto>(`${path}/schedule`, { mode: "once", runAt, timezone });
       } else {
         const cron = cronPreview;
         if (!cron) return setError(t("schedule.cronRequired"));
-        await api.put(`/backups/${jobId}/schedule`, { mode: "recurring", cron, timezone });
+        saved = await api.put<ScheduleDto>(`${path}/schedule`, { mode: "recurring", cron, timezone });
       }
-      onSaved?.();
+      onSaved?.(saved);
       onClose();
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : String(e));
@@ -114,7 +117,7 @@ export function ScheduleModal({ jobId, jobName, onClose, onSaved }: Props) {
 
   return (
     <Modal
-      title={`${t("schedule.title")} — ${jobName}`}
+      title={`${t("schedule.title")} — ${name}`}
       onClose={onClose}
       footer={
         <>

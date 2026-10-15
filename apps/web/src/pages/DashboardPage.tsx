@@ -97,8 +97,10 @@ export function DashboardPage() {
             <table className="grid">
               <tbody>
                 {data.upcoming.map((u) => (
-                  <tr key={u.jobId}>
-                    <td>{u.jobName}</td>
+                  <tr key={u.scheduleId}>
+                    <td>
+                      {u.isGroup && <span className="badge">{t("groups.badge")}</span>} {u.jobName}
+                    </td>
                     <td className="muted">{t(`schedule.mode_${u.mode}`)}</td>
                     <td>{fmt(u.nextRunAt)}</td>
                   </tr>

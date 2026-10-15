@@ -227,6 +227,8 @@ interface ExecutionRow {
   environment: string | null;
   status: ExecutionDto["status"];
   origin: ExecutionDto["origin"];
+  group_id: string | null;
+  group_name: string | null;
   started_at: Date | null;
   finished_at: Date | null;
   created_at: Date;
@@ -243,6 +245,8 @@ function toExecutionDto(row: ExecutionRow): ExecutionDto {
     environment: row.environment,
     status: row.status,
     origin: row.origin,
+    groupId: row.group_id,
+    groupName: row.group_name,
     startedAt: row.started_at?.toISOString() ?? null,
     finishedAt: row.finished_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
@@ -281,18 +285,7 @@ export async function createExecution(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows } = await client.query<{ id: string }>(
-      "INSERT INTO core.executions (job_id, label, environment, origin) VALUES ($1,$2,$3,$4) RETURNING id",
-      [jobId, label, environment, origin],
-    );
-    const id = rows[0]!.id;
-    if (databases.length > 0) {
-      await client.query(
-        `INSERT INTO core.execution_items (execution_id, db_name)
-         SELECT $1, n FROM unnest($2::text[]) AS n`,
-        [id, databases],
-      );
-    }
+    const id = await insertExecution(client, { jobId, label, environment, databases, origin, group: null });
     await client.query("COMMIT");
     return id;
   } catch (err) {
@@ -301,6 +294,38 @@ export async function createExecution(
   } finally {
     client.release();
   }
+}
+
+export interface NewExecution {
+  jobId: string;
+  label: string;
+  environment: string | null;
+  databases: string[];
+  origin: ExecutionDto["origin"];
+  /** Grupo que la lanza (id + nombre snapshot), o null. */
+  group: { id: string; name: string } | null;
+}
+
+/**
+ * Inserta una ejecución `pending` con un ítem por BD, dentro de la transacción del
+ * llamador. `created_at` usa clock_timestamp(): varias creadas en la misma transacción
+ * (un grupo) quedan en la cola en el orden en que se insertan.
+ */
+export async function insertExecution(client: { query: typeof pool.query }, e: NewExecution): Promise<string> {
+  const { rows } = await client.query<{ id: string }>(
+    `INSERT INTO core.executions (job_id, label, environment, origin, group_id, group_name, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6, clock_timestamp()) RETURNING id`,
+    [e.jobId, e.label, e.environment, e.origin, e.group?.id ?? null, e.group?.name ?? null],
+  );
+  const id = rows[0]!.id;
+  if (e.databases.length > 0) {
+    await client.query(
+      `INSERT INTO core.execution_items (execution_id, db_name)
+       SELECT $1, n FROM unnest($2::text[]) AS n`,
+      [id, e.databases],
+    );
+  }
+  return id;
 }
 
 export async function findExecutionById(id: string): Promise<ExecutionDto | null> {
@@ -471,6 +496,7 @@ export interface ItemForVerify {
   executionId: string;
   executionCreatedAt: Date;
   serverName: string | null;
+  groupName: string | null;
 }
 
 export async function findItemForVerify(executionId: string, itemId: string): Promise<ItemForVerify | null> {
@@ -488,11 +514,12 @@ export async function findItemForVerify(executionId: string, itemId: string): Pr
     engine: string | null;
     execution_created_at: Date;
     server_name: string | null;
+    group_name: string | null;
   }>(
     `SELECT i.db_name, i.status, i.file_name, i.file_bytes, i.pruned_at,
             i.file_sha256, i.file_md5, i.file_crc32c, i.verify_status,
             COALESCE(j.name, e.label) AS job_name, s.engine,
-            e.created_at AS execution_created_at, s.name AS server_name
+            e.created_at AS execution_created_at, s.name AS server_name, e.group_name
      FROM core.execution_items i
      JOIN core.executions e ON e.id = i.execution_id
      LEFT JOIN core.backup_jobs j ON j.id = e.job_id
@@ -515,6 +542,7 @@ export async function findItemForVerify(executionId: string, itemId: string): Pr
     executionId,
     executionCreatedAt: r.execution_created_at,
     serverName: r.server_name,
+    groupName: r.group_name,
   };
 }
 
@@ -587,6 +615,7 @@ export interface ExecutionListQuery {
   limit: number;
   offset: number;
   jobId?: string;
+  groupId?: string;
   /** Nombre del evento o código de ejecución (`#3F2504E0`). */
   q?: string;
   status?: ExecutionState;
@@ -614,7 +643,7 @@ const EXECUTION_ORDER: Record<ExecutionSort, string> = {
 };
 
 export async function listExecutions(p: ExecutionListQuery): Promise<{ items: ExecutionDto[]; total: number }> {
-  const w = new SqlWhere().eq("e.job_id", p.jobId).eq("e.status", p.status).eq("e.origin", p.origin).eq("e.environment", p.environment);
+  const w = new SqlWhere().eq("e.job_id", p.jobId).eq("e.group_id", p.groupId).eq("e.status", p.status).eq("e.origin", p.origin).eq("e.environment", p.environment);
   if (p.from) w.add(`e.created_at >= ${w.param(p.from)}`);
   if (p.to) w.add(`e.created_at < ${w.param(p.to)}::timestamptz + interval '1 day'`);
   // El código del asunto de los avisos es el prefijo del id (sin guiones en sus 8 primeros caracteres).

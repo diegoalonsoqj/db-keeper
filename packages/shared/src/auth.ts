@@ -24,6 +24,10 @@ export const PERMISSIONS = [
   { key: "backups:read", category: "backups", description: "Ver trabajos e historial de backups" },
   { key: "backups:run", category: "backups", description: "Ejecutar backups a demanda" },
   { key: "backups:schedule", category: "backups", description: "Programar backups" },
+  // Grupos de eventos
+  { key: "groups:read", category: "groups", description: "Ver grupos de eventos" },
+  { key: "groups:write", category: "groups", description: "Crear, editar y programar grupos de eventos" },
+  { key: "groups:run", category: "groups", description: "Ejecutar grupos de eventos a demanda" },
   // Configuración (Etapa 2)
   { key: "settings:read", category: "settings", description: "Ver configuración del sistema" },
   { key: "settings:write", category: "settings", description: "Modificar configuración del sistema" },
@@ -52,6 +56,9 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     "backups:read",
     "backups:run",
     "backups:schedule",
+    "groups:read",
+    "groups:write",
+    "groups:run",
     "settings:read",
     "settings:write",
     "audit:read",
@@ -62,10 +69,13 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     "backups:read",
     "backups:run",
     "backups:schedule",
+    "groups:read",
+    "groups:write",
+    "groups:run",
     "settings:read",
   ],
-  operator: ["servers:read", "backups:read", "backups:run"],
-  viewer: ["users:read", "roles:read", "servers:read", "backups:read", "audit:read", "settings:read"],
+  operator: ["servers:read", "backups:read", "backups:run", "groups:read", "groups:run"],
+  viewer: ["users:read", "roles:read", "servers:read", "backups:read", "groups:read", "audit:read", "settings:read"],
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {

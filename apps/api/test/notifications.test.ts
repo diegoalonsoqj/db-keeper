@@ -39,6 +39,13 @@ describe("backupSubject", () => {
     expect(backupSubject({ ...base, jobName: "Diario" })).toBe("[DBKeeper] pg-ventas · Diario · 11/10/2026 · #3F2504E0");
   });
 
+  it("antepone el grupo si la ejecución la lanzó uno", () => {
+    expect(backupSubject({ ...base, group: "Nocturno PRD" })).toBe(
+      "[DBKeeper] [Nocturno PRD] BK - pg-ventas · 11/10/2026 · #3F2504E0",
+    );
+    expect(backupSubject({ ...base, group: null })).toBe(backupSubject(base));
+  });
+
   it("es el mismo para todos los avisos de la ejecución (sin estado)", () => {
     const end = { ...base, event: "failure" as const };
     expect(backupSubject(end)).toBe(backupSubject(base));

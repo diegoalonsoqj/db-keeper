@@ -232,6 +232,9 @@ export interface ExecutionDto {
   environment: string | null;
   status: ExecutionState;
   origin: ExecutionOrigin;
+  /** Grupo que la lanzó (null si se lanzó sola). `groupName` es snapshot. */
+  groupId: string | null;
+  groupName: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;
@@ -283,7 +286,9 @@ export interface DashboardExecution {
   bytes: number;
 }
 export interface DashboardUpcoming {
-  jobId: string;
+  scheduleId: string;
+  /** Programación de un grupo (jobName es entonces el nombre del grupo). */
+  isGroup: boolean;
   jobName: string;
   mode: "once" | "recurring";
   nextRunAt: string;
@@ -305,7 +310,9 @@ export type ScheduleMode = (typeof SCHEDULE_MODES)[number];
 /** Programación de un evento de backup (`core.backup_schedules`). */
 export interface ScheduleDto {
   id: string;
-  jobId: string;
+  /** Programación de un evento **o** de un grupo (uno de los dos es null). */
+  jobId: string | null;
+  groupId: string | null;
   mode: ScheduleMode;
   /** Modo `once`: instante a ejecutar (ISO). */
   runAt: string | null;
@@ -317,6 +324,42 @@ export interface ScheduleDto {
   lastRunAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Solo al guardar la de un grupo: programaciones que coinciden y comparten eventos. */
+  warnings?: string[];
+}
+
+/** Evento dentro de un grupo, con lo necesario para listarlo sin otra consulta. */
+export interface JobGroupMemberDto {
+  jobId: string;
+  jobName: string;
+  method: BackupMethod;
+  serverId: string;
+  serverName: string;
+  isActive: boolean;
+  /** Tiene programación propia activa (además de la del grupo). */
+  hasOwnSchedule: boolean;
+}
+
+/** Grupo de eventos que se programan o lanzan juntos. */
+export interface JobGroupDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  /** Eventos en el orden del grupo. */
+  members: JobGroupMemberDto[];
+  /** Próximo disparo de la programación del grupo (null si no tiene o está inactiva). */
+  nextRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobGroupInput {
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+  /** Ids de evento en el orden deseado. */
+  jobIds: string[];
 }
 
 export interface ScheduleInput {

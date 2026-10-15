@@ -6,11 +6,20 @@ import * as jobRepo from "./backups.repository.js";
 import { nextRunForCron, zonedWallClockToInstant } from "./schedule-time.js";
 
 export async function getSchedule(jobId: string): Promise<ScheduleDto | null> {
-  return repo.findByJob(jobId);
+  return repo.findByTarget({ jobId });
 }
 
 export async function upsertSchedule(jobId: string, input: ScheduleInput): Promise<ScheduleDto> {
   if (!(await jobRepo.findJobById(jobId))) throw HttpError.notFound("Evento de backup no encontrado");
+  return upsertForTarget({ jobId }, input);
+}
+
+export async function deleteSchedule(jobId: string): Promise<void> {
+  await repo.deleteByTarget({ jobId });
+}
+
+/** Valida la entrada y guarda la programación del evento o grupo, con su próximo disparo. */
+export async function upsertForTarget(target: repo.ScheduleTarget, input: ScheduleInput): Promise<ScheduleDto> {
   const timezone = input.timezone?.trim() || (await settingsService.getGeneral()).timezone;
   const isActive = input.isActive ?? true;
   const now = new Date();
@@ -18,7 +27,7 @@ export async function upsertSchedule(jobId: string, input: ScheduleInput): Promi
   if (input.mode === "once") {
     if (!input.runAt) throw HttpError.badRequest("Indica la fecha y hora");
     const runAt = zonedWallClockToInstant(input.runAt, timezone);
-    return repo.upsert(jobId, {
+    return repo.upsert(target, {
       mode: "once",
       runAt,
       cron: null,
@@ -30,7 +39,7 @@ export async function upsertSchedule(jobId: string, input: ScheduleInput): Promi
 
   const cron = input.cron?.trim();
   if (!cron) throw HttpError.badRequest("Indica la expresión de recurrencia");
-  return repo.upsert(jobId, {
+  return repo.upsert(target, {
     mode: "recurring",
     runAt: null,
     cron,
@@ -38,8 +47,4 @@ export async function upsertSchedule(jobId: string, input: ScheduleInput): Promi
     isActive,
     nextRunAt: isActive ? nextRunForCron(cron, timezone, now) : null,
   });
-}
-
-export async function deleteSchedule(jobId: string): Promise<void> {
-  await repo.deleteByJob(jobId);
 }

@@ -28,6 +28,8 @@ export interface BackupNotification {
   runAt: Date;
   /** Nombre de la instancia (null si ya no existe). */
   instance?: string | null;
+  /** Grupo que lanzó la ejecución (null si se lanzó sola). */
+  group?: string | null;
   jobName: string;
   engine: string;
   environment?: string | null;
@@ -101,7 +103,9 @@ function formatDuration(ms: number | null | undefined): string {
 
 /** Filas (emoji + etiqueta + valor) del resumen, comunes a todos los canales. */
 function summaryRows(n: BackupNotification): { emoji: string; label: string; value: string }[] {
-  const rows = [{ emoji: "🏷️", label: "Evento", value: n.jobName }];
+  const rows: { emoji: string; label: string; value: string }[] = [];
+  if (n.group) rows.push({ emoji: "📚", label: "Grupo", value: n.group });
+  rows.push({ emoji: "🏷️", label: "Evento", value: n.jobName });
   if (n.instance) rows.push({ emoji: "🖥️", label: "Instancia", value: n.instance });
   rows.push({ emoji: "🔖", label: "Ejecución", value: `#${executionCode(n.executionId)}` });
   rows.push({ emoji: "🗄️", label: "Motor", value: engineLabel(n.engine) });
@@ -127,13 +131,17 @@ function detailItems(n: BackupNotification): { ok: boolean; emoji: string; text:
 
 /**
  * Asunto fijo por ejecución (sin estado) para que inicio, fin e integridad queden en
- * un mismo hilo: `[DBKeeper] <instancia> · <evento> · <fecha> · #<código>`. La
- * instancia se omite si el nombre del evento ya la contiene (p. ej. "BK - <instancia>").
+ * un mismo hilo: `[DBKeeper] [<grupo>] <instancia> · <evento> · <fecha> · #<código>`.
+ * El grupo solo si lo lanzó uno; la instancia se omite si el nombre del evento ya la
+ * contiene (p. ej. "BK - <instancia>").
  */
-export function backupSubject(n: Pick<BackupNotification, "executionId" | "runAt" | "instance" | "jobName">): string {
+export function backupSubject(
+  n: Pick<BackupNotification, "executionId" | "runAt" | "instance" | "jobName" | "group">,
+): string {
   const showInstance = n.instance && !n.jobName.toLowerCase().includes(n.instance.toLowerCase());
   const date = n.runAt.toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" });
-  return `[DBKeeper] ${showInstance ? `${n.instance} · ` : ""}${n.jobName} · ${date} · #${executionCode(n.executionId)}`;
+  const group = n.group ? `[${n.group}] ` : "";
+  return `[DBKeeper] ${group}${showInstance ? `${n.instance} · ` : ""}${n.jobName} · ${date} · #${executionCode(n.executionId)}`;
 }
 
 /** Estado en una línea: vista previa del correo en la bandeja (el asunto no lo lleva). */

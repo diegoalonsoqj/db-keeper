@@ -3,6 +3,21 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 45] — Grupos de eventos · 2026-10-14
+
+### Añadido
+- **Grupos de eventos** (página *Grupos*, `/api/groups`): agrupan eventos para programarlos
+  o lanzarlos juntos. Cada evento del grupo crea su propia ejecución; la cola decide el
+  paralelismo (exports de Cloud SQL de instancias distintas en paralelo, dumps según
+  `maxConcurrentDumps`, una ejecución por instancia). Exports primero, luego el orden del grupo.
+- Programación por grupo (mismo modal que la de un evento) con aviso si coincide en horario
+  con otro grupo o evento que comparte eventos; botón "Ejecutar grupo ahora".
+- Avisos (correo y Telegram) por ejecución con la fila **Grupo** y el asunto
+  `[DBKeeper] [<grupo>] …`. Filtro y etiqueta de grupo en *Ejecuciones*; el panel muestra
+  también las próximas programaciones de grupos.
+- Permisos `groups:read`, `groups:write` y `groups:run`. La migración `0033` los asigna a
+  los roles existentes según sus permisos de backups (leer, programar, ejecutar).
+
 ## [Etapa 4 · parte 44] — Copia local en eventos a bucket · 2026-10-14
 
 ### Añadido

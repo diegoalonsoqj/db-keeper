@@ -35,6 +35,8 @@ export interface ParallelRunInput {
   executionId: string;
   /** Fecha de la ejecución (para el asunto del aviso, el mismo en todo el hilo). */
   runAt: Date;
+  /** Grupo que lanzó la ejecución (para el aviso), o null. */
+  group: string | null;
   job: BackupJobDto;
   server: ServerDto;
   host: string;
@@ -294,6 +296,7 @@ async function release(
       executionId: input.executionId,
       runAt: input.runAt,
       instance: input.server.name,
+      group: input.group,
       jobName: input.job.name,
       engine: input.server.engine,
       environment: input.environment,

@@ -59,6 +59,7 @@ const updateSchema = z.object({
 
 const executionListSchema = listQuerySchema(EXECUTION_SORTS).extend({
   jobId: z.string().uuid().optional(),
+  groupId: z.string().uuid().optional(),
   status: z.enum(EXECUTION_STATES).optional(),
   origin: z.enum(EXECUTION_ORIGINS).optional(),
   environment: textParam,
@@ -197,8 +198,8 @@ backupsRouter.get("/parallel/environment", authorize("backups:read"), async (_re
   }
 });
 
-// ---- Programación de un evento (una por evento) ----
-const scheduleSchema = z.object({
+// ---- Programación de un evento (una por evento; los grupos usan el mismo esquema) ----
+export const scheduleSchema = z.object({
   mode: z.enum(SCHEDULE_MODES),
   runAt: z.string().max(40).nullish().transform((v) => v ?? null),
   cron: z.string().max(120).nullish().transform((v) => v ?? null),

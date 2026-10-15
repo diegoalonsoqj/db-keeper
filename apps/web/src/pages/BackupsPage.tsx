@@ -238,8 +238,8 @@ export function BackupsPage() {
 
       {scheduleJob && (
         <ScheduleModal
-          jobId={scheduleJob.id}
-          jobName={scheduleJob.name}
+          path={`/backups/${scheduleJob.id}`}
+          name={scheduleJob.name}
           onClose={() => setScheduleJob(null)}
           onSaved={() => toast.success(t("schedule.saved", { name: scheduleJob.name }))}
         />
