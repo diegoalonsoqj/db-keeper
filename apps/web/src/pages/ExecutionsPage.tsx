@@ -517,6 +517,12 @@ export function ExecutionsPage() {
                     <small className="muted" title={t("executions.codeHint")}>
                       #{executionCode(e.id)}
                     </small>
+                    {e.runnerHost && (
+                      <small className="muted" title={t("executions.runnerHost")}>
+                        {" "}
+                        · {e.runnerHost}
+                      </small>
+                    )}
                     {e.groupName && (
                       <>
                         {" "}

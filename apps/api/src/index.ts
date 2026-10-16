@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { closePool } from "./db/pool.js";
+import { releaseLeadership, runAsLeader } from "./lib/leader.js";
 import { recoverStaleExecutions, startCloudSqlVerifier } from "./modules/backups/engine/runner.js";
 import { startExecutionQueue } from "./modules/backups/engine/queue.js";
 import { startScratchGc } from "./modules/backups/engine/parallel-runner.js";
@@ -11,20 +12,24 @@ const app = createApp();
 
 const server = app.listen(env.APP_PORT, () => {
   logger.info(`DBKeeper API escuchando en http://localhost:${env.APP_PORT} [${env.APP_ENV}]`);
-  // El modelo de ejecución es en-proceso: un reinicio mata las corridas en curso.
-  // Tras cerrar/retomar las corridas interrumpidas, lanza las que quedaron en cola.
-  void recoverStaleExecutions().finally(startExecutionQueue);
-  // Exports de Cloud SQL que superaron el timeout: se verifican en segundo plano.
-  startCloudSqlVerifier();
-  startScratchGc();
-  // Poller de programaciones (agendadas/recurrentes).
-  startScheduler();
+  // Solo la instancia líder corre el trabajo en segundo plano (ver lib/leader.ts).
+  runAsLeader(() => {
+    // El modelo de ejecución es en-proceso: un reinicio mata las corridas en curso.
+    // Tras cerrar/retomar las corridas interrumpidas, lanza las que quedaron en cola.
+    void recoverStaleExecutions().finally(startExecutionQueue);
+    // Exports de Cloud SQL que superaron el timeout: se verifican en segundo plano.
+    startCloudSqlVerifier();
+    startScratchGc();
+    // Poller de programaciones (agendadas/recurrentes).
+    startScheduler();
+  });
 });
 
 /** Apagado ordenado: deja de aceptar conexiones y cierra el pool. */
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, "Apagando API…");
   server.close(async () => {
+    await releaseLeadership();
     await closePool();
     logger.info("API apagada limpiamente.");
     process.exit(0);

@@ -235,6 +235,8 @@ export interface ExecutionDto {
   /** Grupo que la lanzó (null si se lanzó sola). `groupName` es snapshot. */
   groupId: string | null;
   groupName: string | null;
+  /** Host del proceso que la corrió (null si no llegó a correr o es anterior al registro). */
+  runnerHost: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;

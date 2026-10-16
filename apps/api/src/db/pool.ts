@@ -1,6 +1,7 @@
 import pg from "pg";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { APPLICATION_NAME } from "../lib/instance.js";
 
 const { Pool } = pg;
 
@@ -11,6 +12,7 @@ const { Pool } = pg;
  */
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
+  application_name: APPLICATION_NAME,
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,

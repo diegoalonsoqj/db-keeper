@@ -277,6 +277,7 @@
   "executions": {
     "intro": "Run history of backup events.",
     "codeHint": "Run code: shown in the email subject and in Telegram alerts.",
+    "runnerHost": "Server that ran this execution",
     "event": "Event",
     "group": "Group",
     "status": "Status",

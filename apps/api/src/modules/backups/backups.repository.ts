@@ -13,6 +13,7 @@ import {
   type VerifyStatus,
 } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
+import { INSTANCE_HOST } from "../../lib/instance.js";
 import { orderBy, SqlWhere } from "../../lib/list-query.js";
 
 interface JobRow {
@@ -229,6 +230,7 @@ interface ExecutionRow {
   origin: ExecutionDto["origin"];
   group_id: string | null;
   group_name: string | null;
+  runner_host: string | null;
   started_at: Date | null;
   finished_at: Date | null;
   created_at: Date;
@@ -247,6 +249,7 @@ function toExecutionDto(row: ExecutionRow): ExecutionDto {
     origin: row.origin,
     groupId: row.group_id,
     groupName: row.group_name,
+    runnerHost: row.runner_host,
     startedAt: row.started_at?.toISOString() ?? null,
     finishedAt: row.finished_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
@@ -352,8 +355,10 @@ export async function findItemFile(
 /** Marca la ejecución como `running` y fija started_at si aún no estaba. */
 export async function markExecutionRunning(id: string): Promise<void> {
   await query(
-    "UPDATE core.executions SET status = 'running', started_at = COALESCE(started_at, now()) WHERE id = $1",
-    [id],
+    `UPDATE core.executions
+     SET status = 'running', started_at = COALESCE(started_at, now()), runner_host = $2
+     WHERE id = $1`,
+    [id, INSTANCE_HOST],
   );
 }
 
@@ -379,7 +384,11 @@ export async function cancelPendingExecution(id: string, reason: string): Promis
 
 /** Cierra la ejecución con su estado final (`success`/`failed`) y finished_at. */
 export async function finishExecution(id: string, status: "success" | "failed"): Promise<void> {
-  await query("UPDATE core.executions SET status = $2, finished_at = now() WHERE id = $1", [id, status]);
+  // runner_host también aquí: las que fallan antes de arrancar no pasan por markExecutionRunning.
+  await query(
+    "UPDATE core.executions SET status = $2, finished_at = now(), runner_host = COALESCE(runner_host, $3) WHERE id = $1",
+    [id, status, INSTANCE_HOST],
+  );
 }
 
 /** Marca un ítem (BD) como `running` con started_at. */

@@ -3,6 +3,22 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 46] — Instancia líder y host por ejecución · 2026-10-15
+
+### Añadido
+- **Candado de líder** (`pg_try_advisory_lock` en una conexión dedicada): si varias
+  instancias comparten la BD de metadatos, solo la líder corre la recuperación de
+  ejecuciones, la cola, el scheduler, el verificador de exports y el GC de discos
+  temporales. Las demás solo sirven la API, registran quién tiene el candado y toman el
+  relevo (reintento cada 30 s) si la líder se apaga.
+- Columna `core.executions.runner_host` (migración `0034`): host que corrió cada ejecución,
+  visible en *Ejecuciones*. Las conexiones se identifican como `dbkeeper@<host>` en
+  `pg_stat_activity`.
+
+### Corregido
+- `runner.ts` tenía bytes de control literales en una regex (git lo trataba como binario);
+  ahora usa `\x00-\x1f`.
+
 ## [Etapa 4 · parte 45] — Grupos de eventos · 2026-10-14
 
 ### Añadido
