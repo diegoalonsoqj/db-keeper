@@ -24,9 +24,10 @@ export interface DumpInput {
   pgCompat?: boolean;
   /**
    * MongoDB: reglas de colecciones que NO se respaldan (patrones con `*`) y BDs del
-   * evento (para interpretar el prefijo `<bd>.` de una regla).
+   * evento (para interpretar el prefijo `<bd>.` de una regla). `caseSensitive`:
+   * distinguir mayúsculas al aplicar las reglas.
    */
-  excludeCollections?: { rules: string[]; databases: string[] };
+  excludeCollections?: { rules: string[]; databases: string[]; caseSensitive: boolean };
   /** MongoDB: conexión SRV (Atlas) en vez de `mongodb://host:port`. */
   mongoSrv?: boolean;
   /** MongoDB: opciones de conexión de la instancia. */

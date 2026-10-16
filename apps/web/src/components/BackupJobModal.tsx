@@ -57,6 +57,9 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const [excludeCollections, setExcludeCollections] = useState(
     (job?.options?.excludeCollections as string[] | undefined)?.join("\n") ?? "",
   );
+  const [collectionsCaseSensitive, setCollectionsCaseSensitive] = useState(
+    job?.options?.excludeCollectionsCaseSensitive === true,
+  );
   // MySQL: quitar DEFINER por defecto.
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
   const [pgCompat, setPgCompat] = useState(job?.options?.pgCompat !== false);
@@ -236,13 +239,17 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         .map((t) => t.trim())
         .filter(Boolean);
     else delete options.excludeTables;
+    delete options.excludeCollections;
+    delete options.excludeCollectionsCaseSensitive;
     if (showExcludeCollections) {
-      const rules = parseCollectionRules(excludeCollections);
+      const rules = parseCollectionRules(excludeCollections, collectionsCaseSensitive);
       const ruleError = rules.map((r) => collectionRuleError(r, [...selected])).find(Boolean);
       if (ruleError) return setError(ruleError);
-      if (rules.length > 0) options.excludeCollections = rules;
-      else delete options.excludeCollections;
-    } else delete options.excludeCollections;
+      if (rules.length > 0) {
+        options.excludeCollections = rules;
+        if (collectionsCaseSensitive) options.excludeCollectionsCaseSensitive = true;
+      }
+    }
     // Solo de las BDs seleccionadas (el backend vuelve a validarlo).
     const exclusions = [
       ["excludeSchemas", showExcludeSchemas, schemas],
@@ -581,6 +588,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           credentialId={credentialId}
           databases={[...selected]}
           rulesText={excludeCollections}
+          caseSensitive={collectionsCaseSensitive}
+          onCaseSensitiveChange={setCollectionsCaseSensitive}
           onRulesTextChange={setExcludeCollections}
           onError={setError}
         />

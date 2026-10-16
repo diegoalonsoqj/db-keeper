@@ -82,6 +82,33 @@ describe("parseCollectionRules", () => {
   });
 });
 
+describe("distinguiendo mayúsculas", () => {
+  const dbs = ["app"];
+
+  it("wildcardMatch y matchCollectionRule respetan el modo", () => {
+    expect(wildcardMatch("*_bak", "X_BAK", true)).toBe(false);
+    expect(wildcardMatch("*_bak", "x_bak", true)).toBe(true);
+    expect(matchCollectionRule(["app.Users"], "app", "users", dbs, true)).toBeNull();
+    expect(matchCollectionRule(["app.Users"], "app", "Users", dbs, true)).toBe("app.Users");
+    expect(matchCollectionRule(["app.Users"], "app", "users", dbs)).toBe("app.Users");
+  });
+
+  it("no trata como duplicadas reglas que solo cambian en mayúsculas", () => {
+    expect(parseCollectionRules("app.Users\napp.users", true)).toEqual(["app.Users", "app.users"]);
+    expect(parseCollectionRules("app.Users\napp.users")).toEqual(["app.Users"]);
+  });
+
+  it("normalizeExclusions guarda la opción solo si es true y hay reglas", () => {
+    expect(
+      normalizeExclusions({ excludeCollections: ["app.Users", "app.users"], excludeCollectionsCaseSensitive: true }, dbs),
+    ).toEqual({ excludeCollections: ["app.Users", "app.users"], excludeCollectionsCaseSensitive: true });
+    expect(normalizeExclusions({ excludeCollections: ["*_old"], excludeCollectionsCaseSensitive: false }, dbs)).toEqual({
+      excludeCollections: ["*_old"],
+    });
+    expect(normalizeExclusions({ excludeCollectionsCaseSensitive: true }, dbs)).toEqual({});
+  });
+});
+
 describe("normalizeExclusions · excludeCollections", () => {
   it("recorta, quita duplicadas y conserva el resto de opciones", () => {
     const out = normalizeExclusions({ compress: true, excludeCollections: [" *_old ", "*_OLD", "*_bak", ""] }, ["app"]);

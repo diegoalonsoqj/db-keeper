@@ -18,6 +18,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
   /servers/:id/databases/collections`, también con MongoDB 3.6), buscador por texto o
   patrón, "Excluir filtradas" y vista previa en vivo de qué excluye cada regla. La
   misma función de `@dbkeeper/shared` decide en la vista previa y en el backup.
+- Casilla **"Distinguir mayúsculas"** (`excludeCollectionsCaseSensitive`, desactivada
+  por defecto): si está activa, `*_bak` no excluye `X_BAK` y una colección marcada a
+  mano no arrastra a otra que solo cambia en mayúsculas. El log indica el modo usado.
 
 ## [Etapa 4 · parte 46] — Instancia líder y host por ejecución · 2026-10-15
 

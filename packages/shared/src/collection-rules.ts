@@ -3,8 +3,9 @@
  * Compartido para que la vista previa del modal y el motor de backup excluyan
  * exactamente lo mismo.
  *
- * Cada regla es un patrón con `*` (cualquier secuencia, incluida vacía), sin
- * distinguir mayúsculas: `*_old`, `tmp_*`, `audit_log`. Si empieza por
+ * Cada regla es un patrón con `*` (cualquier secuencia, incluida vacía):
+ * `*_old`, `tmp_*`, `audit_log`. Por defecto no distingue mayúsculas; el evento
+ * puede pedirlo con `options.excludeCollectionsCaseSensitive`. Si empieza por
  * `<bd>.` y esa BD está en el evento, solo aplica a esa BD
  * (`notification-db.cache_*`); si no, aplica a todas. En MongoDB los nombres de BD
  * no admiten `.`, así que el prefijo no es ambiguo.
@@ -28,18 +29,23 @@ export function collectionRuleError(rule: string, databases: readonly string[]):
   return null;
 }
 
-/** Separa el texto del formulario (comas o saltos de línea) en reglas, sin vacías ni duplicadas. */
-export function parseCollectionRules(text: string): string[] {
+/** Clave para comparar reglas/nombres según distinga mayúsculas o no. */
+export function ruleKey(value: string, caseSensitive = false): string {
+  return caseSensitive ? value : value.toLowerCase();
+}
+
+/** Quita reglas vacías y duplicadas (duplicada = misma clave según `caseSensitive`). */
+export function dedupeCollectionRules(rules: readonly string[], caseSensitive = false): string[] {
   const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of text.split(/[,\n]/)) {
-    const r = raw.trim();
-    if (r && !seen.has(r.toLowerCase())) {
-      seen.add(r.toLowerCase());
-      out.push(r);
-    }
-  }
-  return out;
+  return rules.filter((r) => r !== "" && !seen.has(ruleKey(r, caseSensitive)) && seen.add(ruleKey(r, caseSensitive)));
+}
+
+/** Separa el texto del formulario (comas o saltos de línea) en reglas, sin vacías ni duplicadas. */
+export function parseCollectionRules(text: string, caseSensitive = false): string[] {
+  return dedupeCollectionRules(
+    text.split(/[,\n]/).map((r) => r.trim()),
+    caseSensitive,
+  );
 }
 
 /** Patrón (sin el prefijo de BD) que aplica a `db`, o null si la regla es de otra BD. */
@@ -56,9 +62,9 @@ function patternFor(rule: string, db: string, databases: readonly string[]): str
  * Coincidencia de comodines `*` sin regex (sin riesgo de ReDoS): algoritmo
  * voraz con retroceso al último `*`, O(n·m) en el peor caso.
  */
-export function wildcardMatch(pattern: string, text: string): boolean {
-  const p = pattern.toLowerCase();
-  const s = text.toLowerCase();
+export function wildcardMatch(pattern: string, text: string, caseSensitive = false): boolean {
+  const p = ruleKey(pattern, caseSensitive);
+  const s = ruleKey(text, caseSensitive);
   let pi = 0;
   let si = 0;
   let star = -1;
@@ -83,17 +89,18 @@ export function wildcardMatch(pattern: string, text: string): boolean {
 
 /**
  * Primera regla que excluye la colección `coll` de la BD `db`, o null si se respalda.
- * `databases`: BDs del evento (para distinguir el prefijo `<bd>.`).
+ * `databases`: BDs del evento (para distinguir el prefijo `<bd>.`, siempre exacto).
  */
 export function matchCollectionRule(
   rules: readonly string[],
   db: string,
   coll: string,
   databases: readonly string[],
+  caseSensitive = false,
 ): string | null {
   for (const rule of rules) {
     const pattern = patternFor(rule, db, databases);
-    if (pattern !== null && wildcardMatch(pattern, coll)) return rule;
+    if (pattern !== null && wildcardMatch(pattern, coll, caseSensitive)) return rule;
   }
   return null;
 }

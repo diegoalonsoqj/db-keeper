@@ -4,6 +4,7 @@ import {
   collectionRuleError,
   matchCollectionRule,
   parseCollectionRules,
+  ruleKey,
   wildcardMatch,
   type MongoCollectionInfo,
 } from "@dbkeeper/shared";
@@ -20,6 +21,9 @@ interface Props {
   /** Reglas como texto (una por línea; también admite comas). */
   rulesText: string;
   onRulesTextChange: (text: string) => void;
+  /** Distinguir mayúsculas al aplicar las reglas. */
+  caseSensitive: boolean;
+  onCaseSensitiveChange: (value: boolean) => void;
   onError: (msg: string | null) => void;
 }
 
@@ -35,7 +39,8 @@ export function MongoCollectionExclusions(p: Props) {
   const [loadingDb, setLoadingDb] = useState<string | null>(null);
   const [search, setSearch] = useState<Record<string, string>>({});
 
-  const rules = useMemo(() => parseCollectionRules(p.rulesText), [p.rulesText]);
+  const cs = p.caseSensitive;
+  const rules = useMemo(() => parseCollectionRules(p.rulesText, cs), [p.rulesText, cs]);
   const ruleErrors = rules.map((r) => collectionRuleError(r, p.databases)).filter((e): e is string => e !== null);
 
   async function load(db: string) {
@@ -56,7 +61,7 @@ export function MongoCollectionExclusions(p: Props) {
 
   const setRules = (next: string[]) => p.onRulesTextChange(next.join("\n"));
   const exactRule = (db: string, coll: string) => `${db}.${coll}`;
-  const isExact = (rule: string, db: string, coll: string) => rule.toLowerCase() === exactRule(db, coll).toLowerCase();
+  const isExact = (rule: string, db: string, coll: string) => ruleKey(rule, cs) === ruleKey(exactRule(db, coll), cs);
 
   /** Marca/desmarca a mano: añade o quita la regla exacta `<bd>.<colección>`. */
   function toggle(db: string, coll: string, rule: string | null) {
@@ -76,6 +81,11 @@ export function MongoCollectionExclusions(p: Props) {
         />
         <small>{t("backups.excludeCollectionsHint")}</small>
       </label>
+      <label className="inline">
+        <input type="checkbox" checked={cs} onChange={(e) => p.onCaseSensitiveChange(e.target.checked)} />
+        {t("backups.excludeCollectionsCaseSensitive")}
+      </label>
+      <small>{t("backups.excludeCollectionsCaseSensitiveHint")}</small>
       {ruleErrors.map((e) => (
         <p key={e} className="error">
           {e}
@@ -87,7 +97,7 @@ export function MongoCollectionExclusions(p: Props) {
         const q = (search[db] ?? "").trim();
         // El buscador acepta texto libre (contiene) o un patrón con `*`.
         const filtered = all?.filter((c) => (q.includes("*") ? wildcardMatch(q, c.name) : c.name.toLowerCase().includes(q.toLowerCase())));
-        const matches = new Map((all ?? []).map((c) => [c.name, matchCollectionRule(rules, db, c.name, p.databases)]));
+        const matches = new Map((all ?? []).map((c) => [c.name, matchCollectionRule(rules, db, c.name, p.databases, cs)]));
         const excludedCount = [...matches.values()].filter(Boolean).length;
         const filteredFree = (filtered ?? []).filter((c) => !matches.get(c.name));
         const filteredManual = (filtered ?? []).filter((c) => {
@@ -133,8 +143,8 @@ export function MongoCollectionExclusions(p: Props) {
                     className="secondary"
                     disabled={filteredManual.length === 0}
                     onClick={() => {
-                      const drop = new Set(filteredManual.map((c) => exactRule(db, c.name).toLowerCase()));
-                      setRules(rules.filter((r) => !drop.has(r.toLowerCase())));
+                      const drop = new Set(filteredManual.map((c) => ruleKey(exactRule(db, c.name), cs)));
+                      setRules(rules.filter((r) => !drop.has(ruleKey(r, cs))));
                     }}
                   >
                     {t("backups.collectionsIncludeFiltered", { count: filteredManual.length })}

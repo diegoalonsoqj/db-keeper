@@ -87,7 +87,7 @@ async function resolveExcludedCollections(input: DumpInput): Promise<string[]> {
   }
   const byRule = new Map<string, string[]>();
   for (const coll of collections) {
-    const rule = matchCollectionRule(ex.rules, input.dbName, coll, ex.databases);
+    const rule = matchCollectionRule(ex.rules, input.dbName, coll, ex.databases, ex.caseSensitive);
     if (rule) byRule.set(rule, [...(byRule.get(rule) ?? []), coll]);
   }
   const excluded = [...byRule.values()].flat();
@@ -98,7 +98,8 @@ async function resolveExcludedCollections(input: DumpInput): Promise<string[]> {
   if (excluded.length === collections.length) {
     throw new Error(`Las reglas de exclusión excluyen las ${collections.length} colecciones de ${input.dbName}: no se genera un backup vacío.`);
   }
-  input.onLog?.(`Colecciones excluidas (${excluded.length} de ${collections.length}):`);
+  const mode = ex.caseSensitive ? "distinguiendo mayúsculas" : "sin distinguir mayúsculas";
+  input.onLog?.(`Colecciones excluidas (${excluded.length} de ${collections.length}, ${mode}):`);
   for (const [rule, colls] of byRule) input.onLog?.(`  ${rule} → ${colls.join(", ")}`);
   return excluded;
 }

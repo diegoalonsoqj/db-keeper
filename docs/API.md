@@ -155,7 +155,8 @@ Cuerpo de creación:
     "excludeSchemas": { "app": ["staging"] },     // PG: esquemas NO respaldados por BD (--exclude-schema)
     "excludeExtensions": { "app": ["pgaudit"] },  // PG: extensiones NO respaldadas por BD (--exclude-extension, pg_dump ≥ 17)
     "excludeEventTriggers": { "app": ["trg_ddl"] }, // PG: event triggers NO respaldados por BD (se filtran de la salida)
-    "excludeCollections": ["*_old", "*_bak", "ventas.tmp_*"], // Mongo: colecciones NO respaldadas; `*` comodín, sin mayúsculas, prefijo `<bd>.` opcional (máx. 200; 400 si alguna excluiría todas)
+    "excludeCollections": ["*_old", "*_bak", "ventas.tmp_*"], // Mongo: colecciones NO respaldadas; `*` comodín, prefijo `<bd>.` opcional (máx. 200; 400 si alguna excluiría todas)
+    "excludeCollectionsCaseSensitive": false, // Mongo: true = las reglas distinguen mayúsculas (por defecto no)
     "pgCompat": true,               // PG: quita SET transaction_timeout y \restrict/\unrestrict (restaurable en PG ≤ 16); por defecto true
     "retention": {                  // retención (opcional); cada campo null = sin regla
       "days": 30,                   // purga backups con más de N días

@@ -1,4 +1,4 @@
-import { COLLECTION_RULE_LIMITS, collectionRuleError } from "@dbkeeper/shared";
+import { COLLECTION_RULE_LIMITS, collectionRuleError, dedupeCollectionRules } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 
 /** Identificador de PostgreSQL (esquema, extensión): máx. 63 bytes. */
@@ -42,12 +42,14 @@ const EXCLUSION_KEYS = ["excludeSchemas", "excludeExtensions", "excludeEventTrig
  * MongoDB: reglas de colecciones excluidas (`excludeCollections`, lista de patrones
  * con `*`). Recorta y quita duplicadas; rechaza (400) las inválidas en vez de
  * descartarlas en silencio: una regla ignorada respaldaría lo que se quería excluir,
- * y una que lo excluye todo dejaría el dump vacío.
+ * y una que lo excluye todo dejaría el dump vacío. `excludeCollectionsCaseSensitive`
+ * solo se guarda si es `true` y hay reglas.
  */
 export function normalizeCollectionRules(options: Record<string, unknown>, databases: string[]): Record<string, unknown> {
   const next = { ...options };
   const raw = options.excludeCollections;
-  const rules = Array.isArray(raw) ? dedupeRules(raw.map((r) => String(r).trim())) : [];
+  const caseSensitive = options.excludeCollectionsCaseSensitive === true;
+  const rules = Array.isArray(raw) ? dedupeCollectionRules(raw.map((r) => String(r).trim()), caseSensitive) : [];
   if (rules.length > COLLECTION_RULE_LIMITS.maxRules) {
     throw HttpError.badRequest(`Máximo ${COLLECTION_RULE_LIMITS.maxRules} reglas de colecciones excluidas`);
   }
@@ -57,13 +59,9 @@ export function normalizeCollectionRules(options: Record<string, unknown>, datab
   }
   if (rules.length > 0) next.excludeCollections = rules;
   else delete next.excludeCollections;
+  if (rules.length > 0 && caseSensitive) next.excludeCollectionsCaseSensitive = true;
+  else delete next.excludeCollectionsCaseSensitive;
   return next;
-}
-
-/** Sin vacías ni duplicadas (sin distinguir mayúsculas, igual que al aplicarlas). */
-function dedupeRules(rules: string[]): string[] {
-  const seen = new Set<string>();
-  return rules.filter((r) => r !== "" && !seen.has(r.toLowerCase()) && seen.add(r.toLowerCase()));
 }
 
 /** Esquemas, extensiones y event triggers excluidos por BD, y reglas de colecciones (Mongo). */
