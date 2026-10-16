@@ -113,6 +113,7 @@ existe, la API responde `400`.
 | POST | `/schemas` | `servers:read` | PostgreSQL. Body `{ dbName, credentialId? }`. Esquemas de usuario de la BD (`string[]`), para `options.excludeSchemas`. |
 | POST | `/extensions` | `servers:read` | PostgreSQL. Body `{ dbName, credentialId? }`. Extensiones instaladas en la BD (`[{ name, version }]`, sin `plpgsql`), para `options.excludeExtensions`. |
 | POST | `/event-triggers` | `servers:read` | PostgreSQL. Body `{ dbName, credentialId? }`. Event triggers de la BD (`[{ name, event, enabled }]`, `enabled` = `pg_event_trigger.evtenabled`), para `options.excludeEventTriggers`. |
+| POST | `/collections` | `servers:read` | MongoDB. Body `{ dbName, credentialId? }`. Colecciones y vistas de la BD sin `system.*` (`[{ name, type }]`), para la vista previa de `options.excludeCollections`. Funciona también con MongoDB 3.6/4.0 (driver de respaldo). |
 
 > La selección efectiva de BDs vive en el **evento de backup** (`/api/backups`), no en
 > la instancia.
@@ -154,6 +155,7 @@ Cuerpo de creación:
     "excludeSchemas": { "app": ["staging"] },     // PG: esquemas NO respaldados por BD (--exclude-schema)
     "excludeExtensions": { "app": ["pgaudit"] },  // PG: extensiones NO respaldadas por BD (--exclude-extension, pg_dump ≥ 17)
     "excludeEventTriggers": { "app": ["trg_ddl"] }, // PG: event triggers NO respaldados por BD (se filtran de la salida)
+    "excludeCollections": ["*_old", "*_bak", "ventas.tmp_*"], // Mongo: colecciones NO respaldadas; `*` comodín, sin mayúsculas, prefijo `<bd>.` opcional (máx. 200; 400 si alguna excluiría todas)
     "pgCompat": true,               // PG: quita SET transaction_timeout y \restrict/\unrestrict (restaurable en PG ≤ 16); por defecto true
     "retention": {                  // retención (opcional); cada campo null = sin regla
       "days": 30,                   // purga backups con más de N días

@@ -1,25 +1,13 @@
-import { MongoClient } from "mongodb";
-// Driver 6.9: el último que habla con MongoDB 3.6/4.0 (wire 6–7); el 7.x exige 4.2+.
-import { MongoClient as LegacyMongoClient } from "mongodb-v6";
-import type { DiscoveredDatabase } from "@dbkeeper/shared";
+import type { DiscoveredDatabase, MongoCollectionInfo } from "@dbkeeper/shared";
 import { buildMongoUri } from "../../../lib/mongo-uri.js";
-import { isWireVersionTooLow } from "../../../lib/mongo-compat.js";
+import { listMongoCollections, withMongoClient } from "../../../lib/mongo-client.js";
 import { DISCOVER_TIMEOUT_MS, type ConnInfo } from "./types.js";
 
 const SYSTEM = new Set(["admin", "local", "config"]);
 
-type ListedDb = { name: string; sizeOnDisk?: number };
-
-/** Lo mínimo que se usa de MongoClient, común a ambas versiones del driver. */
-interface MinimalClient {
-  connect(): Promise<unknown>;
-  close(): Promise<void>;
-  db(): { admin(): { listDatabases(opts?: { nameOnly?: boolean }): Promise<{ databases: ListedDb[] }> } };
-}
-
-export async function discoverMongo(conn: ConnInfo): Promise<DiscoveredDatabase[]> {
-  // Misma URI que el dump (SRV y opciones de la instancia), más timeouts cortos.
-  const uri = buildMongoUri({
+/** Misma URI que el dump (SRV y opciones de la instancia), más timeouts cortos. */
+function discoveryUri(conn: ConnInfo): string {
+  return buildMongoUri({
     ...conn,
     srv: conn.mongoSrv === true || conn.host.endsWith(".mongodb.net"),
     options: conn.connOptions,
@@ -28,20 +16,13 @@ export async function discoverMongo(conn: ConnInfo): Promise<DiscoveredDatabase[
       connectTimeoutMS: String(DISCOVER_TIMEOUT_MS),
     },
   });
-  try {
-    return await listWith(new MongoClient(uri));
-  } catch (err) {
-    if (!isWireVersionTooLow(err)) throw err;
-    return listWith(new LegacyMongoClient(uri));
-  }
 }
 
-async function listWith(client: MinimalClient): Promise<DiscoveredDatabase[]> {
-  try {
-    await client.connect();
+export async function discoverMongo(conn: ConnInfo): Promise<DiscoveredDatabase[]> {
+  return withMongoClient(discoveryUri(conn), async (client) => {
     const admin = client.db().admin();
     // Con tamaño (sizeOnDisk) si el usuario puede; si no, solo los nombres.
-    let databases: ListedDb[];
+    let databases: { name: string; sizeOnDisk?: number }[];
     try {
       databases = (await admin.listDatabases()).databases;
     } catch {
@@ -51,7 +32,10 @@ async function listWith(client: MinimalClient): Promise<DiscoveredDatabase[]> {
       .filter((d) => !SYSTEM.has(d.name))
       .map((d) => ({ name: d.name, bytes: typeof d.sizeOnDisk === "number" ? d.sizeOnDisk : null }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  } finally {
-    await client.close();
-  }
+  });
+}
+
+/** Colecciones de una BD (para elegir cuáles excluir del dump). */
+export async function listMongoCollectionsOf(conn: ConnInfo, dbName: string): Promise<MongoCollectionInfo[]> {
+  return withMongoClient(discoveryUri(conn), (client) => listMongoCollections(client, dbName));
 }

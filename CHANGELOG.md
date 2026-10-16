@@ -3,6 +3,22 @@
 Avances de DBKeeper, organizados por etapa de desarrollo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Etapa 4 · parte 47] — Exclusión de colecciones en MongoDB · 2026-10-15
+
+### Añadido
+- Opción de evento **`excludeCollections`** (Mongo): reglas con `*` sin distinguir
+  mayúsculas (`*_old`, `*_bak`, `tmp_*`, nombres exactos) y prefijo opcional `<bd>.`
+  para limitar una regla a una base. Se resuelven contra las colecciones que existen
+  al ejecutar (las nuevas que coinciden también se excluyen) y pasan a mongodump como
+  `--excludeCollection`. El log de cada base lista las excluidas y la regla que lo hizo.
+  Si las reglas excluyen todas las colecciones de una base, el ítem falla en vez de
+  generar un backup vacío. Si no se pueden listar las colecciones, también falla: no se
+  respalda ignorando la exclusión.
+- Selector en el modal del evento: "Ver colecciones" por base (`POST
+  /servers/:id/databases/collections`, también con MongoDB 3.6), buscador por texto o
+  patrón, "Excluir filtradas" y vista previa en vivo de qué excluye cada regla. La
+  misma función de `@dbkeeper/shared` decide en la vista previa y en el backup.
+
 ## [Etapa 4 · parte 46] — Instancia líder y host por ejecución · 2026-10-15
 
 ### Añadido

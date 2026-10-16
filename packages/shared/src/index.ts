@@ -73,6 +73,7 @@ export const DEFAULT_PAGE_SIZE: number = PAGE_SIZES[0];
 export * from "./auth.js";
 export * from "./resources.js";
 export * from "./mongo.js";
+export * from "./collection-rules.js";
 export * from "./scratch.js";
 export * from "./list.js";
 export * from "./db-names.js";

@@ -1314,3 +1314,8 @@ pre.log.log-modal {
   gap: 0.25rem;
   overflow-wrap: anywhere;
 }
+/* Colección excluida del dump (selector de colecciones de MongoDB). */
+.excluded-item > span:first-of-type {
+  text-decoration: line-through;
+  opacity: 0.7;
+}

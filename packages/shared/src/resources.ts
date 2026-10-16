@@ -33,6 +33,8 @@ export type BackupOptionKey =
   | "excludeExtensions"
   /** PostgreSQL: event triggers que NO se respaldan, por BD (`options.excludeEventTriggers[db]`). */
   | "excludeEventTriggers"
+  /** MongoDB: reglas de colecciones que NO se respaldan (`options.excludeCollections`, ver collection-rules). */
+  | "excludeCollections"
   | "cleanDefiners"
   /** PostgreSQL: dump restaurable en versiones anteriores (import de Cloud SQL). */
   | "pgCompat"
@@ -41,8 +43,8 @@ export type BackupOptionKey =
 
 /**
  * Opciones de dump aplicables a cada motor (para que el modal muestre solo las
- * que tienen sentido). `excludeTables` no aplica a Mongo; SQL Server aún sin
- * opciones propias.
+ * que tienen sentido). En Mongo se excluyen colecciones (`excludeCollections`), no
+ * tablas; SQL Server aún sin opciones propias.
  */
 export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
   postgres: [
@@ -55,7 +57,7 @@ export const ENGINE_BACKUP_OPTIONS: Record<DbEngine, BackupOptionKey[]> = {
     "verbose",
   ],
   mysql: ["compress", "excludeTables", "cleanDefiners", "verbose"],
-  mongo: ["compress", "verbose"],
+  mongo: ["compress", "excludeCollections", "verbose"],
   sqlserver: ["sqlBackupDir", "compress"],
 };
 

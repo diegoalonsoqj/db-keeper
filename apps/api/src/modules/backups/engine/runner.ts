@@ -438,6 +438,11 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
   const excludeTables = Array.isArray(job.options.excludeTables)
     ? job.options.excludeTables.map((t) => String(t).trim()).filter(Boolean)
     : [];
+  // MongoDB: reglas de colecciones a excluir (el prefijo `<bd>.` se interpreta con las BDs del evento).
+  const excludeCollections =
+    server.engine === "mongo" && Array.isArray(job.options.excludeCollections)
+      ? { rules: job.options.excludeCollections.map((r) => String(r).trim()).filter(Boolean), databases: job.databases }
+      : undefined;
   // PostgreSQL: esquemas a excluir por BD ({ bd: [esquemas] }).
   const excludeSchemasByDb =
     job.options.excludeSchemas && typeof job.options.excludeSchemas === "object"
@@ -608,6 +613,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
         excludeEventTriggers: excludedEventTriggers,
         cleanDefiners,
         pgCompat,
+        excludeCollections,
         mongoSrv,
         connOptions: server.connOptions,
         verbose,

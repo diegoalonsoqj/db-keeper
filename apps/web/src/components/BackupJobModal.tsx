@@ -7,7 +7,9 @@ import {
   SCRATCH_DISK_TYPES,
   type ParallelEnvironmentDto,
   ENGINE_BACKUP_OPTIONS,
+  collectionRuleError,
   formatBytes,
+  parseCollectionRules,
   type BackupJobDto,
   type BackupMethod,
   type DiscoveredDatabase,
@@ -21,6 +23,7 @@ import {
 import { api, ApiClientError } from "../lib/api";
 import { Modal } from "./Modal";
 import { ExcludeByDbSection, useDbExclusions } from "./ExcludeByDbSection";
+import { MongoCollectionExclusions } from "./MongoCollectionExclusions";
 import { METHOD_LABELS } from "../lib/backup-methods";
 import { optionLabel } from "../lib/options";
 
@@ -49,6 +52,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   // Tablas a excluir, editadas como texto separado por comas/saltos de línea.
   const [excludeTables, setExcludeTables] = useState(
     (job?.options?.excludeTables as string[] | undefined)?.join(", ") ?? "",
+  );
+  // MongoDB: reglas de colecciones a excluir (una por línea).
+  const [excludeCollections, setExcludeCollections] = useState(
+    (job?.options?.excludeCollections as string[] | undefined)?.join("\n") ?? "",
   );
   // MySQL: quitar DEFINER por defecto.
   const [cleanDefiners, setCleanDefiners] = useState(job?.options?.cleanDefiners !== false);
@@ -128,6 +135,7 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showExcludeSchemas = dumpOpts.includes("excludeSchemas");
   const showExcludeExtensions = dumpOpts.includes("excludeExtensions");
   const showExcludeEventTriggers = dumpOpts.includes("excludeEventTriggers");
+  const showExcludeCollections = dumpOpts.includes("excludeCollections");
   const showCleanDefiners = dumpOpts.includes("cleanDefiners");
   // -Fd no genera SQL plano: la compatibilidad de versiones no aplica.
   const showPgCompat = dumpOpts.includes("pgCompat") && !isParallel;
@@ -228,6 +236,13 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         .map((t) => t.trim())
         .filter(Boolean);
     else delete options.excludeTables;
+    if (showExcludeCollections) {
+      const rules = parseCollectionRules(excludeCollections);
+      const ruleError = rules.map((r) => collectionRuleError(r, [...selected])).find(Boolean);
+      if (ruleError) return setError(ruleError);
+      if (rules.length > 0) options.excludeCollections = rules;
+      else delete options.excludeCollections;
+    } else delete options.excludeCollections;
     // Solo de las BDs seleccionadas (el backend vuelve a validarlo).
     const exclusions = [
       ["excludeSchemas", showExcludeSchemas, schemas],
@@ -557,6 +572,17 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
           loadingDb={eventTriggers.loadingDb}
           onLoad={eventTriggers.load}
           onToggle={eventTriggers.toggle}
+        />
+      )}
+
+      {showExcludeCollections && (
+        <MongoCollectionExclusions
+          serverId={serverId}
+          credentialId={credentialId}
+          databases={[...selected]}
+          rulesText={excludeCollections}
+          onRulesTextChange={setExcludeCollections}
+          onError={setError}
         />
       )}
 

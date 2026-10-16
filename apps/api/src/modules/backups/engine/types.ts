@@ -22,6 +22,11 @@ export interface DumpInput {
   cleanDefiners?: boolean;
   /** PostgreSQL: quitar líneas que versiones anteriores rechazan (ver pg-compat.ts). */
   pgCompat?: boolean;
+  /**
+   * MongoDB: reglas de colecciones que NO se respaldan (patrones con `*`) y BDs del
+   * evento (para interpretar el prefijo `<bd>.` de una regla).
+   */
+  excludeCollections?: { rules: string[]; databases: string[] };
   /** MongoDB: conexión SRV (Atlas) en vez de `mongodb://host:port`. */
   mongoSrv?: boolean;
   /** MongoDB: opciones de conexión de la instancia. */

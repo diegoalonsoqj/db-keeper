@@ -3,6 +3,8 @@ import { rm, stat } from "node:fs/promises";
 import { env } from "../../../config/env.js";
 import { buildMongoUri } from "../../../lib/mongo-uri.js";
 import { isWireVersionTooLow } from "../../../lib/mongo-compat.js";
+import { listMongoCollections, withMongoClient } from "../../../lib/mongo-client.js";
+import { matchCollectionRule } from "@dbkeeper/shared";
 import type { DumpInput, DumpResult } from "./types.js";
 import { verifyGzip } from "./verify.js";
 import { pipeStderrLines, describeDumpExit } from "./log-lines.js";
@@ -22,11 +24,14 @@ import { superviseDump, type DumpLimits } from "./supervise.js";
 export async function dumpMongo(input: DumpInput): Promise<DumpResult> {
   const filePath = `${input.destPathNoExt}.archive${input.compress ? ".gz" : ""}`;
   const uri = buildUri(input);
+  const excluded = await resolveExcludedCollections(input);
   const args = [
     `--uri=${uri}`,
     `--archive=${filePath}`,
     ...(input.compress ? ["--gzip"] : []),
     ...(input.verbose ? ["--verbose"] : []),
+    // La BD va en la URI: mongodump la toma como --db, que --excludeCollection exige.
+    ...excluded.map((c) => `--excludeCollection=${c}`),
   ];
 
   try {
@@ -56,8 +61,46 @@ export async function dumpMongo(input: DumpInput): Promise<DumpResult> {
 }
 
 /** URI de conexión (Atlas SRV o estándar) con las opciones de la instancia. */
-function buildUri(input: DumpInput): string {
-  return buildMongoUri({ ...input, srv: input.mongoSrv === true, options: input.connOptions });
+function buildUri(input: DumpInput, extra?: Record<string, string>): string {
+  return buildMongoUri({ ...input, srv: input.mongoSrv === true, options: input.connOptions, extra });
+}
+
+/** Timeout para listar las colecciones antes del dump (ms). */
+const LIST_TIMEOUT_MS = "15000";
+
+/**
+ * Colecciones de la BD que excluyen las reglas del evento, resueltas contra las que
+ * existen ahora (mongodump solo excluye por nombre exacto o prefijo). Deja en el log
+ * cuáles y por qué regla. Lanza si no se pueden listar (no se respalda ignorando la
+ * exclusión pedida) o si las reglas excluyen todas (sería un backup vacío).
+ */
+async function resolveExcludedCollections(input: DumpInput): Promise<string[]> {
+  const ex = input.excludeCollections;
+  if (!ex || ex.rules.length === 0) return [];
+  let collections: string[];
+  try {
+    const listUri = buildUri(input, { serverSelectionTimeoutMS: LIST_TIMEOUT_MS, connectTimeoutMS: LIST_TIMEOUT_MS });
+    collections = (await withMongoClient(listUri, (c) => listMongoCollections(c, input.dbName))).map((c) => c.name);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`No se pudieron listar las colecciones para aplicar las exclusiones: ${input.password ? msg.split(input.password).join("***") : msg}`);
+  }
+  const byRule = new Map<string, string[]>();
+  for (const coll of collections) {
+    const rule = matchCollectionRule(ex.rules, input.dbName, coll, ex.databases);
+    if (rule) byRule.set(rule, [...(byRule.get(rule) ?? []), coll]);
+  }
+  const excluded = [...byRule.values()].flat();
+  if (excluded.length === 0) {
+    input.onLog?.("Colecciones excluidas: ninguna coincide con las reglas del evento.");
+    return [];
+  }
+  if (excluded.length === collections.length) {
+    throw new Error(`Las reglas de exclusión excluyen las ${collections.length} colecciones de ${input.dbName}: no se genera un backup vacío.`);
+  }
+  input.onLog?.(`Colecciones excluidas (${excluded.length} de ${collections.length}):`);
+  for (const [rule, colls] of byRule) input.onLog?.(`  ${rule} → ${colls.join(", ")}`);
+  return excluded;
 }
 
 interface MongodumpBin {
