@@ -16,6 +16,8 @@ export interface EmailDetail {
   ok: boolean;
   /** Tamaño si fue bien, motivo si falló. */
   info: string;
+  /** No se ejecutó (p. ej. evento inactivo en un grupo): se muestra "Omitido". */
+  skipped?: boolean;
 }
 
 export interface EmailContent {
@@ -28,6 +30,9 @@ export interface EmailContent {
   intro?: string;
   rows?: EmailRow[];
   details?: EmailDetail[] | null;
+  /** Encabezados del detalle (por defecto, por base de datos). */
+  detailsTitle?: string;
+  detailsNameHeader?: string;
   /** Fecha/hora ya formateada para el pie. */
   sentAt: string;
 }
@@ -60,22 +65,23 @@ function rowsTable(rows: EmailRow[]): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${trs}</table>`;
 }
 
-function detailsTable(details: EmailDetail[]): string {
+function detailsTable(details: EmailDetail[], title: string, nameHeader: string): string {
   const th = (t: string, align = "left"): string =>
     `<th align="${align}" style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid ${BORDER};color:${MUTED};font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${t}</th>`;
   const trs = details
     .map((d) => {
-      const tone = TONES[d.ok ? "success" : "danger"];
+      const tone = TONES[d.skipped ? "warning" : d.ok ? "success" : "danger"];
+      const label = d.skipped ? "Omitido" : d.ok ? "Correcto" : "Error";
       return `<tr>
 <td style="padding:10px 12px;border-bottom:1px solid ${BORDER};color:${TEXT};font-size:14px;font-weight:600;word-break:break-word">${escapeHtml(d.name)}</td>
-<td style="padding:10px 12px;border-bottom:1px solid ${BORDER};white-space:nowrap"><span style="display:inline-block;padding:2px 10px;border-radius:999px;background:${tone.bg};color:${tone.fg};font-size:12px;font-weight:600">${d.ok ? "Correcto" : "Error"}</span></td>
+<td style="padding:10px 12px;border-bottom:1px solid ${BORDER};white-space:nowrap"><span style="display:inline-block;padding:2px 10px;border-radius:999px;background:${tone.bg};color:${tone.fg};font-size:12px;font-weight:600">${label}</span></td>
 <td style="padding:10px 12px;border-bottom:1px solid ${BORDER};color:${d.ok ? TEXT : tone.fg};font-size:13px;word-break:break-word">${escapeHtml(d.info)}</td>
 </tr>`;
     })
     .join("");
-  return `<p style="margin:28px 0 10px;color:${TEXT};font-size:15px;font-weight:600">Detalle por base de datos</p>
+  return `<p style="margin:28px 0 10px;color:${TEXT};font-size:15px;font-weight:600">${escapeHtml(title)}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid ${BORDER};border-radius:8px">
-<tr>${th("Base de datos")}${th("Estado")}${th("Tamaño / motivo")}</tr>${trs}</table>`;
+<tr>${th(escapeHtml(nameHeader))}${th("Estado")}${th("Tamaño / motivo")}</tr>${trs}</table>`;
 }
 
 /**
@@ -109,7 +115,7 @@ ${c.intro ? `<p style="margin:10px 0 0;color:${MUTED};font-size:14px;line-height
 </td></tr>
 <tr><td style="padding:16px 32px 32px">
 ${c.rows?.length ? rowsTable(c.rows) : ""}
-${c.details?.length ? detailsTable(c.details) : ""}
+${c.details?.length ? detailsTable(c.details, c.detailsTitle ?? "Detalle por base de datos", c.detailsNameHeader ?? "Base de datos") : ""}
 </td></tr>
 <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid ${BORDER};color:${MUTED};font-size:12px;line-height:1.5">
 Mensaje automático de DBKeeper · ${escapeHtml(c.sentAt)}<br>No responder a este correo.

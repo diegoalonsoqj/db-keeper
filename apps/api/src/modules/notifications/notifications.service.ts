@@ -1,5 +1,6 @@
 import { executionCode } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
+import { findNotifyModeForExecution } from "../groups/group-runs.repository.js";
 import { formatBytes } from "../../lib/format.js";
 import * as settings from "../settings/settings.service.js";
 import type { NotifRuntimeConfig } from "../settings/settings.service.js";
@@ -215,6 +216,21 @@ function buildTelegramHtml(n: BackupNotification): string {
 }
 
 /**
+ * ¿Sale el aviso individual de un evento lanzado por un grupo? Lo decide el modo de
+ * la corrida (el resumen final va aparte). Ante un error de lectura, se envía.
+ */
+async function groupAllows(n: BackupNotification): Promise<boolean> {
+  if (!n.group || n.event === "integrity") return true;
+  const mode = await findNotifyModeForExecution(n.executionId).catch((err) => {
+    logger.warn({ err, executionId: n.executionId }, "No se pudo leer el modo de avisos del grupo");
+    return null;
+  });
+  if (mode === "summary") return false;
+  if (mode === "summary_failures") return n.event === "failure";
+  return true; // 'all' o ejecución anterior a las corridas de grupo
+}
+
+/**
  * Envía el aviso de una corrida de backup por los canales habilitados (correo y/o
  * Telegram), según las banderas notifyOn*. **Nunca lanza**: cualquier fallo de un
  * canal se registra y no interrumpe el flujo de backups. Llamar en segundo plano.
@@ -229,6 +245,7 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
   }
 
   if (!eventEnabled(cfg, n.event)) return;
+  if (!(await groupAllows(n))) return;
 
   const subject = backupSubject(n);
   const text = buildText(n);
@@ -281,6 +298,234 @@ function sendTelegramThreaded(cfg: NotifRuntimeConfig["telegram"], executionId: 
     if (telegramChains.get(executionId) === settled) telegramChains.delete(executionId);
   });
   return run;
+}
+
+// ---- Corrida de grupo: aviso de inicio y resumen final ----
+
+/** Línea de un evento en el aviso del grupo. */
+export interface GroupRunEventLine {
+  executionId?: string;
+  name: string;
+  /** En el aviso de inicio, `queued` (en cola) u `skipped`. */
+  status: "queued" | "success" | "failed" | "skipped";
+  durationMs?: number | null;
+  dbCount?: number;
+  totalBytes?: number;
+  /** Motivo ya recortado (solo si falló). */
+  error?: string | null;
+}
+
+export interface GroupRunNotification {
+  event: "start" | "summary";
+  runId: string;
+  group: string;
+  runAt: Date;
+  /** Solo resumen. */
+  durationMs?: number | null;
+  events: GroupRunEventLine[];
+}
+
+type GroupOutcome = "start" | "success" | "partial" | "failure";
+
+function groupOutcome(n: GroupRunNotification): GroupOutcome {
+  if (n.event === "start") return "start";
+  const ran = n.events.filter((e) => e.status === "success" || e.status === "failed");
+  const failed = ran.filter((e) => e.status === "failed").length;
+  if (failed === 0) return "success";
+  return failed === ran.length ? "failure" : "partial";
+}
+
+const GROUP_OUTCOME: Record<GroupOutcome, { tone: EmailTone; status: string; label: string; head: string; intro: string }> = {
+  start: {
+    tone: "info",
+    status: "En curso",
+    label: "Grupo iniciado",
+    head: "🚀 Grupo iniciado",
+    intro: "Se lanzó el grupo de eventos de backup.",
+  },
+  success: {
+    tone: "success",
+    status: "Completado",
+    label: "Grupo completado",
+    head: "✅ Grupo completado",
+    intro: "Todos los eventos del grupo terminaron correctamente.",
+  },
+  partial: {
+    tone: "danger",
+    status: "Con fallos",
+    label: "Grupo con fallos",
+    head: "⚠️ Grupo con fallos",
+    intro: "Algunos eventos del grupo fallaron. Revisa el detalle y el log de cada ejecución en DBKeeper.",
+  },
+  failure: {
+    tone: "danger",
+    status: "Fallido",
+    label: "Grupo fallido",
+    head: "❌ Grupo fallido",
+    intro: "Todos los eventos del grupo fallaron. Revisa el detalle y el log de cada ejecución en DBKeeper.",
+  },
+};
+
+/** Asunto fijo por corrida: inicio y resumen quedan en el mismo hilo de correo. */
+export function groupRunSubject(n: Pick<GroupRunNotification, "runId" | "group" | "runAt">): string {
+  const date = n.runAt.toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `[DBKeeper] [${n.group}] Grupo · ${date} · #${executionCode(n.runId)}`;
+}
+
+function groupCounts(n: GroupRunNotification): Record<GroupRunEventLine["status"], number> {
+  const c = { queued: 0, success: 0, failed: 0, skipped: 0 };
+  for (const e of n.events) c[e.status]++;
+  return c;
+}
+
+const plural = (k: number, one: string, many: string): string => `${k} ${k === 1 ? one : many}`;
+
+/** Estado en una línea (vista previa del correo). */
+export function groupStatusLine(n: GroupRunNotification): string {
+  const o = GROUP_OUTCOME[groupOutcome(n)];
+  const c = groupCounts(n);
+  const skipped = c.skipped ? ` · ${plural(c.skipped, "omitido", "omitidos")}` : "";
+  if (n.event === "start") return `${o.status} — ${plural(c.queued, "evento", "eventos")} en cola${skipped}`;
+  return `${o.status} — ${c.success} OK · ${plural(c.failed, "fallido", "fallidos")}${skipped} · ${formatDuration(n.durationMs)}`;
+}
+
+/** Detalle de un evento (sin emoji). */
+function groupEventInfo(e: GroupRunEventLine): string {
+  switch (e.status) {
+    case "skipped":
+      return "Omitido: evento inactivo o sin bases de datos";
+    case "queued":
+      return `En cola · ${e.dbCount ?? 0} BD`;
+    case "failed":
+      return `Error: ${e.error || "error"}`;
+    case "success":
+      return `${formatDuration(e.durationMs)} · ${e.dbCount ?? 0} BD · ${formatBytes(e.totalBytes)}`;
+  }
+}
+
+const GROUP_EVENT_EMOJI: Record<GroupRunEventLine["status"], string> = {
+  queued: "⏳",
+  success: "✅",
+  failed: "❌",
+  skipped: "⏭️",
+};
+
+const GROUP_EVENT_TAG: Record<GroupRunEventLine["status"], string> = {
+  queued: "EN COLA",
+  success: "OK",
+  failed: "ERROR",
+  skipped: "OMITIDO",
+};
+
+function groupRows(n: GroupRunNotification): { emoji: string; label: string; value: string }[] {
+  const c = groupCounts(n);
+  const rows = [
+    { emoji: "📚", label: "Grupo", value: n.group },
+    { emoji: "🔖", label: "Corrida", value: `#${executionCode(n.runId)}` },
+  ];
+  if (n.event === "start") {
+    rows.push({ emoji: "📋", label: "Eventos en cola", value: String(c.queued) });
+  } else {
+    rows.push({ emoji: "⏱️", label: "Duración", value: formatDuration(n.durationMs) });
+    rows.push({ emoji: "📊", label: "Resultado", value: `${c.success} OK · ${plural(c.failed, "fallido", "fallidos")}` });
+  }
+  if (c.skipped) rows.push({ emoji: "⏭️", label: "Omitidos", value: String(c.skipped) });
+  return rows;
+}
+
+function buildGroupText(n: GroupRunNotification): string {
+  const o = GROUP_OUTCOME[groupOutcome(n)];
+  const parts = [groupStatusLine(n), "", `${o.label}: ${n.group}`, o.intro, ""];
+  for (const r of groupRows(n)) parts.push(`${r.label}: ${r.value}`);
+  parts.push("", "Eventos:");
+  for (const e of n.events) parts.push(`- [${GROUP_EVENT_TAG[e.status]}] ${e.name} — ${groupEventInfo(e)}`);
+  return parts.join("\n");
+}
+
+function buildGroupEmailHtml(n: GroupRunNotification): string {
+  const o = GROUP_OUTCOME[groupOutcome(n)];
+  return renderEmail({
+    tone: o.tone,
+    status: o.status,
+    title: `${o.label}: ${n.group}`,
+    preheader: groupStatusLine(n),
+    intro: o.intro,
+    rows: groupRows(n).map(({ label, value }) => ({ label, value })),
+    details: n.events.map((e) => ({
+      name: e.name,
+      ok: e.status === "success",
+      skipped: e.status === "skipped" || e.status === "queued",
+      info: groupEventInfo(e),
+    })),
+    detailsTitle: "Detalle por evento",
+    detailsNameHeader: "Evento",
+    sentAt: sentAt(),
+  });
+}
+
+/** Telegram rechaza mensajes de más de 4096 caracteres. */
+const TELEGRAM_MAX = 4000;
+
+function buildGroupTelegramHtml(n: GroupRunNotification): string {
+  const o = GROUP_OUTCOME[groupOutcome(n)];
+  const head = [`<b>${escapeHtml(o.head)}</b>`, ""];
+  for (const r of groupRows(n)) head.push(`${r.emoji} <b>${r.label}:</b> ${escapeHtml(r.value)}`);
+  head.push("", "📋 <b>Eventos:</b>");
+  let html = head.join("\n");
+  // Se corta por líneas completas para no partir una etiqueta HTML.
+  for (let i = 0; i < n.events.length; i++) {
+    const e = n.events[i]!;
+    const line = `\n   ${GROUP_EVENT_EMOJI[e.status]} <b>${escapeHtml(e.name)}</b> — ${escapeHtml(groupEventInfo(e))}`;
+    if (html.length + line.length > TELEGRAM_MAX) {
+      html += `\n   … y ${n.events.length - i} más (ver DBKeeper)`;
+      break;
+    }
+    html += line;
+  }
+  return html;
+}
+
+/**
+ * Aviso de inicio o resumen final de una corrida de grupo. El resumen respeta las
+ * banderas de éxito/fallo de Configuración; el inicio lo decide el grupo (notifyStart).
+ * **Nunca lanza.**
+ */
+export async function notifyGroupRun(n: GroupRunNotification): Promise<void> {
+  let cfg: NotifRuntimeConfig;
+  try {
+    cfg = await settings.getNotifRuntimeConfig();
+  } catch (err) {
+    logger.error({ err }, "No se pudo leer la configuración de notificaciones");
+    return;
+  }
+  const outcome = groupOutcome(n);
+  if (outcome === "success" && !cfg.notifyOnSuccess) return;
+  if ((outcome === "partial" || outcome === "failure") && !cfg.notifyOnFailure) return;
+
+  const tasks: Promise<void>[] = [];
+  if (cfg.email.enabled) {
+    tasks.push(
+      sendEmail(cfg.email, {
+        subject: groupRunSubject(n),
+        text: buildGroupText(n),
+        html: buildGroupEmailHtml(n),
+        threadId: `dbkeeper-group-${n.runId}`,
+      }).catch((err) => {
+        logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar correo del grupo");
+      }),
+    );
+  }
+  if (cfg.telegram.enabled) {
+    tasks.push(
+      sendTelegram(cfg.telegram, buildGroupTelegramHtml(n)).then(
+        () => {},
+        (err) => {
+          logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar Telegram del grupo");
+        },
+      ),
+    );
+  }
+  await Promise.all(tasks);
 }
 
 /** Resultado de un canal en el envío de prueba. `ok=null` = canal no habilitado. */

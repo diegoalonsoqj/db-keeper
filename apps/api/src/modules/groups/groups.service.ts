@@ -5,6 +5,7 @@ import { isUniqueViolation } from "../../lib/pg-error.js";
 import { enqueueExecution } from "../backups/engine/queue.js";
 import * as schedulesRepo from "../backups/schedules.repository.js";
 import { upsertForTarget } from "../backups/schedules.service.js";
+import { notifyGroupRun } from "../notifications/notifications.service.js";
 import * as repo from "./groups.repository.js";
 
 export async function listGroups(p: { limit: number; offset: number }) {
@@ -105,9 +106,26 @@ export async function runGroup(id: string, origin: "manual" | "scheduled"): Prom
   const runnable = members.filter((m) => m.isActive && m.databases.length > 0);
   const skipped = members.filter((m) => !runnable.includes(m)).map((m) => m.name);
   if (runnable.length === 0) throw HttpError.badRequest("El grupo no tiene eventos activos para ejecutar");
-  const executionIds = await repo.createGroupExecutions({ id, name: group.name }, runnable, origin);
+  const { runId, executionIds } = await repo.createGroupExecutions(
+    { id, name: group.name, notifyMode: group.notifyMode },
+    runnable,
+    origin,
+    skipped,
+  );
   if (skipped.length > 0) {
     logger.info({ groupId: id, group: group.name, skipped }, "Grupo lanzado: eventos inactivos omitidos");
+  }
+  if (group.notifyStart) {
+    void notifyGroupRun({
+      event: "start",
+      runId,
+      group: group.name,
+      runAt: new Date(),
+      events: [
+        ...runnable.map((m) => ({ name: m.name, status: "queued" as const, dbCount: m.databases.length })),
+        ...skipped.map((name) => ({ name, status: "skipped" as const })),
+      ],
+    });
   }
   enqueueExecution();
   return { executionIds, skipped };

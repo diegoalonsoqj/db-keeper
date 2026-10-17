@@ -272,6 +272,15 @@
     "nextRun": "Próxima ejecución",
     "active": "Activo",
     "activeHint": "Un grupo inactivo no se dispara por su programación; sí se puede lanzar a mano.",
+    "notifications": "Notificaciones",
+    "notifyMode": "Avisos de cada evento",
+    "notifyModes": {
+      "summary": "Solo el resumen del grupo",
+      "summary_failures": "Resumen + fallos al momento",
+      "all": "Resumen + todos los avisos de cada evento"
+    },
+    "notifyModeHint": "Al terminar el grupo siempre se envía un resumen con el estado de cada evento (según las opciones de éxito/fallo de Configuración).",
+    "notifyStart": "Avisar al iniciar el grupo",
     "empty": "No hay grupos.",
     "badge": "Grupo",
     "runNow": "Ejecutar grupo ahora",

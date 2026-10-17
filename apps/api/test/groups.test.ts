@@ -13,14 +13,16 @@ const repo = vi.hoisted(() => ({
   createGroupExecutions: vi.fn(),
 }));
 const queue = vi.hoisted(() => ({ enqueueExecution: vi.fn() }));
+const notif = vi.hoisted(() => ({ notifyGroupRun: vi.fn() }));
 
 vi.mock("../src/modules/groups/groups.repository.js", () => repo);
 vi.mock("../src/modules/backups/engine/queue.js", () => queue);
+vi.mock("../src/modules/notifications/notifications.service.js", () => notif);
 
 import { runGroup } from "../src/modules/groups/groups.service.js";
 import type { RunnableMember } from "../src/modules/groups/groups.repository.js";
 
-const GROUP = { id: "g1", name: "Nocturno PRD", isActive: true, members: [] };
+const GROUP = { id: "g1", name: "Nocturno PRD", isActive: true, notifyStart: false, notifyMode: "summary", members: [] };
 const member = (name: string, over: Partial<RunnableMember> = {}): RunnableMember => ({
   jobId: `job-${name}`,
   name,
@@ -34,7 +36,10 @@ const member = (name: string, over: Partial<RunnableMember> = {}): RunnableMembe
 beforeEach(() => {
   vi.clearAllMocks();
   repo.findById.mockResolvedValue(GROUP);
-  repo.createGroupExecutions.mockImplementation(async (_g, members: RunnableMember[]) => members.map((m) => `exec-${m.name}`));
+  repo.createGroupExecutions.mockImplementation(async (_g, members: RunnableMember[]) => ({
+    runId: "run-1",
+    executionIds: members.map((m) => `exec-${m.name}`),
+  }));
 });
 
 describe("runGroup", () => {
@@ -44,7 +49,12 @@ describe("runGroup", () => {
 
     const r = await runGroup("g1", "scheduled");
 
-    expect(repo.createGroupExecutions).toHaveBeenCalledWith({ id: "g1", name: "Nocturno PRD" }, members, "scheduled");
+    expect(repo.createGroupExecutions).toHaveBeenCalledWith(
+      { id: "g1", name: "Nocturno PRD", notifyMode: "summary" },
+      members,
+      "scheduled",
+      [],
+    );
     expect(r).toEqual({ executionIds: ["exec-export", "exec-a", "exec-b"], skipped: [] });
     expect(queue.enqueueExecution).toHaveBeenCalledOnce();
   });
@@ -56,6 +66,32 @@ describe("runGroup", () => {
 
     expect(repo.createGroupExecutions.mock.calls[0]![1].map((m: RunnableMember) => m.name)).toEqual(["a"]);
     expect(r.skipped).toEqual(["off", "vacio"]);
+    expect(repo.createGroupExecutions.mock.calls[0]![3]).toEqual(["off", "vacio"]);
+  });
+
+  it("sin notifyStart no avisa el inicio", async () => {
+    repo.findMembersForRun.mockResolvedValue([member("a")]);
+    await runGroup("g1", "manual");
+    expect(notif.notifyGroupRun).not.toHaveBeenCalled();
+  });
+
+  it("con notifyStart avisa el inicio con los eventos en cola y los omitidos", async () => {
+    repo.findById.mockResolvedValue({ ...GROUP, notifyStart: true });
+    repo.findMembersForRun.mockResolvedValue([member("a", { databases: ["x", "y"] }), member("off", { isActive: false })]);
+
+    await runGroup("g1", "manual");
+
+    expect(notif.notifyGroupRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "start",
+        runId: "run-1",
+        group: "Nocturno PRD",
+        events: [
+          { name: "a", status: "queued", dbCount: 2 },
+          { name: "off", status: "skipped" },
+        ],
+      }),
+    );
   });
 
   it("falla si no queda ningún evento ejecutable", async () => {

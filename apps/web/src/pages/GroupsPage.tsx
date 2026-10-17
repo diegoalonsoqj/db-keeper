@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, ArrowUp, CalendarClock, Pencil, Play, Trash2, X } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, type BackupJobDto, type JobGroupDto, type Paginated } from "@dbkeeper/shared";
+import {
+  DEFAULT_PAGE_SIZE,
+  GROUP_NOTIFY_MODES,
+  type BackupJobDto,
+  type GroupNotifyMode,
+  type JobGroupDto,
+  type Paginated,
+} from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { METHOD_LABELS } from "../lib/backup-methods";
 import { useAuth } from "../auth/AuthContext";
@@ -18,10 +25,20 @@ interface FormState {
   name: string;
   description: string;
   isActive: boolean;
+  notifyStart: boolean;
+  notifyMode: GroupNotifyMode;
   jobIds: string[];
 }
 
-const emptyForm: FormState = { id: null, name: "", description: "", isActive: true, jobIds: [] };
+const emptyForm: FormState = {
+  id: null,
+  name: "",
+  description: "",
+  isActive: true,
+  notifyStart: false,
+  notifyMode: "summary",
+  jobIds: [],
+};
 
 /** Todos los eventos (la API pagina de a 100). */
 async function fetchAllJobs(): Promise<BackupJobDto[]> {
@@ -71,6 +88,8 @@ export function GroupsPage() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         isActive: form.isActive,
+        notifyStart: form.notifyStart,
+        notifyMode: form.notifyMode,
         jobIds: form.jobIds,
       };
       if (form.id) await api.patch(`/groups/${form.id}`, body);
@@ -178,6 +197,8 @@ export function GroupsPage() {
                               name: g.name,
                               description: g.description ?? "",
                               isActive: g.isActive,
+                              notifyStart: g.notifyStart,
+                              notifyMode: g.notifyMode,
                               jobIds: g.members.map((m) => m.jobId),
                             })
                           }
@@ -293,6 +314,32 @@ function GroupModal({
         {t("groups.active")}
       </label>
       <small>{t("groups.activeHint")}</small>
+
+      <fieldset>
+        <legend>{t("groups.notifications")}</legend>
+        <label>
+          {t("groups.notifyMode")}
+          <select
+            value={form.notifyMode}
+            onChange={(e) => onChange({ ...form, notifyMode: e.target.value as GroupNotifyMode })}
+          >
+            {GROUP_NOTIFY_MODES.map((m) => (
+              <option key={m} value={m}>
+                {t(`groups.notifyModes.${m}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <small className="muted">{t("groups.notifyModeHint")}</small>
+        <label className="inline">
+          <input
+            type="checkbox"
+            checked={form.notifyStart}
+            onChange={(e) => onChange({ ...form, notifyStart: e.target.checked })}
+          />
+          {t("groups.notifyStart")}
+        </label>
+      </fieldset>
 
       <fieldset>
         <legend>{t("groups.events")}</legend>

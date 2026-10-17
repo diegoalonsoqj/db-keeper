@@ -1,4 +1,4 @@
-import type { BackupMethod, JobGroupDto, JobGroupMemberDto } from "@dbkeeper/shared";
+import type { BackupMethod, GroupNotifyMode, JobGroupDto, JobGroupMemberDto } from "@dbkeeper/shared";
 import { pool, query } from "../../db/pool.js";
 import { insertExecution } from "../backups/backups.repository.js";
 
@@ -7,6 +7,8 @@ interface GroupRow {
   name: string;
   description: string | null;
   is_active: boolean;
+  notify_start: boolean;
+  notify_mode: GroupNotifyMode;
   next_run_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -19,6 +21,8 @@ function toDto(row: GroupRow): JobGroupDto {
     name: row.name,
     description: row.description,
     isActive: row.is_active,
+    notifyStart: row.notify_start,
+    notifyMode: row.notify_mode,
     members: row.members,
     nextRunAt: row.next_run_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
@@ -73,6 +77,8 @@ export interface GroupFields {
   name: string;
   description: string | null;
   isActive: boolean;
+  notifyStart: boolean;
+  notifyMode: GroupNotifyMode;
 }
 
 /** Inserta o actualiza el grupo y reemplaza sus miembros (en orden), en una transacción. */
@@ -83,17 +89,28 @@ export async function saveGroup(id: string | null, f: Partial<GroupFields>, jobI
     let groupId = id;
     if (!groupId) {
       const { rows } = await client.query<{ id: string }>(
-        "INSERT INTO core.job_groups (name, description, is_active) VALUES ($1,$2,$3) RETURNING id",
-        [f.name, f.description ?? null, f.isActive ?? true],
+        `INSERT INTO core.job_groups (name, description, is_active, notify_start, notify_mode)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [f.name, f.description ?? null, f.isActive ?? true, f.notifyStart ?? false, f.notifyMode ?? "summary"],
       );
       groupId = rows[0]!.id;
     } else {
       await client.query(
         `UPDATE core.job_groups SET name = COALESCE($2, name),
            description = CASE WHEN $3::boolean THEN $4 ELSE description END,
-           is_active = COALESCE($5, is_active)
+           is_active = COALESCE($5, is_active),
+           notify_start = COALESCE($6, notify_start),
+           notify_mode = COALESCE($7, notify_mode)
          WHERE id = $1`,
-        [groupId, f.name ?? null, f.description !== undefined, f.description ?? null, f.isActive ?? null],
+        [
+          groupId,
+          f.name ?? null,
+          f.description !== undefined,
+          f.description ?? null,
+          f.isActive ?? null,
+          f.notifyStart ?? null,
+          f.notifyMode ?? null,
+        ],
       );
     }
     if (jobIds) {
@@ -157,15 +174,25 @@ export async function findMembersForRun(groupId: string): Promise<RunnableMember
   }));
 }
 
-/** Crea las ejecuciones del grupo en una transacción (todas o ninguna), en orden de cola. */
+/**
+ * Crea la corrida del grupo y sus ejecuciones en una transacción (todas o ninguna), en
+ * orden de cola. Devuelve el id de la corrida y los de las ejecuciones.
+ */
 export async function createGroupExecutions(
-  group: { id: string; name: string },
+  group: { id: string; name: string; notifyMode: GroupNotifyMode },
   members: RunnableMember[],
   origin: "manual" | "scheduled",
-): Promise<string[]> {
+  skipped: string[],
+): Promise<{ runId: string; executionIds: string[] }> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const { rows } = await client.query<{ id: string }>(
+      `INSERT INTO core.group_runs (group_id, group_name, origin, notify_mode, skipped)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [group.id, group.name, origin, group.notifyMode, skipped],
+    );
+    const runId = rows[0]!.id;
     const ids: string[] = [];
     for (const m of members) {
       ids.push(
@@ -175,12 +202,12 @@ export async function createGroupExecutions(
           environment: m.environment,
           databases: m.databases,
           origin,
-          group,
+          group: { id: group.id, name: group.name, runId },
         }),
       );
     }
     await client.query("COMMIT");
-    return ids;
+    return { runId, executionIds: ids };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

@@ -305,8 +305,8 @@ export interface NewExecution {
   environment: string | null;
   databases: string[];
   origin: ExecutionDto["origin"];
-  /** Grupo que la lanza (id + nombre snapshot), o null. */
-  group: { id: string; name: string } | null;
+  /** Grupo que la lanza (id + nombre snapshot + corrida), o null. */
+  group: { id: string; name: string; runId: string } | null;
 }
 
 /**
@@ -316,9 +316,9 @@ export interface NewExecution {
  */
 export async function insertExecution(client: { query: typeof pool.query }, e: NewExecution): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
-    `INSERT INTO core.executions (job_id, label, environment, origin, group_id, group_name, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6, clock_timestamp()) RETURNING id`,
-    [e.jobId, e.label, e.environment, e.origin, e.group?.id ?? null, e.group?.name ?? null],
+    `INSERT INTO core.executions (job_id, label, environment, origin, group_id, group_name, group_run_id, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7, clock_timestamp()) RETURNING id`,
+    [e.jobId, e.label, e.environment, e.origin, e.group?.id ?? null, e.group?.name ?? null, e.group?.runId ?? null],
   );
   const id = rows[0]!.id;
   if (e.databases.length > 0) {

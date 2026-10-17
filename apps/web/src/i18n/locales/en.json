@@ -272,6 +272,15 @@
     "nextRun": "Next run",
     "active": "Active",
     "activeHint": "An inactive group is not fired by its schedule; it can still be launched manually.",
+    "notifications": "Notifications",
+    "notifyMode": "Per-event notifications",
+    "notifyModes": {
+      "summary": "Group summary only",
+      "summary_failures": "Summary + failures as they happen",
+      "all": "Summary + every per-event notification"
+    },
+    "notifyModeHint": "When the group finishes, a summary with each event's status is always sent (subject to the success/failure options in Settings).",
+    "notifyStart": "Notify when the group starts",
     "empty": "No groups.",
     "badge": "Group",
     "runNow": "Run group now",

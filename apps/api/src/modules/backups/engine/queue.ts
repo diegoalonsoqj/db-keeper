@@ -1,4 +1,5 @@
 import { logger } from "../../../config/logger.js";
+import { settleGroupRuns } from "../../groups/group-runs.service.js";
 import { getBackupSettings } from "../../settings/settings.service.js";
 import * as repo from "../backups.repository.js";
 import { runExecution } from "./runner.js";
@@ -93,6 +94,8 @@ async function pump(): Promise<void> {
   } finally {
     pumping = false;
   }
+  // Resumen de las corridas de grupo que ya terminaron (fin, cancelación o reinicio).
+  await settleGroupRuns();
 }
 
 function start({ id, ...run }: { id: string } & ActiveRun): void {

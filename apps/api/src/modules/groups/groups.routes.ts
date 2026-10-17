@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { GROUP_NOTIFY_MODES } from "@dbkeeper/shared";
 import { z } from "zod";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
@@ -16,6 +17,8 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
   description: z.string().trim().max(255).nullish().transform((v) => v || null),
   isActive: z.boolean().default(true),
+  notifyStart: z.boolean().default(false),
+  notifyMode: z.enum(GROUP_NOTIFY_MODES).default("summary"),
   jobIds,
 });
 
@@ -24,6 +27,8 @@ const updateSchema = z.object({
   // undefined = no cambia; null o "" = la quita.
   description: z.string().trim().max(255).nullable().optional().transform((v) => (v === undefined ? undefined : v || null)),
   isActive: z.boolean().optional(),
+  notifyStart: z.boolean().optional(),
+  notifyMode: z.enum(GROUP_NOTIFY_MODES).optional(),
   jobIds: jobIds.optional(),
 });
 

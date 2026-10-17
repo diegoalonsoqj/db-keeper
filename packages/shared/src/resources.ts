@@ -344,12 +344,22 @@ export interface JobGroupMemberDto {
   hasOwnSchedule: boolean;
 }
 
+/**
+ * Avisos individuales de cada evento del grupo, además del resumen final:
+ * `summary` = ninguno, `summary_failures` = solo los fallos al momento, `all` = todos.
+ */
+export const GROUP_NOTIFY_MODES = ["summary", "summary_failures", "all"] as const;
+export type GroupNotifyMode = (typeof GROUP_NOTIFY_MODES)[number];
+
 /** Grupo de eventos que se programan o lanzan juntos. */
 export interface JobGroupDto {
   id: string;
   name: string;
   description: string | null;
   isActive: boolean;
+  /** Aviso al iniciar la corrida del grupo. */
+  notifyStart: boolean;
+  notifyMode: GroupNotifyMode;
   /** Eventos en el orden del grupo. */
   members: JobGroupMemberDto[];
   /** Próximo disparo de la programación del grupo (null si no tiene o está inactiva). */
@@ -362,6 +372,8 @@ export interface JobGroupInput {
   name: string;
   description?: string | null;
   isActive?: boolean;
+  notifyStart?: boolean;
+  notifyMode?: GroupNotifyMode;
   /** Ids de evento en el orden deseado. */
   jobIds: string[];
 }
