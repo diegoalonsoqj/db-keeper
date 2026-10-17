@@ -7,7 +7,7 @@ vi.hoisted(() => {
   process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";
 });
 
-import { executionCode } from "@dbkeeper/shared";
+import { executionCode, formatDuration } from "@dbkeeper/shared";
 import { backupSubject, statusLine, type BackupNotification } from "../src/modules/notifications/notifications.service.js";
 import { threadHeaders } from "../src/modules/notifications/email.js";
 import { renderEmail } from "../src/modules/notifications/email-template.js";
@@ -82,5 +82,19 @@ describe("hilo de correo", () => {
   it("la vista previa va oculta al inicio del cuerpo", () => {
     const html = renderEmail({ tone: "info", status: "En curso", title: "t", preheader: "En curso — 2 <BD>", sentAt: "x" });
     expect(html).toMatch(/<div style="display:none[^"]*">En curso — 2 &lt;BD&gt;/);
+  });
+});
+
+describe("formatDuration", () => {
+  it.each([
+    [45_000, "45s"],
+    [(5 * 60 + 3) * 1000, "5m 3s"],
+    [(78 * 60 + 45) * 1000, "1h 18m 45s"],
+    [(3600 + 5 * 60 + 55) * 1000, "1h 5m 55s"],
+    [((2 * 24 + 3) * 3600 + 10 * 60 + 20) * 1000, "2d 3h 10m"],
+    [0, "—"],
+    [null, "—"],
+  ])("%s ms → %s", (ms, out) => {
+    expect(formatDuration(ms)).toBe(out);
   });
 });

@@ -254,6 +254,23 @@ export function executionCode(id: string): string {
 }
 
 /**
+ * Duración legible, igual en la web y en los avisos: "45s", "5m 3s", "1h 5m 55s",
+ * "2d 3h 10m" (desde un día se omiten los segundos). "—" si no hay duración.
+ */
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return "—";
+  const total = Math.round(ms / 1000);
+  const d = Math.floor(total / 86_400);
+  const h = Math.floor((total % 86_400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+/**
  * Evento empujado por SSE al cambiar el estado de una ejecución. Lleva el
  * snapshot completo de la ejecución tras la transición (el cliente reemplaza el
  * registro por `id`). Ver `docs/REALTIME-QUEUE-DESIGN.md`.

@@ -5,6 +5,7 @@ import {
   EXECUTION_ORIGINS,
   EXECUTION_STATES,
   executionCode,
+  formatDuration,
   isDirectoryArtifact,
   PGDIR_MANIFEST,
   type BackupJobDto,
@@ -362,14 +363,8 @@ export function ExecutionsPage() {
   };
 
   /** Formatea milisegundos en formato compacto (s / m s / h m). */
-  const fmtMs = (ms: number) => {
-    if (ms < 0) return "—";
-    const s = Math.round(ms / 1000);
-    if (s < 60) return `${s} s`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m} m ${s % 60} s`;
-    return `${Math.floor(m / 60)} h ${m % 60} m`;
-  };
+  // Mismo formato que los avisos; una corrida recién iniciada muestra "0s", no "—".
+  const fmtMs = (ms: number) => (ms < 0 ? "—" : formatDuration(Math.max(ms, 1)));
 
   /** Duración entre inicio y fin en formato compacto. */
   const fmtDuration = (start: string | null, end: string | null) =>

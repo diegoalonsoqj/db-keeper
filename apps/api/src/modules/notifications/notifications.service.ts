@@ -1,4 +1,4 @@
-import { executionCode } from "@dbkeeper/shared";
+import { executionCode, formatDuration } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
 import { findNotifyModeForExecution } from "../groups/group-runs.repository.js";
 import { formatBytes } from "../../lib/format.js";
@@ -91,15 +91,6 @@ function eventEnabled(cfg: NotifRuntimeConfig, event: BackupEvent): boolean {
   if (event === "start") return cfg.notifyOnStart;
   if (event === "success") return cfg.notifyOnSuccess;
   return cfg.notifyOnFailure;
-}
-
-function formatDuration(ms: number | null | undefined): string {
-  if (!ms || ms <= 0) return "—";
-  const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return `${m}m ${rem}s`;
 }
 
 /** Filas (emoji + etiqueta + valor) del resumen, comunes a todos los canales. */
