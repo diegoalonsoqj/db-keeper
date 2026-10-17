@@ -352,6 +352,20 @@ export async function findItemFile(
 
 // ---- Transiciones de estado (motor, fase 2) ----
 
+/**
+ * Toma una ejecución de la cola: `pending` → `running` de forma atómica. Devuelve false
+ * si otro proceso ya la tomó o se canceló (no se debe ejecutar).
+ */
+export async function claimExecution(id: string): Promise<boolean> {
+  const { rowCount } = await query(
+    `UPDATE core.executions
+     SET status = 'running', started_at = COALESCE(started_at, now()), runner_host = $2
+     WHERE id = $1 AND status = 'pending'`,
+    [id, INSTANCE_HOST],
+  );
+  return rowCount === 1;
+}
+
 /** Marca la ejecución como `running` y fija started_at si aún no estaba. */
 export async function markExecutionRunning(id: string): Promise<void> {
   await query(

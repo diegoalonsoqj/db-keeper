@@ -1,4 +1,6 @@
 import { logger } from "../../../config/logger.js";
+import { query } from "../../../db/pool.js";
+import { listenAsLeader } from "../../../lib/leader.js";
 import { settleGroupRuns } from "../../groups/group-runs.service.js";
 import { getBackupSettings } from "../../settings/settings.service.js";
 import * as repo from "../backups.repository.js";
@@ -16,6 +18,8 @@ import { runExecution } from "./runner.js";
  *   una ruta única (Configuración → Disco temporal).
  */
 const TICK_MS = 30_000;
+/** Canal por el que una instancia seguidora avisa a la líder de que hay trabajo. */
+const QUEUE_CHANNEL = "dbkeeper_queue";
 
 /** Ejecuciones lanzadas por la cola y aún en curso en este proceso. */
 const active = new Map<string, ActiveRun>();
@@ -23,9 +27,19 @@ let pumping = false;
 let again = false;
 let timer: NodeJS.Timeout | null = null;
 
-/** Avisa a la cola de que hay una ejecución nueva (`pending`) para lanzar. */
+/**
+ * Avisa a la cola de que hay una ejecución nueva (`pending`) para lanzar. Solo la
+ * líder corre la cola: en una seguidora (la API que atendió el "Ejecutar") se avisa a
+ * la líder por `pg_notify`; si el aviso se pierde, la recoge su pasada periódica.
+ */
 export function enqueueExecution(): void {
-  void pump();
+  if (timer) {
+    void pump();
+    return;
+  }
+  void query("SELECT pg_notify($1, '')", [QUEUE_CHANNEL]).catch((err) =>
+    logger.warn({ err }, "No se pudo avisar a la instancia líder; la ejecución espera su próxima pasada"),
+  );
 }
 
 interface ActiveRun {
@@ -115,7 +129,10 @@ function start({ id, ...run }: { id: string } & ActiveRun): void {
  */
 export function startExecutionQueue(): void {
   if (timer) return;
-  void pump();
   timer = setInterval(() => void pump(), TICK_MS);
   timer.unref();
+  void pump();
+  void listenAsLeader(QUEUE_CHANNEL, () => void pump()).catch((err) =>
+    logger.error({ err }, "No se pudo escuchar los avisos de la cola; se usará solo la pasada periódica"),
+  );
 }

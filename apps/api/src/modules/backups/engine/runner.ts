@@ -142,6 +142,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
   const exec = await repo.findExecutionById(executionId);
   if (!exec) return;
   if (exec.status !== (resume ? "running" : "pending")) return; // ya procesada o en curso
+  if (!resume && !(await repo.claimExecution(executionId))) return; // la tomó otro proceso
 
   // Contexto para las notificaciones; se completa a medida que se resuelve la corrida.
   const startedAt = resume && exec.startedAt ? Date.parse(exec.startedAt) : Date.now();

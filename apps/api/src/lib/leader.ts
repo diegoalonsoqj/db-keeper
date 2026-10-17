@@ -21,6 +21,14 @@ const HEALTH_MS = 30_000;
 let client: pg.Client | null = null;
 let stopped = false;
 
+/** Canales LISTEN de la líder (`pg_notify` desde cualquier instancia → handler). */
+const listeners = new Map<string, () => void>();
+
+/** LISTEN de todos los canales registrados en la conexión del candado. */
+async function subscribe(c: pg.Client): Promise<void> {
+  for (const channel of listeners.keys()) await c.query(`LISTEN ${channel}`);
+}
+
 async function connect(): Promise<pg.Client> {
   const c = new pg.Client({
     connectionString: env.DATABASE_URL,
@@ -39,6 +47,8 @@ async function tryAcquire(): Promise<boolean> {
   try {
     const { rows } = await c.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [LOCK_KEY]);
     if (rows[0]?.ok) {
+      c.on("notification", (msg) => listeners.get(msg.channel)?.());
+      await subscribe(c);
       client = c;
       return true;
     }
@@ -123,6 +133,17 @@ export function runAsLeader(onLeader: () => void): void {
     setTimeout(() => void attempt(), RETRY_MS).unref();
   };
   void attempt();
+}
+
+/**
+ * Mientras esta instancia sea la líder, llama a `handler` cada vez que cualquier
+ * instancia haga `pg_notify(channel)`. Usa la conexión del candado (sobrevive a la
+ * reconexión del healthCheck). `channel`: identificador SQL simple.
+ */
+export async function listenAsLeader(channel: string, handler: () => void): Promise<void> {
+  if (!/^[a-z_]+$/.test(channel)) throw new Error(`Canal LISTEN inválido: ${channel}`);
+  listeners.set(channel, handler);
+  if (client) await client.query(`LISTEN ${channel}`);
 }
 
 /** Libera el candado al apagar (si no, PostgreSQL lo suelta al cerrar la conexión). */
