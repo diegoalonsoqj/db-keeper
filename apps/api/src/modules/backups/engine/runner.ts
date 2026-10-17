@@ -1,6 +1,6 @@
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_BACKUP_SETTINGS } from "@dbkeeper/shared";
+import { DEFAULT_BACKUP_SETTINGS, formatDuration } from "@dbkeeper/shared";
 import { env } from "../../../config/env.js";
 import { logger } from "../../../config/logger.js";
 import { decryptSecret } from "../../../lib/crypto.js";
@@ -367,7 +367,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
         const obj = await getGcsObjectInfo({ bucket, serviceAccountJson: gcs.serviceAccountJson }, objectName);
         const bytes = obj.bytes;
         if (bytes <= 0) throw new Error(`El export terminó pero ${uri} está vacío`);
-        ls.onLog(`Export completado en ${((Date.now() - start) / 1000).toFixed(1)} s (${formatBytes(bytes)}).`);
+        ls.onLog(`Export completado en ${formatDuration(Date.now() - start)} (${formatBytes(bytes)}).`);
         const md5 = md5Base64ToHex(obj.md5);
         ls.onLog(`Checksums (GCS): ${[md5 && `MD5 ${md5}`, obj.crc32c && `CRC32C ${obj.crc32c}`].filter(Boolean).join(" · ") || "no disponibles"}`);
         ls.done();
@@ -385,7 +385,6 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
           // El export sigue en GCP: no se da por fallido. El ítem queda en `running` y el
           // verificador periódico lo retoma; las BDs pendientes esperan (la instancia
           // solo admite una operación a la vez).
-          const mins = Math.round(elapsed / 60_000);
           if (!overdue) {
             ls.onLog(
               `Se superó el tiempo de espera (${Math.round(exportTimeoutMs / 60_000)} min) y la ` +
@@ -394,7 +393,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
             );
           } else if (heartbeatMs > 0 && Math.floor(elapsed / heartbeatMs) > Math.floor((elapsed - verifyIntervalMs) / heartbeatMs)) {
             // Una línea por intervalo de heartbeat, aunque la verificación sea más frecuente.
-            ls.onLog(`Verificación en segundo plano: el export sigue en curso… ${mins} min transcurridos.`);
+            ls.onLog(`Verificación en segundo plano: el export sigue en curso… ${formatDuration(elapsed)} transcurridos.`);
           }
           ls.done();
           await repo.updateItemLog(item.id, ls.getLog());
@@ -646,7 +645,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
         const upStart = Date.now();
         const gcsAuth = { bucket: gcs.bucket, serviceAccountJson: gcs.serviceAccountJson };
         const uri = await uploadToGcs(gcsAuth, localPath, objectName, { sha256: hashes.sha256 });
-        ls?.onLog(`Subida completada en ${((Date.now() - upStart) / 1000).toFixed(1)} s.`);
+        ls?.onLog(`Subida completada en ${formatDuration(Date.now() - upStart)}.`);
         // El objeto en el bucket debe ser idéntico al dump local (antes de borrar el staging).
         const obj = await getGcsObjectInfo(gcsAuth, objectName);
         if (obj.crc32c !== hashes.crc32c || obj.bytes !== dumpRes.bytes) {

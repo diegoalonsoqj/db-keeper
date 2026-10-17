@@ -2,6 +2,7 @@ import { rm } from "node:fs/promises";
 import { cpus } from "node:os";
 import path from "node:path";
 import type { BackupJobDto, BackupSettings, ExecutionItemDto, ServerDto } from "@dbkeeper/shared";
+import { formatDuration } from "@dbkeeper/shared";
 import { logger } from "../../../config/logger.js";
 import { formatBytes } from "../../../lib/format.js";
 import { getScratchSettings } from "../../settings/settings.service.js";
@@ -207,7 +208,7 @@ async function runItem(
     });
     stopWatch();
     ls.onLog(
-      `Dump completado en ${((Date.now() - dumpStart) / 60_000).toFixed(1)} min: ${dump.files} archivos, ${formatBytes(dump.bytes)}, ` +
+      `Dump completado en ${formatDuration(Date.now() - dumpStart)}: ${dump.files} archivos, ${formatBytes(dump.bytes)}, ` +
         `TOC con ${dump.tocEntries} entradas (pg_restore --list OK).` +
         (dump.ignoredLines ? ` ${dump.ignoredLines} líneas de ruido omitidas.` : ""),
     );

@@ -7,15 +7,17 @@ vi.hoisted(() => {
   process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";
 });
 
-const runsRepo = vi.hoisted(() => ({ findNotifyModeForExecution: vi.fn() }));
+const runsRepo = vi.hoisted(() => ({ findGroupRunForExecution: vi.fn() }));
 const settings = vi.hoisted(() => ({ getNotifRuntimeConfig: vi.fn() }));
 const email = vi.hoisted(() => ({ sendEmail: vi.fn() }));
 const telegram = vi.hoisted(() => ({ sendTelegram: vi.fn() }));
+const notifRepo = vi.hoisted(() => ({ findTelegramRoot: vi.fn(), saveTelegramRoot: vi.fn() }));
 
 vi.mock("../src/modules/groups/group-runs.repository.js", () => runsRepo);
 vi.mock("../src/modules/settings/settings.service.js", () => settings);
 vi.mock("../src/modules/notifications/email.js", () => email);
 vi.mock("../src/modules/notifications/telegram.js", () => telegram);
+vi.mock("../src/modules/notifications/notifications.repository.js", () => notifRepo);
 
 import {
   groupStatusLine,
@@ -47,6 +49,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   settings.getNotifRuntimeConfig.mockResolvedValue(cfg);
   telegram.sendTelegram.mockResolvedValue(10);
+  notifRepo.findTelegramRoot.mockResolvedValue(null);
+  notifRepo.saveTelegramRoot.mockResolvedValue(undefined);
 });
 
 describe("resumen de grupo", () => {
@@ -111,21 +115,55 @@ describe("avisos individuales de eventos de un grupo", () => {
     ["all", "success", true],
     [null, "success", true], // ejecución anterior a las corridas de grupo: como siempre
   ] as const)("modo %s, evento %s → envía=%s", async (mode, event, sent) => {
-    runsRepo.findNotifyModeForExecution.mockResolvedValue(mode);
+    runsRepo.findGroupRunForExecution.mockResolvedValue(mode ? { runId: "r1", notifyMode: mode } : null);
     await notifyBackup({ ...base, event });
     expect(telegram.sendTelegram.mock.calls.length > 0).toBe(sent);
   });
 
   it("sin grupo no consulta el modo", async () => {
     await notifyBackup({ ...base, group: null });
-    expect(runsRepo.findNotifyModeForExecution).not.toHaveBeenCalled();
+    expect(runsRepo.findGroupRunForExecution).not.toHaveBeenCalled();
     expect(telegram.sendTelegram).toHaveBeenCalledOnce();
   });
 
   it("si falla la lectura del modo, envía (no se pierden avisos)", async () => {
-    runsRepo.findNotifyModeForExecution.mockRejectedValue(new Error("db"));
+    runsRepo.findGroupRunForExecution.mockRejectedValue(new Error("db"));
     await notifyBackup(base);
     expect(telegram.sendTelegram).toHaveBeenCalledOnce();
+  });
+});
+
+describe("hilo de Telegram de la corrida", () => {
+  const run = { kind: "group_run", id: "3f2504e0-4f89-11d3-9a0c-0305e82c3301" };
+  const ev: BackupNotification = {
+    event: "failure",
+    executionId: "e1",
+    runAt: new Date(),
+    group: "Nocturno",
+    jobName: "BK",
+    engine: "postgres",
+    databases: ["a"],
+  };
+
+  it("el primer aviso de la corrida queda como raíz", async () => {
+    await notifyGroupRun(summary([{ name: "a", status: "success" }]));
+    expect(telegram.sendTelegram).toHaveBeenCalledWith(cfg.telegram, expect.any(String), null);
+    expect(notifRepo.saveTelegramRoot).toHaveBeenCalledWith(run, "1", 10);
+  });
+
+  it("el resumen y los eventos del grupo responden a la raíz de la corrida", async () => {
+    notifRepo.findTelegramRoot.mockResolvedValue({ chatId: "1", messageId: 7 });
+    runsRepo.findGroupRunForExecution.mockResolvedValue({ runId: run.id, notifyMode: "all" });
+    await notifyBackup(ev);
+    await notifyGroupRun(summary([{ name: "a", status: "success" }]));
+    expect(notifRepo.findTelegramRoot).toHaveBeenCalledWith(run);
+    expect(telegram.sendTelegram.mock.calls.map((c) => c[2])).toEqual([7, 7]);
+    expect(notifRepo.saveTelegramRoot).not.toHaveBeenCalled();
+  });
+
+  it("un evento sin corrida sigue en el hilo de su ejecución", async () => {
+    await notifyBackup({ ...ev, group: null });
+    expect(notifRepo.findTelegramRoot).toHaveBeenCalledWith({ kind: "execution", id: "e1" });
   });
 });
 

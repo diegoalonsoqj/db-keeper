@@ -5,7 +5,7 @@ import path from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { CRC32C } from "@google-cloud/storage";
-import { PGDIR_MANIFEST } from "@dbkeeper/shared";
+import { formatDuration, PGDIR_MANIFEST } from "@dbkeeper/shared";
 import { formatBytes } from "../../../lib/format.js";
 import { gcsClient, type GcsAuth } from "./gcs.js";
 
@@ -156,7 +156,7 @@ export async function uploadDirectoryToGcs(
   const results = await Promise.allSettled(Array.from({ length: Math.min(opts.concurrency, files.length) }, worker));
   const rejected = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
   if (rejected) throw opts.signal?.aborted ? new Error("Cancelada") : rejected.reason;
-  log(`Subida completada en ${((Date.now() - start) / 60_000).toFixed(1)} min. Verificando objetos en el bucket…`);
+  log(`Subida completada en ${formatDuration(Date.now() - start)}. Verificando objetos en el bucket…`);
 
   // Verificación: tamaño y CRC32C de cada objeto contra lo calculado al subir.
   const [objects] = await bucket.getFiles({ prefix: `${prefix}/`, autoPaginate: true });

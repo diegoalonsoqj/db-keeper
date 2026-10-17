@@ -1,3 +1,4 @@
+import { formatDuration } from "@dbkeeper/shared";
 import { GoogleAuth } from "google-auth-library";
 import { describeGcpError } from "./gcp-error.js";
 
@@ -235,8 +236,7 @@ async function followOperation(
       lastStatus = op.status;
     } else if (heartbeatMs > 0 && op.status !== "DONE" && Date.now() >= nextHeartbeat) {
       // Sin esto, un export largo no escribe nada en el log mientras sigue en RUNNING.
-      const mins = Math.round((Date.now() - opStart) / 60_000);
-      log(`Export en curso… ${mins} min transcurridos (estado ${op.status}).`);
+      log(`Export en curso… ${formatDuration(Date.now() - opStart)} transcurridos (estado ${op.status}).`);
       nextHeartbeat = Date.now() + heartbeatMs;
     }
   }

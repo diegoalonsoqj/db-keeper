@@ -1,15 +1,18 @@
 import type { ExecutionState, GroupNotifyMode } from "@dbkeeper/shared";
 import { query } from "../../db/pool.js";
 
-/** Modo de avisos de la corrida de grupo de una ejecución (null si no la lanzó un grupo). */
-export async function findNotifyModeForExecution(executionId: string): Promise<GroupNotifyMode | null> {
-  const { rows } = await query<{ notify_mode: GroupNotifyMode }>(
-    `SELECT gr.notify_mode FROM core.executions e
+/** Corrida de grupo de una ejecución y su modo de avisos (null si no la lanzó un grupo). */
+export async function findGroupRunForExecution(
+  executionId: string,
+): Promise<{ runId: string; notifyMode: GroupNotifyMode } | null> {
+  const { rows } = await query<{ id: string; notify_mode: GroupNotifyMode }>(
+    `SELECT gr.id, gr.notify_mode FROM core.executions e
      JOIN core.group_runs gr ON gr.id = e.group_run_id
      WHERE e.id = $1`,
     [executionId],
   );
-  return rows[0]?.notify_mode ?? null;
+  const r = rows[0];
+  return r ? { runId: r.id, notifyMode: r.notify_mode } : null;
 }
 
 export interface ClaimedGroupRun {

@@ -1,6 +1,6 @@
-import { executionCode, formatDuration } from "@dbkeeper/shared";
+import { executionCode, formatDuration, type GroupNotifyMode } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
-import { findNotifyModeForExecution } from "../groups/group-runs.repository.js";
+import { findGroupRunForExecution } from "../groups/group-runs.repository.js";
 import { formatBytes } from "../../lib/format.js";
 import * as settings from "../settings/settings.service.js";
 import type { NotifRuntimeConfig } from "../settings/settings.service.js";
@@ -206,16 +206,21 @@ function buildTelegramHtml(n: BackupNotification): string {
   return parts.join(br);
 }
 
-/**
- * ¿Sale el aviso individual de un evento lanzado por un grupo? Lo decide el modo de
- * la corrida (el resumen final va aparte). Ante un error de lectura, se envía.
- */
-async function groupAllows(n: BackupNotification): Promise<boolean> {
-  if (!n.group || n.event === "integrity") return true;
-  const mode = await findNotifyModeForExecution(n.executionId).catch((err) => {
-    logger.warn({ err, executionId: n.executionId }, "No se pudo leer el modo de avisos del grupo");
+/** Corrida de grupo de la ejecución (null si no la lanzó un grupo o falla la lectura). */
+async function groupRunOf(n: BackupNotification): Promise<{ runId: string; notifyMode: GroupNotifyMode } | null> {
+  if (!n.group) return null;
+  return findGroupRunForExecution(n.executionId).catch((err) => {
+    logger.warn({ err, executionId: n.executionId }, "No se pudo leer la corrida de grupo de la ejecución");
     return null;
   });
+}
+
+/**
+ * ¿Sale el aviso individual de un evento lanzado por un grupo? Lo decide el modo de
+ * la corrida (el resumen final va aparte). Sin corrida (o error de lectura), se envía.
+ */
+function groupAllows(n: BackupNotification, mode: GroupNotifyMode | undefined): boolean {
+  if (n.event === "integrity") return true;
   if (mode === "summary") return false;
   if (mode === "summary_failures") return n.event === "failure";
   return true; // 'all' o ejecución anterior a las corridas de grupo
@@ -236,7 +241,8 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
   }
 
   if (!eventEnabled(cfg, n.event)) return;
-  if (!(await groupAllows(n))) return;
+  const run = await groupRunOf(n);
+  if (!groupAllows(n, run?.notifyMode)) return;
 
   const subject = backupSubject(n);
   const text = buildText(n);
@@ -252,8 +258,10 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
   }
 
   if (cfg.telegram.enabled) {
+    // Los eventos de una corrida de grupo van al hilo de la corrida.
+    const thread: repo.TelegramThread = run ? { kind: "group_run", id: run.runId } : { kind: "execution", id: n.executionId };
     tasks.push(
-      sendTelegramThreaded(cfg.telegram, n.executionId, buildTelegramHtml(n)).catch((err) => {
+      sendTelegramThreaded(cfg.telegram, thread, buildTelegramHtml(n)).catch((err) => {
         logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
       }),
     );
@@ -263,30 +271,31 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 }
 
 /**
- * Envíos de Telegram en curso por ejecución: se encadenan para que el aviso de fin
- * espere a que el de inicio guarde su id (en un backup rápido ambos salen casi juntos).
+ * Envíos de Telegram en curso por hilo: se encadenan para que el aviso de fin espere
+ * a que el de inicio guarde su id (en un backup rápido ambos salen casi juntos).
  */
 const telegramChains = new Map<string, Promise<void>>();
 
 /**
- * Telegram en hilo: el primer aviso de la ejecución queda como raíz (se guarda su id)
- * y los siguientes se envían como respuesta a él, aunque lleguen días después.
+ * Telegram en hilo: el primer aviso del hilo (ejecución o corrida de grupo) queda como
+ * raíz (se guarda su id) y los siguientes responden a él, aunque lleguen días después.
  */
-function sendTelegramThreaded(cfg: NotifRuntimeConfig["telegram"], executionId: string, html: string): Promise<void> {
-  const prev = telegramChains.get(executionId) ?? Promise.resolve();
+function sendTelegramThreaded(cfg: NotifRuntimeConfig["telegram"], thread: repo.TelegramThread, html: string): Promise<void> {
+  const key = `${thread.kind}:${thread.id}`;
+  const prev = telegramChains.get(key) ?? Promise.resolve();
   const run = prev.then(async () => {
-    const root = await repo.findTelegramRoot(executionId).catch((err) => {
-      logger.warn({ err, executionId }, "No se pudo leer el hilo de Telegram de la ejecución");
+    const root = await repo.findTelegramRoot(thread).catch((err) => {
+      logger.warn({ err, thread }, "No se pudo leer el hilo de Telegram");
       return null;
     });
     const replyTo = root && root.chatId === cfg.chatId ? root.messageId : null;
     const messageId = await sendTelegram(cfg, html, replyTo);
-    if (messageId && !replyTo) await repo.saveTelegramRoot(executionId, cfg.chatId, messageId);
+    if (messageId && !replyTo) await repo.saveTelegramRoot(thread, cfg.chatId, messageId);
   });
   const settled = run.catch(() => {});
-  telegramChains.set(executionId, settled);
+  telegramChains.set(key, settled);
   void settled.then(() => {
-    if (telegramChains.get(executionId) === settled) telegramChains.delete(executionId);
+    if (telegramChains.get(key) === settled) telegramChains.delete(key);
   });
   return run;
 }
@@ -508,12 +517,9 @@ export async function notifyGroupRun(n: GroupRunNotification): Promise<void> {
   }
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegram(cfg.telegram, buildGroupTelegramHtml(n)).then(
-        () => {},
-        (err) => {
-          logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar Telegram del grupo");
-        },
-      ),
+      sendTelegramThreaded(cfg.telegram, { kind: "group_run", id: n.runId }, buildGroupTelegramHtml(n)).catch((err) => {
+        logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar Telegram del grupo");
+      }),
     );
   }
   await Promise.all(tasks);
