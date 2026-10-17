@@ -105,20 +105,6 @@ export async function findById(id: string): Promise<ServerDto | null> {
   return rows[0] ? toServer(rows[0]) : null;
 }
 
-/** Proyectos GCP ya conocidos: los de otros servidores y los de las credenciales de nube. */
-export async function listGcpProjects(): Promise<string[]> {
-  const { rows } = await query<{ project: string }>(
-    `SELECT DISTINCT p AS project FROM (
-       SELECT btrim(gcp_project) AS p FROM core.servers WHERE gcp_project IS NOT NULL
-       UNION
-       SELECT btrim(metadata->>'projectId') FROM secrets.cloud_credentials WHERE metadata ? 'projectId'
-     ) t
-     WHERE p <> ''
-     ORDER BY 1`,
-  );
-  return rows.map((r) => r.project);
-}
-
 export async function findByName(name: string): Promise<{ id: string } | null> {
   const { rows } = await query<{ id: string }>(
     "SELECT id FROM core.servers WHERE lower(name) = lower($1)",

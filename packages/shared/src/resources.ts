@@ -103,6 +103,19 @@ export interface EnvironmentDto {
   updatedAt: string;
 }
 
+/** Proyecto GCP del catálogo (`core.gcp_projects`). Alimenta el selector de la instancia. */
+export interface GcpProjectDto {
+  id: string;
+  /** ID del proyecto en GCP (p. ej. "mi-proyecto-prd"). */
+  projectId: string;
+  /** Nombre legible opcional. */
+  name: string | null;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Credencial reutilizable del catálogo (`secrets.credentials`). Nunca expone la
  * contraseña. Permite definir un "usuario de backups" una vez y asignarlo a

@@ -15,6 +15,7 @@ import {
   type CredentialDto,
   type DbEngine,
   type EnvironmentDto,
+  type GcpProjectDto,
   type Paginated,
   type ServerDto,
 } from "@dbkeeper/shared";
@@ -24,9 +25,6 @@ import { optionLabel } from "../lib/options";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
-
-/** Opción del selector de proyecto para escribir uno que aún no está registrado. */
-const NEW_PROJECT = "__new__";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Modal } from "../components/Modal";
@@ -89,9 +87,8 @@ export function ServersPage() {
   // Resultado de "Probar Cloud SQL" (se limpia al abrir otro formulario).
   const [cloudCheck, setCloudCheck] = useState<CloudSqlCheckDto | null>(null);
   const [checking, setChecking] = useState(false);
-  // Proyectos GCP ya registrados (selector) y modo "escribir uno nuevo".
-  const [gcpProjects, setGcpProjects] = useState<string[]>([]);
-  const [customProject, setCustomProject] = useState(false);
+  // Catálogo de proyectos GCP (selector).
+  const [gcpProjects, setGcpProjects] = useState<GcpProjectDto[]>([]);
   const list = useListParams<"engine" | "platform" | "environment", ServerSort>({
     filters: ["engine", "platform", "environment"],
     defaultSort: { key: "name", dir: "asc" },
@@ -107,9 +104,9 @@ export function ServersPage() {
       api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
       api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
       api.get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100"),
-      api.get<string[]>("/servers/gcp-projects").catch(() => [] as string[]),
+      api.get<Paginated<GcpProjectDto>>("/gcp-projects?limit=100"),
     ]);
-    setGcpProjects(projects);
+    setGcpProjects(projects.items);
     setData(srv);
     setCredentials(creds.items);
     setEnvironments(envs.items);
@@ -122,7 +119,6 @@ export function ServersPage() {
 
   function startEdit(s: ServerDto) {
     setCloudCheck(null);
-    setCustomProject(false);
     setConnString("");
     setConnNotice(null);
     setForm({
@@ -235,7 +231,7 @@ export function ServersPage() {
   return (
     <section>
       <div className="page-head">
-        {canWrite && <button onClick={() => { setCloudCheck(null); setCustomProject(false); setConnString(""); setConnNotice(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
+        {canWrite && <button onClick={() => { setCloudCheck(null); setConnString(""); setConnNotice(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
       </div>
 
       <ListToolbar
@@ -488,32 +484,21 @@ export function ServersPage() {
             <>
               <label>
                 {t("servers.gcpProject")}
-                {gcpProjects.length > 0 && (
-                  <select
-                    value={customProject || (form.gcpProject && !gcpProjects.includes(form.gcpProject)) ? NEW_PROJECT : form.gcpProject}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setCustomProject(v === NEW_PROJECT);
-                      setForm({ ...form, gcpProject: v === NEW_PROJECT ? "" : v });
-                    }}
-                  >
-                    <option value="">{t("servers.gcpProjectPick")}</option>
-                    {gcpProjects.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
+                <select value={form.gcpProject} onChange={(e) => setForm({ ...form, gcpProject: e.target.value })}>
+                  <option value="">{t("servers.gcpProjectPick")}</option>
+                  {gcpProjects
+                    .filter((p) => p.isActive || p.projectId === form.gcpProject)
+                    .map((p) => (
+                      <option key={p.id} value={p.projectId}>
+                        {p.name ? `${p.projectId} — ${p.name}` : p.projectId}
                       </option>
                     ))}
-                    <option value={NEW_PROJECT}>{t("servers.gcpProjectNew")}</option>
-                  </select>
-                )}
-                {(gcpProjects.length === 0 || customProject || (form.gcpProject !== "" && !gcpProjects.includes(form.gcpProject))) && (
-                  <input
-                    value={form.gcpProject}
-                    onChange={(e) => setForm({ ...form, gcpProject: e.target.value })}
-                    placeholder={t("servers.gcpProjectPlaceholder")}
-                    autoFocus={customProject}
-                  />
-                )}
+                  {/* Valor guardado que ya no está en el catálogo: se conserva hasta que se cambie. */}
+                  {form.gcpProject && !gcpProjects.some((p) => p.projectId === form.gcpProject) && (
+                    <option value={form.gcpProject}>{t("servers.gcpProjectNotInCatalog", { id: form.gcpProject })}</option>
+                  )}
+                </select>
+                {gcpProjects.length === 0 && <small>{t("servers.gcpProjectEmpty")}</small>}
               </label>
               <label>
                 {t("servers.gcpInstance")}

@@ -14,6 +14,7 @@ import { permissionsRouter } from "./modules/permissions/permissions.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 import { serversRouter } from "./modules/servers/servers.routes.js";
 import { environmentsRouter } from "./modules/environments/environments.routes.js";
+import { gcpProjectsRouter } from "./modules/gcp-projects/gcp-projects.routes.js";
 import { credentialsRouter } from "./modules/credentials/credentials.routes.js";
 import { backupsRouter } from "./modules/backups/backups.routes.js";
 import { groupsRouter } from "./modules/groups/groups.routes.js";
@@ -87,6 +88,7 @@ export function createApp(): Express {
   app.use("/api/audit", auditRouter);
   app.use("/api/servers", serversRouter);
   app.use("/api/environments", environmentsRouter);
+  app.use("/api/gcp-projects", gcpProjectsRouter);
   app.use("/api/credentials", credentialsRouter);
   app.use("/api/backups", backupsRouter);
   app.use("/api/groups", groupsRouter);

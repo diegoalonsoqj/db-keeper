@@ -10,8 +10,6 @@ export async function listServers(p: repo.ServerListQuery) {
   return repo.listServers(p);
 }
 
-export const listGcpProjects = () => repo.listGcpProjects();
-
 export async function getServer(id: string): Promise<ServerDto> {
   const s = await repo.findById(id);
   if (!s) throw HttpError.notFound("Instancia no encontrada");

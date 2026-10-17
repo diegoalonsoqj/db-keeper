@@ -81,14 +81,6 @@ serversRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   }
 });
 
-serversRouter.get("/gcp-projects", authorize("servers:read"), async (_req, res, next) => {
-  try {
-    ok(res, await service.listGcpProjects());
-  } catch (err) {
-    next(err);
-  }
-});
-
 serversRouter.get("/:id", authorize("servers:read"), async (req, res, next) => {
   try {
     ok(res, await service.getServer(String(req.params.id)));

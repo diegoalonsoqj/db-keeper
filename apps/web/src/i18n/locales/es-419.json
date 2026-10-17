@@ -7,6 +7,7 @@
     "dashboard": "Panel",
     "servers": "Instancias",
     "environments": "Ambientes",
+    "gcpProjects": "Proyectos GCP",
     "credentials": "Credenciales",
     "backups": "Backups",
     "groups": "Grupos",
@@ -397,8 +398,8 @@
     "isCloudSql": "Instancia gestionada (Cloud SQL)",
     "gcpProject": "Proyecto GCP",
     "gcpProjectPick": "Selecciona un proyecto…",
-    "gcpProjectNew": "+ Otro proyecto…",
-    "gcpProjectPlaceholder": "id-del-proyecto",
+    "gcpProjectNotInCatalog": "{{id}} (no está en el catálogo)",
+    "gcpProjectEmpty": "No hay proyectos en el catálogo. Agrégalos en Proyectos GCP.",
     "gcpInstance": "Instancia GCP",
     "notes": "Notas",
     "credential": "Credencial",
@@ -445,6 +446,16 @@
     "description": "Descripción",
     "active": "Activo",
     "empty": "Sin ambientes"
+  },
+  "gcpProjects": {
+    "intro": "Catálogo de proyectos GCP disponibles para las instancias Cloud SQL y AlloyDB.",
+    "new": "Nuevo proyecto",
+    "projectId": "ID del proyecto",
+    "projectIdHint": "El ID de GCP (no el nombre ni el número), p. ej. mi-proyecto-prd.",
+    "name": "Nombre",
+    "description": "Descripción",
+    "active": "Activo",
+    "empty": "Sin proyectos"
   },
   "databases": {
     "discover": "Descubrir",
