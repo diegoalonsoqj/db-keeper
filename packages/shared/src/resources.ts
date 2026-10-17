@@ -531,6 +531,11 @@ export interface BackupSettings {
   cloudSqlVerifyIntervalMinutes: number;
   /** Export de Cloud SQL: tope absoluto; pasado esto se marca fallido. */
   cloudSqlExportMaxHours: number;
+  /**
+   * Vigilancia: horas de margen tras cada disparo programado para que exista un backup
+   * correcto; si no, se avisa. 0 = desactivada.
+   */
+  staleAlertGraceHours: number;
 }
 
 /** Límites de los ajustes de backups (formulario y API). */
@@ -542,6 +547,7 @@ export const BACKUP_SETTINGS_LIMITS = {
   cloudSqlExportTimeoutHours: { min: 1, max: 48 },
   cloudSqlVerifyIntervalMinutes: { min: 1, max: 60 },
   cloudSqlExportMaxHours: { min: 1, max: 168 },
+  staleAlertGraceHours: { min: 0, max: 168 },
 } as const satisfies Record<keyof BackupSettings, { min: number; max: number }>;
 
 /** Valores por defecto (en la API, los de tiempo toman como base las variables del .env). */
@@ -553,6 +559,7 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   cloudSqlExportTimeoutHours: 6,
   cloudSqlVerifyIntervalMinutes: 5,
   cloudSqlExportMaxHours: 48,
+  staleAlertGraceHours: 3,
 };
 
 export interface SettingsDto {

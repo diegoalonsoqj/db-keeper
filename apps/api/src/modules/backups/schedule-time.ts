@@ -1,6 +1,11 @@
 import { CronExpressionParser } from "cron-parser";
 import { HttpError } from "../../lib/http-error.js";
 
+/** Último disparo del cron en o antes de `before` (lanza si el cron es inválido). */
+export function prevRunForCron(cron: string, timezone: string, before: Date): Date {
+  return CronExpressionParser.parse(cron, { currentDate: before, tz: timezone }).prev().toDate();
+}
+
 /** Próximo disparo de un cron en una zona horaria, a partir de `from`. */
 export function nextRunForCron(cron: string, timezone: string, from: Date): Date {
   try {

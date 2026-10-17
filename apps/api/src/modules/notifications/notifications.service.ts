@@ -528,6 +528,96 @@ export async function notifyGroupRun(n: GroupRunNotification): Promise<void> {
   await Promise.all(tasks);
 }
 
+// ---- Vigilancia: eventos sin backup correcto tras su disparo ----
+
+/** Evento atrasado: su último disparo pasó el margen sin un backup correcto. */
+export interface StaleJob {
+  jobName: string;
+  /** Disparo programado que no produjo backup. */
+  expectedAt: Date;
+  /** Último backup correcto (null = nunca). */
+  lastSuccessAt: Date | null;
+}
+
+const shortDate = (d: Date): string => d.toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
+
+/** "hace 2 d 5 h" / "hace 40 min". */
+export function ago(from: Date, now = new Date()): string {
+  const min = Math.max(0, Math.round((now.getTime() - from.getTime()) / 60_000));
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} d${h % 24 ? ` ${h % 24} h` : ""}`;
+}
+
+function staleInfo(j: StaleJob): string {
+  const last = j.lastSuccessAt ? `${shortDate(j.lastSuccessAt)} (${ago(j.lastSuccessAt)})` : "nunca";
+  return `Programado ${shortDate(j.expectedAt)} · último correcto: ${last}`;
+}
+
+const STALE_INTRO = (hours: number): string =>
+  `Estos eventos no tienen un backup correcto ${hours} h después de su último disparo programado: no se ejecutaron, no terminaron o fallaron. Revisa el scheduler, la cola y las ejecuciones en DBKeeper.`;
+
+/**
+ * Aviso de eventos atrasados (un mensaje con todos). Respeta la bandera de fallos de
+ * Configuración. **Nunca lanza.**
+ */
+export async function notifyStaleJobs(jobs: StaleJob[], graceHours: number): Promise<void> {
+  if (jobs.length === 0) return;
+  let cfg: NotifRuntimeConfig;
+  try {
+    cfg = await settings.getNotifRuntimeConfig();
+  } catch (err) {
+    logger.error({ err }, "No se pudo leer la configuración de notificaciones");
+    return;
+  }
+  if (!cfg.notifyOnFailure) return;
+
+  const count = jobs.length === 1 ? "1 evento" : `${jobs.length} eventos`;
+  const title = `Backups atrasados: ${count}`;
+  const tasks: Promise<void>[] = [];
+  if (cfg.email.enabled) {
+    const text = [title, "", STALE_INTRO(graceHours), "", ...jobs.map((j) => `- ${j.jobName} — ${staleInfo(j)}`)].join("\n");
+    const html = renderEmail({
+      tone: "warning",
+      status: "Atrasado",
+      title,
+      preheader: jobs.map((j) => j.jobName).join(", "),
+      intro: STALE_INTRO(graceHours),
+      details: jobs.map((j) => ({ name: j.jobName, ok: false, skipped: true, info: staleInfo(j) })),
+      detailsTitle: "Eventos atrasados",
+      detailsNameHeader: "Evento",
+      sentAt: sentAt(),
+    });
+    tasks.push(
+      sendEmail(cfg.email, { subject: `[DBKeeper] ${title}`, text, html }).catch((err) => {
+        logger.error({ err }, "Fallo al enviar correo de backups atrasados");
+      }),
+    );
+  }
+  if (cfg.telegram.enabled) {
+    let msg = `<b>⏰ ${escapeHtml(title)}</b>\n\n${escapeHtml(STALE_INTRO(graceHours))}\n`;
+    for (let i = 0; i < jobs.length; i++) {
+      const line = `\n⚠️ <b>${escapeHtml(jobs[i]!.jobName)}</b>\n   ${escapeHtml(staleInfo(jobs[i]!))}`;
+      if (msg.length + line.length > TELEGRAM_MAX) {
+        msg += `\n… y ${jobs.length - i} más (ver DBKeeper)`;
+        break;
+      }
+      msg += line;
+    }
+    tasks.push(
+      sendTelegram(cfg.telegram, msg).then(
+        () => {},
+        (err) => {
+          logger.error({ err }, "Fallo al enviar Telegram de backups atrasados");
+        },
+      ),
+    );
+  }
+  await Promise.all(tasks);
+}
+
 /** Resultado de un canal en el envío de prueba. `ok=null` = canal no habilitado. */
 export interface ChannelTestResult {
   ok: boolean | null;
