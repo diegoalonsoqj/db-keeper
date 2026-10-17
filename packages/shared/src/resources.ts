@@ -536,6 +536,13 @@ export interface BackupSettings {
    * correcto; si no, se avisa. 0 = desactivada.
    */
   staleAlertGraceHours: number;
+  /**
+   * Retención por defecto: backups locales a conservar por base de datos en los eventos
+   * sin retención propia. 0 = sin límite (desactivada).
+   */
+  defaultKeepLast: number;
+  /** Avisa si el espacio libre del disco de backups baja de este %. 0 = desactivado. */
+  diskFreeAlertPercent: number;
 }
 
 /** Límites de los ajustes de backups (formulario y API). */
@@ -548,6 +555,8 @@ export const BACKUP_SETTINGS_LIMITS = {
   cloudSqlVerifyIntervalMinutes: { min: 1, max: 60 },
   cloudSqlExportMaxHours: { min: 1, max: 168 },
   staleAlertGraceHours: { min: 0, max: 168 },
+  defaultKeepLast: { min: 0, max: 1000 },
+  diskFreeAlertPercent: { min: 0, max: 90 },
 } as const satisfies Record<keyof BackupSettings, { min: number; max: number }>;
 
 /** Valores por defecto (en la API, los de tiempo toman como base las variables del .env). */
@@ -560,6 +569,8 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   cloudSqlVerifyIntervalMinutes: 5,
   cloudSqlExportMaxHours: 48,
   staleAlertGraceHours: 3,
+  defaultKeepLast: 0,
+  diskFreeAlertPercent: 10,
 };
 
 export interface SettingsDto {

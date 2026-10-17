@@ -144,6 +144,8 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
   const showPgCompat = dumpOpts.includes("pgCompat") && !isParallel;
   const showVerbose = dumpOpts.includes("verbose");
   const showKeepLocalCopy = method === "gcloud" && engine !== "sqlserver";
+  // La retención solo borra lo que queda en disco: dumps locales o la copia local de gcloud.
+  const retentionApplies = !usesBucket || (showKeepLocalCopy && keepLocalCopy);
   const showSqlBackupDir = dumpOpts.includes("sqlBackupDir");
 
   // Ambiente consolidado del evento: el de la instancia y el de la credencial
@@ -286,10 +288,10 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         .filter(Boolean);
     }
 
-    // Retención: solo almacenamiento local (método dump); en buckets la app no borra.
+    // Retención: solo lo que queda en disco; en buckets la app no borra.
     // Días y/o cantidad; vacío = sin regla.
-    const days = !usesBucket && retDays.trim() ? Number(retDays) : null;
-    const keepLast = !usesBucket && retKeep.trim() ? Number(retKeep) : null;
+    const days = retentionApplies && retDays.trim() ? Number(retDays) : null;
+    const keepLast = retentionApplies && retKeep.trim() ? Number(retKeep) : null;
     if ((days != null && (!Number.isInteger(days) || days < 1)) ||
         (keepLast != null && (!Number.isInteger(keepLast) || keepLast < 1))) {
       return setError(t("backups.retentionInvalid"));
@@ -674,12 +676,13 @@ export function BackupJobModal({ job, onClose, onSaved }: Props) {
         </>
       )}
 
-      {usesBucket ? (
+      {!retentionApplies ? (
         <small className="muted">{t("backups.retentionBucketNote")}</small>
       ) : (
         <fieldset>
           <legend>{t("backups.retention")}</legend>
           <small className="muted">{t("backups.retentionHint")}</small>
+          {usesBucket && <small className="muted">{t("backups.retentionLocalCopyNote")}</small>}
           <label>
             {t("backups.retentionDays")}
             <input

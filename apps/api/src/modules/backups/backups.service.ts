@@ -155,11 +155,13 @@ export async function getJob(id: string): Promise<BackupJobDto> {
 
 /**
  * Valida la retención de `options` y devuelve una copia con la clave saneada. Solo
- * aplica al método local (`dump`): en los métodos a bucket se descarta, porque la app
+ * aplica a lo que queda en disco: el método local (`dump`) y la copia local de
+ * `gcloud` (keepLocalCopy); en los demás métodos a bucket se descarta, porque la app
  * no borra objetos de buckets. También sanea `keepLocalCopy` (solo `gcloud`).
  */
 function applyRetention(options: Record<string, unknown>, method: BackupMethod): Record<string, unknown> {
-  const retention = method === "dump" ? normalizeRetention(options) : null;
+  const onDisk = method === "dump" || (method === "gcloud" && options.keepLocalCopy === true);
+  const retention = onDisk ? normalizeRetention(options) : null;
   const next = { ...options };
   if (retention) next.retention = retention;
   else delete next.retention;

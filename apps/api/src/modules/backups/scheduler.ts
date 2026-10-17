@@ -5,6 +5,7 @@ import { runScheduled } from "./backups.service.js";
 import { runGroup } from "../groups/groups.service.js";
 import { sweepRetention } from "./retention.js";
 import { checkFreshness } from "./freshness.js";
+import { checkBackupDisk } from "./disk-watch.js";
 
 const TICK_MS = 60_000; // un minuto
 const RETENTION_SWEEP_MS = 3_600_000; // cada hora
@@ -50,10 +51,11 @@ async function tick(): Promise<void> {
     await sweepRetention().catch((err) => logger.error({ err }, "Fallo en el barrido de retención"));
   }
 
-  // Vigilancia de eventos sin backup correcto tras su disparo (nunca lanza).
+  // Vigilancia: eventos sin backup correcto tras su disparo y espacio en disco (nunca lanzan).
   if (now.getTime() - lastFreshnessCheck >= FRESHNESS_CHECK_MS) {
     lastFreshnessCheck = now.getTime();
     await checkFreshness(now);
+    await checkBackupDisk();
   }
 }
 

@@ -28,7 +28,7 @@ import { runParallelItems } from "./parallel-runner.js";
  * (catálogo de Almacenamiento), o `BACKUP_DIR` si no hay ninguno. Se resuelve
  * contra el cwd si es relativa.
  */
-async function resolveLocalRoot(): Promise<string> {
+export async function resolveLocalRoot(): Promise<string> {
   const def = await storageRepo.findDefault("local");
   const base = def?.path?.trim() || env.BACKUP_DIR;
   return path.resolve(process.cwd(), base);
@@ -669,6 +669,8 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
           fileBytes: dumpRes.bytes,
           log: ls?.getLog(),
           checksums: { sha256: hashes.sha256, md5: md5Base64ToHex(obj.md5), crc32c: obj.crc32c },
+          // Registrada para que la retención pueda purgarla (si no, se acumula en disco).
+          localFileName: keepLocalCopy ? localPath : null,
         });
       } else {
         ls?.done();

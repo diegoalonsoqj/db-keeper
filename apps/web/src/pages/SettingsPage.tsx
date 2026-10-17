@@ -37,7 +37,8 @@ const BACKUP_SETTING_GROUPS: { title: string; fields: (keyof BackupSettings)[] }
     title: "settings.backupsCloudSqlGroup",
     fields: ["cloudSqlHeartbeatMinutes", "cloudSqlExportTimeoutHours", "cloudSqlVerifyIntervalMinutes", "cloudSqlExportMaxHours"],
   },
-  { title: "settings.backupsWatchGroup", fields: ["staleAlertGraceHours"] },
+  { title: "settings.backupsRetentionGroup", fields: ["defaultKeepLast"] },
+  { title: "settings.backupsWatchGroup", fields: ["staleAlertGraceHours", "diskFreeAlertPercent"] },
 ];
 
 type ChannelTest = { ok: boolean | null; error?: string };

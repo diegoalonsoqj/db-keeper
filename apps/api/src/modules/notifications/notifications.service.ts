@@ -618,6 +618,71 @@ export async function notifyStaleJobs(jobs: StaleJob[], graceHours: number): Pro
   await Promise.all(tasks);
 }
 
+// ---- Vigilancia: poco espacio en el disco de backups ----
+
+/** Espacio del disco de backups para el aviso. */
+export interface DiskLowInfo {
+  path: string;
+  totalBytes: number;
+  freeBytes: number;
+  freePct: number;
+}
+
+/** Aviso de poco espacio libre. Respeta la bandera de fallos. **Nunca lanza.** */
+export async function notifyDiskLow(d: DiskLowInfo, thresholdPct: number): Promise<void> {
+  let cfg: NotifRuntimeConfig;
+  try {
+    cfg = await settings.getNotifRuntimeConfig();
+  } catch (err) {
+    logger.error({ err }, "No se pudo leer la configuración de notificaciones");
+    return;
+  }
+  if (!cfg.notifyOnFailure) return;
+
+  const pct = `${d.freePct.toFixed(1)} %`;
+  const title = `Poco espacio en el disco de backups: ${pct} libre`;
+  const intro =
+    `El espacio libre bajó del ${thresholdPct} %. Si se llena, los próximos backups fallarán. ` +
+    "Revisa la retención de los eventos (Conservar últimos N) o la retención por defecto en Configuración → Backups.";
+  const rows = [
+    { emoji: "📁", label: "Ruta", value: d.path },
+    { emoji: "💽", label: "Libre", value: `${formatBytes(d.freeBytes)} (${pct})` },
+    { emoji: "📦", label: "Total", value: formatBytes(d.totalBytes) },
+  ];
+
+  const tasks: Promise<void>[] = [];
+  if (cfg.email.enabled) {
+    const text = [title, "", intro, "", ...rows.map((r) => `${r.label}: ${r.value}`)].join("\n");
+    const html = renderEmail({
+      tone: "warning",
+      status: "Disco",
+      title,
+      preheader: `${pct} libre en ${d.path}`,
+      intro,
+      rows: rows.map(({ label, value }) => ({ label, value })),
+      sentAt: sentAt(),
+    });
+    tasks.push(
+      sendEmail(cfg.email, { subject: `[DBKeeper] ${title}`, text, html }).catch((err) => {
+        logger.error({ err }, "Fallo al enviar correo de poco espacio en disco");
+      }),
+    );
+  }
+  if (cfg.telegram.enabled) {
+    const parts = [`<b>💽 ${escapeHtml(title)}</b>`, "", escapeHtml(intro), ""];
+    for (const r of rows) parts.push(`${r.emoji} <b>${r.label}:</b> ${escapeHtml(r.value)}`);
+    tasks.push(
+      sendTelegram(cfg.telegram, parts.join("\n")).then(
+        () => {},
+        (err) => {
+          logger.error({ err }, "Fallo al enviar Telegram de poco espacio en disco");
+        },
+      ),
+    );
+  }
+  await Promise.all(tasks);
+}
+
 /** Resultado de un canal en el envío de prueba. `ok=null` = canal no habilitado. */
 export interface ChannelTestResult {
   ok: boolean | null;

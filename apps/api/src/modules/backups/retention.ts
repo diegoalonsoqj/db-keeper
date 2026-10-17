@@ -3,6 +3,7 @@ import type { RetentionPolicy } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
 import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
+import { getBackupSettings } from "../settings/settings.service.js";
 import * as repo from "./backups.repository.js";
 import { resolveBackupFile } from "./engine/files.js";
 
@@ -46,39 +47,54 @@ function parseStored(options: Record<string, unknown>): RetentionPolicy {
 }
 
 /**
- * Aplica la retención de un evento: borra el archivo del disco local de los backups
- * que la incumplen y marca el ítem como purgado, conservando el registro para
- * auditoría. No lanza: cualquier fallo se loguea. Solo aplica al almacenamiento local:
- * la app nunca borra objetos de buckets, y SQL Server nativo se omite (su .bak vive
+ * Política que rige un evento: la suya si tiene alguna regla; si no, la retención por
+ * defecto de Configuración (últimos N por BD), o ninguna.
+ */
+export function effectivePolicy(options: Record<string, unknown>, defaultKeepLast: number): RetentionPolicy {
+  const own = parseStored(options);
+  if (own.days != null || own.keepLast != null) return own;
+  return { days: null, keepLast: defaultKeepLast > 0 ? defaultKeepLast : null };
+}
+
+/**
+ * Aplica la retención de un evento: borra del disco los backups que la incumplen y
+ * marca el ítem como purgado, conservando el registro para auditoría. No lanza:
+ * cualquier fallo se loguea. Solo toca archivos en disco: en eventos locales, el
+ * backup; en eventos a bucket (gcloud), la copia local conservada (keepLocalCopy).
+ * La app nunca borra objetos de buckets, y SQL Server nativo se omite (su .bak vive
  * en el host de la instancia, fuera de nuestro alcance).
  */
 export async function enforceRetentionForJob(jobId: string): Promise<void> {
   try {
     const job = await repo.findJobById(jobId);
     if (!job) return;
-    const policy = parseStored(job.options);
+    const { defaultKeepLast } = await getBackupSettings();
+    const policy = effectivePolicy(job.options, defaultKeepLast);
     if (policy.days == null && policy.keepLast == null) return;
 
-    const server = await serversRepo.findById(job.serverId);
-    // Solo almacenamiento local: los métodos a bucket (gcloud, cloudsql_export) no se
-    // purgan, y en SQL Server nativo el .bak vive en el host de la instancia.
-    if (job.method !== "dump" || server?.engine === "sqlserver") return;
+    let target: repo.PruneTarget;
+    if (job.method === "gcloud") target = "local";
+    else if (job.method === "dump") {
+      const server = await serversRepo.findById(job.serverId);
+      if (server?.engine === "sqlserver") return;
+      target = "file";
+    } else return; // cloudsql_export / pg_parallel: nada en disco
 
-    const items = await repo.findPrunableItems(jobId, policy);
+    const items = await repo.findPrunableItems(jobId, policy, target);
     if (items.length === 0) return;
 
     let pruned = 0;
     for (const item of items) {
       try {
         await deletePhysical(item.fileName);
-        await repo.markItemPruned(item.id);
+        await repo.markItemPruned(item.id, target);
         pruned++;
       } catch (err) {
         logger.error({ err, itemId: item.id, jobId }, "No se pudo purgar un backup por retención");
       }
     }
     if (pruned > 0) {
-      logger.info({ jobId, jobName: job.name, pruned, ...policy }, "Retención aplicada: backups purgados");
+      logger.info({ jobId, jobName: job.name, pruned, target, ...policy }, "Retención aplicada: backups purgados");
     }
   } catch (err) {
     logger.error({ err, jobId }, "Fallo al aplicar la retención del evento");
@@ -97,6 +113,7 @@ async function deletePhysical(fileName: string): Promise<void> {
  * incluso en eventos que ya no se ejecutan.
  */
 export async function sweepRetention(): Promise<void> {
-  const ids = await repo.listJobIdsWithRetention();
+  const { defaultKeepLast } = await getBackupSettings();
+  const ids = await repo.listJobIdsWithRetention(defaultKeepLast > 0);
   for (const id of ids) await enforceRetentionForJob(id);
 }

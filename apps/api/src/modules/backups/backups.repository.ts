@@ -422,13 +422,15 @@ export async function finishItem(
     fileBytes?: number | null;
     log?: string | null;
     checksums?: FileChecksums | null;
+    /** Copia conservada en disco de un backup subido a bucket (keepLocalCopy). */
+    localFileName?: string | null;
   },
 ): Promise<void> {
   const c = result.checksums;
   await query(
     `UPDATE core.execution_items
      SET status = $2, file_name = $3, file_bytes = $4, log = $5,
-         file_sha256 = $6, file_md5 = $7, file_crc32c = $8, finished_at = now()
+         file_sha256 = $6, file_md5 = $7, file_crc32c = $8, local_file_name = $9, finished_at = now()
      WHERE id = $1`,
     [
       itemId,
@@ -439,6 +441,7 @@ export async function finishItem(
       c?.sha256 ?? null,
       c?.md5 ?? null,
       c?.crc32c ?? null,
+      result.localFileName ?? null,
     ],
   );
 }
@@ -693,48 +696,65 @@ export interface PrunableItem {
 }
 
 /**
- * Ítems exitosos con archivo presente (no purgado) de un evento que violan la
- * política de retención: pertenecen a una ejecución más antigua que `days` **o**
- * que queda fuera de las `keepLast` corridas exitosas más recientes. Cada regla
- * es opcional (null = no se aplica esa dimensión); si ambas son null, no devuelve nada.
+ * Qué archivo se purga: `file` = el backup en disco (eventos locales); `local` = la
+ * copia conservada en disco de un backup subido a bucket (keepLocalCopy). El objeto
+ * del bucket nunca se toca.
+ */
+export type PruneTarget = "file" | "local";
+
+/**
+ * Ítems de un evento cuyo archivo en disco (aún no purgado) viola la retención: su
+ * ejecución es más antigua que `days` **o** quedan fuera de los `keepLast` backups
+ * correctos más recientes **de su misma base de datos**. Contar por BD (y no por
+ * ejecución) hace que una ejecución con fallo parcial no deje backups sin purgar.
+ * Cada regla es opcional (null = no se aplica); si ambas son null, no devuelve nada.
  */
 export async function findPrunableItems(
   jobId: string,
   policy: { days: number | null; keepLast: number | null },
+  target: PruneTarget = "file",
 ): Promise<PrunableItem[]> {
   if (policy.days == null && policy.keepLast == null) return [];
+  // Columnas fijas según el destino (nunca vienen del cliente).
+  const [fileCol, prunedCol, hasFile] =
+    target === "local"
+      ? ["i.local_file_name", "i.local_pruned_at", "i.local_file_name IS NOT NULL"]
+      : ["i.file_name", "i.pruned_at", "i.file_name IS NOT NULL AND i.file_name NOT LIKE 'gs://%'"];
   const { rows } = await query<{ id: string; file_name: string }>(
     `WITH ranked AS (
-       SELECT e.id, e.created_at,
-              row_number() OVER (ORDER BY e.created_at DESC) AS rn
-       FROM core.executions e
-       WHERE e.job_id = $1 AND e.status = 'success'
+       SELECT i.id, ${fileCol} AS file_name, ${prunedCol} AS pruned_at, e.created_at,
+              row_number() OVER (PARTITION BY i.db_name ORDER BY e.created_at DESC) AS rn
+       FROM core.execution_items i
+       JOIN core.executions e ON e.id = i.execution_id
+       -- En buckets la app no borra (ciclo de vida de GCS): solo archivos en disco.
+       WHERE e.job_id = $1 AND i.status = 'success' AND ${hasFile}
      )
-     SELECT i.id, i.file_name
-     FROM core.execution_items i
-     JOIN ranked r ON r.id = i.execution_id
-     WHERE i.status = 'success' AND i.file_name IS NOT NULL AND i.pruned_at IS NULL
-       -- La retención solo aplica al almacenamiento local: en buckets la app no borra
-       -- (la limpieza se gestiona con el ciclo de vida del bucket en GCS).
-       AND i.file_name NOT LIKE 'gs://%'
-       AND ( ($2::int IS NOT NULL AND r.rn > $2::int)
-          OR ($3::int IS NOT NULL AND r.created_at < now() - make_interval(days => $3::int)) )`,
+     SELECT id, file_name FROM ranked
+     WHERE pruned_at IS NULL
+       AND ( ($2::int IS NOT NULL AND rn > $2::int)
+          OR ($3::int IS NOT NULL AND created_at < now() - make_interval(days => $3::int)) )`,
     [jobId, policy.keepLast, policy.days],
   );
   return rows.map((r) => ({ id: r.id, fileName: r.file_name }));
 }
 
 /** Marca un ítem como purgado (su archivo físico ya se borró). */
-export async function markItemPruned(itemId: string): Promise<void> {
-  await query("UPDATE core.execution_items SET pruned_at = now() WHERE id = $1", [itemId]);
+export async function markItemPruned(itemId: string, target: PruneTarget = "file"): Promise<void> {
+  const col = target === "local" ? "local_pruned_at" : "pruned_at";
+  await query(`UPDATE core.execution_items SET ${col} = now() WHERE id = $1`, [itemId]);
 }
 
-/** IDs de eventos que tienen alguna regla de retención configurada en options. */
-export async function listJobIdsWithRetention(): Promise<string[]> {
+/**
+ * Eventos a revisar en el barrido de retención: los que tienen regla propia y, si hay
+ * retención por defecto, todos los que dejan archivos en disco (locales o con copia).
+ */
+export async function listJobIdsWithRetention(includeAllLocal = false): Promise<string[]> {
   const { rows } = await query<{ id: string }>(
     `SELECT id FROM core.backup_jobs
      WHERE (options #>> '{retention,days}') IS NOT NULL
-        OR (options #>> '{retention,keepLast}') IS NOT NULL`,
+        OR (options #>> '{retention,keepLast}') IS NOT NULL
+        OR ($1::boolean AND method IN ('dump', 'gcloud'))`,
+    [includeAllLocal],
   );
   return rows.map((r) => r.id);
 }
