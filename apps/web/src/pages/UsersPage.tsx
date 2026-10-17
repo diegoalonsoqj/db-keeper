@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
 import { AUTH_TYPES, type Paginated, type RoleDto, type UserDto, type UserSort } from "@dbkeeper/shared";
 import { api, ApiClientError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -122,6 +122,17 @@ export function UsersPage() {
     }
   }
 
+  async function resetTotp(u: UserDto) {
+    if (!(await confirm({ message: t("users.totpResetConfirm", { name: u.username }), danger: true }))) return;
+    try {
+      await api.post(`/users/${u.id}/totp/reset`);
+      await reload();
+      toast.success(t("users.totpResetDone"));
+    } catch (e) {
+      toast.error(errMsg(e));
+    }
+  }
+
   function toggleRole(key: string) {
     setForm((f) =>
       f
@@ -199,7 +210,14 @@ export function UsersPage() {
             <tr key={u.id}>
               <td>{u.username}</td>
               <td>{u.fullName ?? "—"}</td>
-              <td>{u.authType === "ad" ? t("users.ad") : t("users.local")}</td>
+              <td>
+                {u.authType === "ad" ? t("users.ad") : t("users.local")}
+                {u.totpEnabled && (
+                  <span title={t("users.totpOn")} aria-label={t("users.totpOn")} style={{ marginLeft: 6, verticalAlign: "middle" }}>
+                    <ShieldCheck size={14} color="var(--success)" />
+                  </span>
+                )}
+              </td>
               <td>{u.roles.join(", ") || "—"}</td>
               <td>{u.isActive ? t("common.active") : t("common.inactive")}</td>
               {(canWrite || canDelete) && (
@@ -207,6 +225,11 @@ export function UsersPage() {
                   {canWrite && (
                     <button className="icon-btn" title={t("common.edit")} aria-label={t("common.edit")} onClick={() => startEdit(u)}>
                       <Pencil size={16} />
+                    </button>
+                  )}
+                  {canWrite && u.totpEnabled && (
+                    <button className="icon-btn" title={t("users.totpReset")} aria-label={t("users.totpReset")} onClick={() => resetTotp(u)}>
+                      <ShieldOff size={16} />
                     </button>
                   )}
                   {canDelete && (

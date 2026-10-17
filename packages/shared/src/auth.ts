@@ -100,6 +100,8 @@ export interface UserDto {
   preferredTheme: UiMode | null;
   preferredPalette: UiPalette | null;
   lastLoginAt: string | null;
+  /** Segundo factor TOTP activo (solo usuarios locales). */
+  totpEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -123,6 +125,17 @@ export interface PermissionDto {
 export interface AuthIdentity {
   user: UserDto;
   permissions: PermissionKey[];
+}
+
+/** Respuesta de POST /auth/login: la sesión, o el aviso de que falta el código TOTP. */
+export type LoginResponse = AuthIdentity | { mfaRequired: true };
+
+/** Alta del TOTP: secreto y QR para la app (Aegis, etc.). */
+export interface TotpSetupDto {
+  secret: string;
+  otpauthUri: string;
+  /** QR en SVG como data URL. */
+  qrDataUrl: string;
 }
 
 export interface AuditEntryDto {

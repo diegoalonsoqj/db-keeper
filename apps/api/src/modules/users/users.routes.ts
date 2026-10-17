@@ -73,6 +73,17 @@ usersRouter.patch("/:id", authorize("users:write"), async (req, res, next) => {
   }
 });
 
+usersRouter.post("/:id/totp/reset", authorize("users:write"), async (req, res, next) => {
+  try {
+    const id = String(req.params.id);
+    await service.resetUserTotp(req.auth!, id);
+    await recordAudit(req, { action: "users.totp_reset", entityType: "user", entityId: id });
+    ok(res, { reset: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 usersRouter.delete("/:id", authorize("users:delete"), async (req, res, next) => {
   try {
     const id = String(req.params.id);

@@ -45,9 +45,15 @@ export async function login(username: string, password: string): Promise<UserDto
     if (!ldapUser) throw invalid;
   }
 
-  await usersRepo.touchLastLogin(user.id);
+  // Con segundo factor, el login se completa (y se registra) al validar el código.
+  if (!requiresTotp(user)) await usersRepo.touchLastLogin(user.id);
   return stripSecret(user);
 }
+
+/** ¿Pide código TOTP tras la contraseña? Solo usuarios locales con TOTP activo. */
+export const requiresTotp = (u: UserDto) => u.authType === "local" && u.totpEnabled;
+
+export const touchLastLogin = (userId: string) => usersRepo.touchLastLogin(userId);
 
 /** Identidad completa (usuario + permisos efectivos) para /api/auth/me. */
 export async function getIdentity(userId: string): Promise<AuthIdentity | null> {

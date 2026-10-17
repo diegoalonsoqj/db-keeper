@@ -6,6 +6,7 @@ import { ApiClientError } from "../lib/api";
 import { fileToAvatarDataUrl, initialsOf } from "../lib/avatar";
 import { useToast } from "./Toast";
 import { Modal } from "./Modal";
+import { TotpSection } from "./TotpSection";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
@@ -151,6 +152,7 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               {t("profile.changePassword")}
             </button>
           </div>
+          <TotpSection />
         </>
       ) : (
         <p className="muted">{t("profile.adManaged")}</p>

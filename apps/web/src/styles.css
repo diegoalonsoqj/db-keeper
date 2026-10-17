@@ -1305,6 +1305,32 @@ pre.log.log-modal {
   margin: 1.1rem 0;
 }
 
+/* Perfil → segundo factor. El QR lleva fondo blanco propio (se lee en tema oscuro). */
+.totp-setup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.totp-setup img {
+  border-radius: 6px;
+  background: #fff;
+}
+.totp-secret,
+.totp-recovery {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  word-break: break-all;
+}
+.totp-recovery {
+  columns: 2;
+  line-height: 1.8;
+}
+
 /* Configuración → Disco temporal: resultado de "Probar configuración". */
 .check-list {
   list-style: none;

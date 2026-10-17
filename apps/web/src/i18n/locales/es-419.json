@@ -61,7 +61,11 @@
     "username": "Usuario",
     "password": "Contraseña",
     "submit": "Entrar",
-    "error": "No se pudo iniciar sesión"
+    "error": "No se pudo iniciar sesión",
+    "totpHint": "Ingresa el código de 6 dígitos de tu app de autenticación (Aegis, etc.) o un código de recuperación.",
+    "totpCode": "Código",
+    "verify": "Verificar",
+    "back": "Volver"
   },
   "profile": {
     "title": "Ver mi perfil",
@@ -78,6 +82,25 @@
     "passwordMismatch": "Las contraseñas no coinciden",
     "passwordChanged": "Contraseña actualizada",
     "adManaged": "Tu cuenta es de Active Directory; la contraseña se gestiona allí."
+  },
+  "totp": {
+    "title": "Segundo factor (TOTP)",
+    "offInfo": "Protege tu cuenta pidiendo, además de la contraseña, un código de una app como Aegis o Google Authenticator.",
+    "enable": "Activar segundo factor",
+    "scan": "Escanea este QR con tu app de autenticación y escribe el código que muestra.",
+    "manual": "¿No puedes escanear? Ingresa esta clave a mano:",
+    "code": "Código de 6 dígitos",
+    "confirm": "Confirmar y activar",
+    "enabled": "Segundo factor activado",
+    "recoveryIntro": "Guarda estos códigos de recuperación en un lugar seguro. Cada uno sirve una sola vez para entrar si pierdes el teléfono. No se volverán a mostrar.",
+    "copy": "Copiar",
+    "copied": "Códigos copiados",
+    "saved": "Ya los guardé",
+    "activeInfo_one": "Activo. Te queda {{count}} código de recuperación.",
+    "activeInfo_other": "Activo. Te quedan {{count}} códigos de recuperación.",
+    "codeOrRecovery": "Código o código de recuperación",
+    "disable": "Desactivar segundo factor",
+    "disabled": "Segundo factor desactivado"
   },
   "users": {
     "title": "Usuarios",
@@ -96,7 +119,11 @@
     "created": "Usuario creado",
     "updated": "Usuario actualizado",
     "deleted": "Usuario eliminado",
-    "searchPlaceholder": "Usuario, nombre o correo"
+    "searchPlaceholder": "Usuario, nombre o correo",
+    "totpOn": "Segundo factor activo",
+    "totpReset": "Quitar segundo factor",
+    "totpResetConfirm": "¿Quitar el segundo factor de {{name}}? Podrá entrar solo con su contraseña hasta que lo vuelva a activar.",
+    "totpResetDone": "Segundo factor quitado"
   },
   "roles": {
     "title": "Roles y permisos",

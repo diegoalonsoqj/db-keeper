@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { AuthIdentity, PermissionKey } from "@dbkeeper/shared";
+import type { AuthIdentity, LoginResponse, PermissionKey } from "@dbkeeper/shared";
 import { api } from "../lib/api";
 
 export interface ProfilePayload {
@@ -13,7 +13,11 @@ export interface ProfilePayload {
 interface AuthState {
   identity: AuthIdentity | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  /** "mfa" si falta el código del segundo factor (llamar luego a verifyTotp). */
+  login: (username: string, password: string) => Promise<"ok" | "mfa">;
+  verifyTotp: (code: string) => Promise<void>;
+  /** Vuelve a leer la identidad (p. ej. tras activar el segundo factor). */
+  refresh: () => Promise<void>;
   logout: () => Promise<void>;
   has: (...perms: PermissionKey[]) => boolean;
   updateProfile: (payload: ProfilePayload) => Promise<void>;
@@ -53,12 +57,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (username: string, password: string) => {
-      const id = await api.post<AuthIdentity>("/auth/login", { username, password });
+      const res = await api.post<LoginResponse>("/auth/login", { username, password });
+      if ("mfaRequired" in res) return "mfa";
+      setIdentity(res);
+      applyPreferences(res);
+      return "ok";
+    },
+    [applyPreferences],
+  );
+
+  const verifyTotp = useCallback(
+    async (code: string) => {
+      const id = await api.post<AuthIdentity>("/auth/login/totp", { code });
       setIdentity(id);
       applyPreferences(id);
     },
     [applyPreferences],
   );
+
+  const refresh = useCallback(async () => {
+    setIdentity(await api.get<AuthIdentity>("/auth/me"));
+  }, []);
 
   const logout = useCallback(async () => {
     await api.post("/auth/logout").catch(() => {});
@@ -88,8 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AuthState>(
-    () => ({ identity, loading, login, logout, has, updateProfile, changePassword }),
-    [identity, loading, login, logout, has, updateProfile, changePassword],
+    () => ({ identity, loading, login, verifyTotp, refresh, logout, has, updateProfile, changePassword }),
+    [identity, loading, login, verifyTotp, refresh, logout, has, updateProfile, changePassword],
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

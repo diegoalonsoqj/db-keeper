@@ -4,6 +4,7 @@ import { hashPassword } from "../../lib/password.js";
 import { AD_USERNAME_RE, normalizeAdUsername } from "../auth/ldap.js";
 import { isSuperadmin, permissionsBeyond, SUPERADMIN_ROLE } from "../auth/privileges.js";
 import { listRoles } from "../roles/roles.repository.js";
+import * as totpRepo from "../auth/totp.repository.js";
 import * as repo from "./users.repository.js";
 
 function toDto(u: repo.UserWithSecret): UserDto {
@@ -152,6 +153,15 @@ export async function updateUser(actor: AuthIdentity, id: string, data: UpdateUs
   });
   if (data.roleKeys) await repo.setUserRoles(id, data.roleKeys);
   return getUser(id);
+}
+
+/** Quita el segundo factor de otro usuario (p. ej. perdió el teléfono); entra con solo su contraseña. */
+export async function resetUserTotp(actor: AuthIdentity, id: string): Promise<void> {
+  const existing = await repo.findById(id);
+  if (!existing) throw HttpError.notFound("Usuario no encontrado");
+  await assertCanManage(actor, existing);
+  if (!existing.totpEnabled) throw HttpError.badRequest("El usuario no tiene segundo factor activo");
+  await totpRepo.disableTotp(id);
 }
 
 export async function deleteUser(actor: AuthIdentity, id: string): Promise<void> {

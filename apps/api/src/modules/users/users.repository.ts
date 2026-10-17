@@ -16,6 +16,7 @@ interface UserRow {
   preferred_theme: UiMode | null;
   preferred_palette: UiPalette | null;
   last_login_at: Date | null;
+  totp_enabled_at: Date | null;
   created_at: Date;
   updated_at: Date;
   role_keys: string[];
@@ -39,6 +40,7 @@ function toUser(row: UserRow): UserWithSecret {
     preferredTheme: row.preferred_theme,
     preferredPalette: row.preferred_palette,
     lastLoginAt: row.last_login_at?.toISOString() ?? null,
+    totpEnabled: row.totp_enabled_at != null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     passwordHash: row.password_hash,

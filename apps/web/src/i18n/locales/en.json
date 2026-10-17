@@ -61,7 +61,11 @@
     "username": "Username",
     "password": "Password",
     "submit": "Sign in",
-    "error": "Could not sign in"
+    "error": "Could not sign in",
+    "totpHint": "Enter the 6-digit code from your authenticator app (Aegis, etc.) or a recovery code.",
+    "totpCode": "Code",
+    "verify": "Verify",
+    "back": "Back"
   },
   "profile": {
     "title": "My profile",
@@ -78,6 +82,25 @@
     "passwordMismatch": "Passwords do not match",
     "passwordChanged": "Password updated",
     "adManaged": "Your account is Active Directory; the password is managed there."
+  },
+  "totp": {
+    "title": "Two-factor authentication (TOTP)",
+    "offInfo": "Protect your account by requiring, besides your password, a code from an app such as Aegis or Google Authenticator.",
+    "enable": "Enable two-factor",
+    "scan": "Scan this QR code with your authenticator app and type the code it shows.",
+    "manual": "Can't scan? Enter this key manually:",
+    "code": "6-digit code",
+    "confirm": "Confirm and enable",
+    "enabled": "Two-factor enabled",
+    "recoveryIntro": "Store these recovery codes somewhere safe. Each one works once to sign in if you lose your phone. They won't be shown again.",
+    "copy": "Copy",
+    "copied": "Codes copied",
+    "saved": "I've saved them",
+    "activeInfo_one": "Enabled. {{count}} recovery code left.",
+    "activeInfo_other": "Enabled. {{count}} recovery codes left.",
+    "codeOrRecovery": "Code or recovery code",
+    "disable": "Disable two-factor",
+    "disabled": "Two-factor disabled"
   },
   "users": {
     "title": "Users",
@@ -96,7 +119,11 @@
     "created": "User created",
     "updated": "User updated",
     "deleted": "User deleted",
-    "searchPlaceholder": "User, name or email"
+    "searchPlaceholder": "User, name or email",
+    "totpOn": "Two-factor enabled",
+    "totpReset": "Remove two-factor",
+    "totpResetConfirm": "Remove two-factor from {{name}}? They will sign in with just their password until they enable it again.",
+    "totpResetDone": "Two-factor removed"
   },
   "roles": {
     "title": "Roles & permissions",
