@@ -25,6 +25,9 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
 
+/** Opción del selector de proyecto para escribir uno que aún no está registrado. */
+const NEW_PROJECT = "__new__";
+
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 import { Modal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
@@ -86,6 +89,9 @@ export function ServersPage() {
   // Resultado de "Probar Cloud SQL" (se limpia al abrir otro formulario).
   const [cloudCheck, setCloudCheck] = useState<CloudSqlCheckDto | null>(null);
   const [checking, setChecking] = useState(false);
+  // Proyectos GCP ya registrados (selector) y modo "escribir uno nuevo".
+  const [gcpProjects, setGcpProjects] = useState<string[]>([]);
+  const [customProject, setCustomProject] = useState(false);
   const list = useListParams<"engine" | "platform" | "environment", ServerSort>({
     filters: ["engine", "platform", "environment"],
     defaultSort: { key: "name", dir: "asc" },
@@ -96,12 +102,14 @@ export function ServersPage() {
   const [connNotice, setConnNotice] = useState<string | null>(null);
 
   async function reload() {
-    const [srv, creds, envs, clouds] = await Promise.all([
+    const [srv, creds, envs, clouds, projects] = await Promise.all([
       api.get<Paginated<ServerDto>>(`/servers?${list.apiQuery}`),
       api.get<Paginated<CredentialDto>>("/credentials?limit=100"),
       api.get<Paginated<EnvironmentDto>>("/environments?limit=100"),
       api.get<Paginated<CloudCredentialDto>>("/cloud-credentials?limit=100"),
+      api.get<string[]>("/servers/gcp-projects").catch(() => [] as string[]),
     ]);
+    setGcpProjects(projects);
     setData(srv);
     setCredentials(creds.items);
     setEnvironments(envs.items);
@@ -114,6 +122,7 @@ export function ServersPage() {
 
   function startEdit(s: ServerDto) {
     setCloudCheck(null);
+    setCustomProject(false);
     setConnString("");
     setConnNotice(null);
     setForm({
@@ -226,7 +235,7 @@ export function ServersPage() {
   return (
     <section>
       <div className="page-head">
-        {canWrite && <button onClick={() => { setCloudCheck(null); setConnString(""); setConnNotice(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
+        {canWrite && <button onClick={() => { setCloudCheck(null); setCustomProject(false); setConnString(""); setConnNotice(null); setForm({ ...emptyForm }); }}>{t("servers.new")}</button>}
       </div>
 
       <ListToolbar
@@ -479,7 +488,32 @@ export function ServersPage() {
             <>
               <label>
                 {t("servers.gcpProject")}
-                <input value={form.gcpProject} onChange={(e) => setForm({ ...form, gcpProject: e.target.value })} />
+                {gcpProjects.length > 0 && (
+                  <select
+                    value={customProject || (form.gcpProject && !gcpProjects.includes(form.gcpProject)) ? NEW_PROJECT : form.gcpProject}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCustomProject(v === NEW_PROJECT);
+                      setForm({ ...form, gcpProject: v === NEW_PROJECT ? "" : v });
+                    }}
+                  >
+                    <option value="">{t("servers.gcpProjectPick")}</option>
+                    {gcpProjects.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                    <option value={NEW_PROJECT}>{t("servers.gcpProjectNew")}</option>
+                  </select>
+                )}
+                {(gcpProjects.length === 0 || customProject || (form.gcpProject !== "" && !gcpProjects.includes(form.gcpProject))) && (
+                  <input
+                    value={form.gcpProject}
+                    onChange={(e) => setForm({ ...form, gcpProject: e.target.value })}
+                    placeholder={t("servers.gcpProjectPlaceholder")}
+                    autoFocus={customProject}
+                  />
+                )}
               </label>
               <label>
                 {t("servers.gcpInstance")}
