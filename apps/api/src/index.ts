@@ -7,11 +7,15 @@ import { recoverStaleExecutions, startCloudSqlVerifier } from "./modules/backups
 import { startExecutionQueue } from "./modules/backups/engine/queue.js";
 import { startScratchGc } from "./modules/backups/engine/parallel-runner.js";
 import { startScheduler } from "./modules/backups/scheduler.js";
+import { sweepStaleSecretFiles } from "./lib/secret-file.js";
 
 // Dumps, carpetas y copias locales (también los de pg_dump/mysqldump/mongodump, que
 // heredan el umask) solo legibles por el usuario de DBKeeper: con el 022 habitual
 // quedarían en 0644 y cualquier cuenta del servidor podría leer los datos respaldados.
 process.umask(0o077);
+
+// Secretos temporales (p. ej. --config de mongodump) que dejó una caída anterior.
+void sweepStaleSecretFiles();
 
 const app = createApp();
 

@@ -32,6 +32,11 @@ export interface DumpInput {
   mongoSrv?: boolean;
   /** MongoDB: opciones de conexión de la instancia. */
   connOptions?: Record<string, string>;
+  /**
+   * MongoDB: pasar la URI (con la contraseña) por un archivo `--config` temporal en vez
+   * de `--uri`, para que no se vea en la lista de procesos. Por defecto sí.
+   */
+  mongoPasswordViaConfig?: boolean;
   /** Modo detallado: añade `--verbose` al motor (más salida por stderr). */
   verbose?: boolean;
   /** Recibe cada línea de salida del motor (stderr) para la consola en vivo. */

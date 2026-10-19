@@ -104,11 +104,13 @@ settingsRouter.patch("/security", authorize("settings:write"), async (req, res, 
 });
 
 // Cada campo con sus límites (los mismos que muestra el formulario); heartbeat 0 = desactivado.
-const backupsSchema = z.object(
-  Object.fromEntries(
-    Object.entries(BACKUP_SETTINGS_LIMITS).map(([k, l]) => [k, z.number().int().min(l.min).max(l.max).optional()]),
-  ) as Record<keyof typeof BACKUP_SETTINGS_LIMITS, z.ZodOptional<z.ZodNumber>>,
-);
+const backupsSchema = z
+  .object(
+    Object.fromEntries(
+      Object.entries(BACKUP_SETTINGS_LIMITS).map(([k, l]) => [k, z.number().int().min(l.min).max(l.max).optional()]),
+    ) as Record<keyof typeof BACKUP_SETTINGS_LIMITS, z.ZodOptional<z.ZodNumber>>,
+  )
+  .extend({ mongoPasswordViaConfig: z.boolean().optional() });
 
 settingsRouter.patch("/backups", authorize("settings:write"), async (req, res, next) => {
   try {

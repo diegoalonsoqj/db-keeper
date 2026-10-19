@@ -573,6 +573,11 @@ export interface BackupSettings {
   defaultKeepLast: number;
   /** Avisa si el espacio libre del disco de backups baja de este %. 0 = desactivado. */
   diskFreeAlertPercent: number;
+  /**
+   * MongoDB: la contraseña va a mongodump en un archivo temporal (`--config`) y no en la
+   * línea de comandos, donde cualquier usuario del servidor la ve con `ps`.
+   */
+  mongoPasswordViaConfig: boolean;
 }
 
 /** Límites de los ajustes de backups (formulario y API). */
@@ -601,6 +606,7 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   staleAlertGraceHours: 3,
   defaultKeepLast: 0,
   diskFreeAlertPercent: 10,
+  mongoPasswordViaConfig: true,
 };
 
 export interface SettingsDto {

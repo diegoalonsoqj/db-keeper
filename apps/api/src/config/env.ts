@@ -65,6 +65,10 @@ const envSchema = z.object({
     .transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean))
     .pipe(z.array(z.string().url("CORS_ORIGINS: cada origen debe ser una URL (p. ej. https://app.empresa.com)"))),
 
+  // Carpeta privada (700) para archivos temporales con secretos, p. ej. el --config de
+  // mongodump. Vacío = ~/.dbkeeper/run del usuario que corre la API (no /tmp).
+  DBKEEPER_RUN_DIR: z.string().optional().transform((v) => v?.trim() || undefined),
+
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   // --- Servir el front desde la propia API (despliegue de un solo puerto, sin reverse proxy) ---

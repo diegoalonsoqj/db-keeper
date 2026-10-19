@@ -9,7 +9,6 @@ import {
   SCRATCH_DISK_TYPES,
   SCRATCH_SETTINGS_LIMITS,
   type AppLocale,
-  type BackupSettings,
   type CloudCredentialDto,
   type EmailProvider,
   type LdapMode,
@@ -31,7 +30,7 @@ import { AppearanceCard } from "../components/AppearanceCard";
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 
 /** Campos de Configuración → Backups, agrupados (límites en BACKUP_SETTINGS_LIMITS). */
-const BACKUP_SETTING_GROUPS: { title: string; fields: (keyof BackupSettings)[] }[] = [
+const BACKUP_SETTING_GROUPS: { title: string; fields: (keyof typeof BACKUP_SETTINGS_LIMITS)[] }[] = [
   { title: "settings.backupsDumpGroup", fields: ["maxConcurrentDumps", "dumpInactivityMinutes", "dumpMaxHours"] },
   {
     title: "settings.backupsCloudSqlGroup",
@@ -572,6 +571,17 @@ export function SettingsPage() {
             })}
           </Fragment>
         ))}
+        <h3 className="full">{t("settings.backupsSecretsGroup")}</h3>
+        <label className="inline full">
+          <input
+            type="checkbox"
+            checked={data.backups.mongoPasswordViaConfig}
+            disabled={!canWrite}
+            onChange={(e) => setData((d) => (d ? { ...d, backups: { ...d.backups, mongoPasswordViaConfig: e.target.checked } } : d))}
+          />
+          {t("settings.mongoPasswordViaConfig")}
+        </label>
+        <small className="full">{t("settings.mongoPasswordViaConfigHint")}</small>
         {canWrite && (
           <div className="form-actions">
             <button onClick={() => notify(saveBackups)}>{t("common.save")}</button>

@@ -11,6 +11,7 @@ import { pipeStderrLines, describeDumpExit, NATIVE_CLIENT_STDERR_ENCODING } from
 import { lowerPriority } from "./priority.js";
 import { superviseDump, type DumpLimits } from "./supervise.js";
 import { assertSafeDbName } from "./db-name.js";
+import { maskSecret } from "../../../lib/mask-secret.js";
 
 const GZIP_LEVEL = 6;
 
@@ -180,6 +181,6 @@ async function runMysqldump(
       limits: opts.limits,
       stderr: getStderr(),
     });
-    throw new Error(password ? detail.split(password).join("***") : detail);
+    throw new Error(maskSecret(detail, password));
   }
 }

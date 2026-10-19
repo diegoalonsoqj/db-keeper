@@ -1,6 +1,7 @@
 import type { DiscoveredDatabase, MongoCollectionInfo, PgEventTrigger, PgExtension } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { decryptSecret } from "../../lib/crypto.js";
+import { maskSecret } from "../../lib/mask-secret.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
 import { listDatabases } from "../../lib/cloudsql.js";
@@ -13,7 +14,7 @@ import type { ConnInfo } from "./discovery/types.js";
 /** Elimina cualquier rastro de la contraseña del mensaje de error del driver. */
 function safeMessage(err: unknown, password: string): string {
   let msg = err instanceof Error ? err.message : String(err);
-  if (password) msg = msg.split(password).join("***");
+  msg = maskSecret(msg, password);
   return msg.length > 300 ? `${msg.slice(0, 300)}…` : msg;
 }
 

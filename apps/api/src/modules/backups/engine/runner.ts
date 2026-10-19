@@ -22,6 +22,7 @@ import { getBackupSettings } from "../../settings/settings.service.js";
 import { emitExecution, emitLog, emitProgress } from "../events.js";
 import { watchFileSize } from "./progress.js";
 import { runParallelItems } from "./parallel-runner.js";
+import { maskSecret } from "../../../lib/mask-secret.js";
 
 /**
  * Raíz local donde escribir los dumps: la ruta del destino local **por defecto**
@@ -98,7 +99,7 @@ function makeLogStream(
 /** Quita cualquier rastro de la contraseña del mensaje de error y lo acota. */
 function safeMessage(err: unknown, password: string): string {
   let msg = err instanceof Error ? err.message : String(err);
-  if (password) msg = msg.split(password).join("***");
+  msg = maskSecret(msg, password);
   // Se conserva el final: ahí suele estar la causa del error.
   return msg.length > 2000 ? `…${msg.slice(-2000)}` : msg;
 }
@@ -481,7 +482,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
   const verbose = job.options.verbose === true; // modo detallado (--verbose, consola en vivo)
   const keepLocalCopy = job.method === "gcloud" && job.options.keepLocalCopy === true;
   // Quita la contraseña de cualquier línea de consola antes de emitirla/guardarla.
-  const scrub = (l: string): string => (password ? l.split(password).join("***") : l);
+  const scrub = (l: string): string => maskSecret(l, password);
 
   // Dump paralelo (AlloyDB): disco temporal + pg_dump -Fd -j + subida de la carpeta.
   if (job.method === "pg_parallel") {
@@ -621,6 +622,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
         mongoSrv,
         connOptions: server.connOptions,
         verbose,
+        mongoPasswordViaConfig: bs.mongoPasswordViaConfig,
         onLog: ls?.onLog,
         destPathNoExt: path.join(destDir, fileBase),
         limits,
