@@ -592,7 +592,8 @@ export const BACKUP_SETTINGS_LIMITS = {
   staleAlertGraceHours: { min: 0, max: 168 },
   defaultKeepLast: { min: 0, max: 1000 },
   diskFreeAlertPercent: { min: 0, max: 90 },
-} as const satisfies Record<keyof BackupSettings, { min: number; max: number }>;
+  // Solo los numéricos; mongoPasswordViaConfig es un interruptor.
+} as const satisfies Record<Exclude<keyof BackupSettings, "mongoPasswordViaConfig">, { min: number; max: number }>;
 
 /** Valores por defecto (en la API, los de tiempo toman como base las variables del .env). */
 export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
