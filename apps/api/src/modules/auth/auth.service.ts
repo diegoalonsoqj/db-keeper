@@ -1,4 +1,6 @@
+import { randomBytes } from "node:crypto";
 import type { AuthIdentity, PermissionKey, UserDto } from "@dbkeeper/shared";
+import { logger } from "../../config/logger.js";
 import { HttpError } from "../../lib/http-error.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import * as usersRepo from "../users/users.repository.js";
@@ -11,6 +13,10 @@ function stripSecret(u: UserWithSecret): UserDto {
   const { passwordHash: _omit, ...dto } = u;
   return dto;
 }
+
+/** Hash de una contraseña al azar, calculado una vez, para igualar el tiempo de respuesta. */
+let dummy: Promise<string> | null = null;
+const dummyHash = (): Promise<string> => (dummy ??= hashPassword(randomBytes(16).toString("hex")));
 
 /**
  * Valida credenciales según el tipo de usuario y devuelve el usuario.
@@ -26,25 +32,32 @@ export async function login(username: string, password: string): Promise<UserDto
     const adName = normalizeAdUsername(username);
     if (adName !== username.trim().toLowerCase()) {
       user = await usersRepo.findByUsername(adName);
-      if (user && user.authType === "local") throw invalid;
+      if (user && user.authType === "local") user = null;
     }
   }
 
-  if (!user) throw invalid;
-  if (!user.isActive) throw HttpError.forbidden("La cuenta está inactiva");
+  if (!user || (user.authType === "local" && !user.passwordHash)) {
+    // Mismo costo que una contraseña real: sin esto, responder antes delata qué usuarios existen.
+    await verifyPassword(password, await dummyHash());
+    throw invalid;
+  }
 
   if (user.authType === "local") {
-    if (!user.passwordHash) throw invalid;
-    const ok = await verifyPassword(password, user.passwordHash);
+    const ok = await verifyPassword(password, user.passwordHash!);
     if (!ok) throw invalid;
   } else {
     const ldapConfig = await getLdapRuntimeConfig();
     if (!ldapConfig) {
-      throw HttpError.unauthorized("La autenticación AD/LDAP no está configurada");
+      // Un mensaje propio solo para cuentas de AD delataría que la cuenta existe.
+      logger.warn({ username: user.username }, "Login de usuario AD con la autenticación AD/LDAP sin configurar");
+      throw invalid;
     }
     const ldapUser = await authenticateLdap(user.username, password, ldapConfig);
     if (!ldapUser) throw invalid;
   }
+
+  // Tras validar la contraseña: antes, el aviso revelaba qué cuentas inactivas existen.
+  if (!user.isActive) throw HttpError.forbidden("La cuenta está inactiva");
 
   // Con segundo factor, el login se completa (y se registra) al validar el código.
   if (!requiresTotp(user)) await usersRepo.touchLastLogin(user.id);
