@@ -432,6 +432,7 @@
     "platform": "Platform",
     "platformSelf": "PostgreSQL (self-managed)",
     "platformAlloyDbHint": "AlloyDB: new events suggest the parallel dump with its noise filter.",
+    "cloudSqlMethodHint": "Marking it as Cloud SQL does not change the backup method: each event chooses dump or, on SQL Server, export.",
     "searchPlaceholder": "Name, host or instance",
     "platform_standard": "Self-managed",
     "platform_cloudsql": "Cloud SQL",

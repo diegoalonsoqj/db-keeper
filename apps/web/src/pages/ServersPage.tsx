@@ -499,6 +499,7 @@ export function ServersPage() {
                   )}
                 </select>
                 {gcpProjects.length === 0 && <small>{t("servers.gcpProjectEmpty")}</small>}
+                <small>{t("servers.cloudSqlMethodHint")}</small>
               </label>
               <label>
                 {t("servers.gcpInstance")}

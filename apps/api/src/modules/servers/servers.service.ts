@@ -86,6 +86,15 @@ export async function updateServer(id: string, data: Partial<ServerData>): Promi
   const existing = await repo.findById(id);
   if (!existing) throw HttpError.notFound("Instancia no encontrada");
   assertHost(data.host !== undefined ? data.host : existing.host, data.isCloudSql ?? existing.isCloudSql);
+  // Quitar la marca Cloud SQL dejaría fallando los eventos con export en cada ejecución.
+  if (existing.isCloudSql && data.isCloudSql === false) {
+    const exportJobs = await repo.countCloudSqlExportJobs(id);
+    if (exportJobs > 0) {
+      throw HttpError.badRequest(
+        `No se puede quitar la marca Cloud SQL: ${exportJobs} evento(s) usan el export de Cloud SQL. Cámbialos a dump primero`,
+      );
+    }
+  }
 
   if (data.name && data.name.toLowerCase() !== existing.name.toLowerCase()) {
     const dup = await repo.findByName(data.name);

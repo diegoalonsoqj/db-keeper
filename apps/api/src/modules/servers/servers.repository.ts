@@ -191,3 +191,12 @@ export async function updateServerFields(id: string, fields: Partial<ServerField
 export async function deleteServer(id: string): Promise<void> {
   await query("DELETE FROM core.servers WHERE id = $1", [id]);
 }
+
+/** Eventos (activos o no) de la instancia que usan el export de Cloud SQL. */
+export async function countCloudSqlExportJobs(serverId: string): Promise<number> {
+  const { rows } = await query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM core.backup_jobs WHERE server_id = $1 AND method = 'cloudsql_export'",
+    [serverId],
+  );
+  return Number(rows[0]?.count ?? 0);
+}

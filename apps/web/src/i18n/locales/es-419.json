@@ -432,6 +432,7 @@
     "platform": "Plataforma",
     "platformSelf": "PostgreSQL (autogestionado)",
     "platformAlloyDbHint": "AlloyDB: al crear un evento se sugiere el dump paralelo con su filtro de ruido.",
+    "cloudSqlMethodHint": "Marcarla como Cloud SQL no cambia el método de backup: cada evento elige dump o, en SQL Server, export.",
     "searchPlaceholder": "Nombre, host o instancia",
     "platform_standard": "Autogestionada",
     "platform_cloudsql": "Cloud SQL",
