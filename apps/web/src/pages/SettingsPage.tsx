@@ -49,6 +49,8 @@ export function SettingsPage() {
   // Apariencia es preferencia propia: visible para todos; el resto exige settings:read.
   const canRead = has("settings:read");
   const canWrite = has("settings:write");
+  // Destino y cuenta de nube por defecto: además, storage:manage (deciden a dónde salen los datos).
+  const canManageStorage = canWrite && has("storage:manage");
   const toast = useToast();
 
   const [data, setData] = useState<SettingsDto | null>(null);
@@ -328,7 +330,7 @@ export function SettingsPage() {
           {t("settings.defaultLocal")}
           <select
             value={defaultOf("local")}
-            disabled={!canWrite}
+            disabled={!canManageStorage}
             onChange={(e) => e.target.value && notify(() => setDefaultTarget(e.target.value))}
           >
             <option value="" disabled>
@@ -347,7 +349,7 @@ export function SettingsPage() {
           {t("settings.defaultBucket")}
           <select
             value={defaultOf("bucket")}
-            disabled={!canWrite}
+            disabled={!canManageStorage}
             onChange={(e) => e.target.value && notify(() => setDefaultTarget(e.target.value))}
           >
             <option value="" disabled>
@@ -366,7 +368,7 @@ export function SettingsPage() {
           {t("settings.defaultGcp")}
           <select
             value={defaultAccount}
-            disabled={!canWrite}
+            disabled={!canManageStorage}
             onChange={(e) => e.target.value && notify(() => setDefaultAccount(e.target.value))}
           >
             <option value="" disabled>

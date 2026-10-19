@@ -25,6 +25,11 @@ export const PERMISSIONS = [
     category: "servers",
     description: "Usar credenciales guardadas con instancias o eventos nuevos y cambiar el destino de instancias con credencial",
   },
+  {
+    key: "storage:manage",
+    category: "servers",
+    description: "Gestionar destinos de backup (carpetas locales y buckets) y credenciales de nube",
+  },
   // Backups (Etapa 4+)
   { key: "backups:read", category: "backups", description: "Ver trabajos e historial de backups" },
   { key: "backups:run", category: "backups", description: "Ejecutar backups a demanda" },
@@ -60,6 +65,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     "servers:write",
     "servers:delete",
     "credentials:use",
+    "storage:manage",
     "backups:read",
     "backups:run",
     "backups:schedule",

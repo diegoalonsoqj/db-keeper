@@ -179,9 +179,26 @@ async function assertActiveBucket(bucketId: string | null | undefined): Promise<
   if (t && !t.isActive) throw HttpError.badRequest(`El destino '${t.name}' está inactivo`);
 }
 
+/**
+ * SQL Server escribe el .bak donde diga `sqlBackupDir`, en el host de la instancia:
+ * una ruta de red (`\\host\share`, `//host/share`) lo saca de ahí y, en Windows, le
+ * entrega a ese host el hash NTLM de la cuenta del servicio. Solo con `storage:manage`,
+ * y solo se valida si cambia (editar otros campos de un evento así no se bloquea).
+ */
+function assertSqlBackupDir(actor: AuthIdentity, next: unknown, current?: unknown): void {
+  const value = typeof next === "string" ? next.trim() : "";
+  if (!/^(\\\\|\/\/)/.test(value)) return;
+  if (typeof current === "string" && current.trim() === value) return;
+  if (actor.permissions.includes("storage:manage")) return;
+  throw HttpError.forbidden(
+    "La carpeta del backup de SQL Server es una ruta de red: solo la configura quien tenga el permiso storage:manage.",
+  );
+}
+
 export async function createJob(actor: AuthIdentity, data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
   await assertCanUseCredential(actor, data.credentialId, data.serverId);
+  assertSqlBackupDir(actor, data.options?.sqlBackupDir);
   await assertActiveBucket(data.bucketId);
   if (data.method === "cloudsql_export") await assertCloudSqlExport(data.serverId, data.bucketId);
   else await assertDumpable(data.serverId);
@@ -223,6 +240,7 @@ export async function updateJob(actor: AuthIdentity, id: string, data: Partial<J
   if (credentialId !== current.credentialId || serverId !== current.serverId) {
     await assertCanUseCredential(actor, credentialId, serverId);
   }
+  if (data.options !== undefined) assertSqlBackupDir(actor, data.options.sqlBackupDir, current.options.sqlBackupDir);
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
   // Recalcula si cambian las opciones, el método (al pasar a bucket se quita la

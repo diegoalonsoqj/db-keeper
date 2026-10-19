@@ -48,8 +48,8 @@ const emptyForm: FormState = {
 export function StoragePage() {
   const { t } = useTranslation();
   const { has } = useAuth();
-  const canWrite = has("servers:write");
-  const canDelete = has("servers:delete");
+  const canWrite = has("storage:manage");
+  const canDelete = has("storage:manage");
   const toast = useToast();
   const confirm = useConfirm();
 

@@ -41,7 +41,7 @@ storageRouter.get("/", authorize("servers:read"), async (req, res, next) => {
   }
 });
 
-storageRouter.post("/", authorize("servers:write"), async (req, res, next) => {
+storageRouter.post("/", authorize("storage:manage"), async (req, res, next) => {
   try {
     const tgt = await service.createTarget(createSchema.parse(req.body));
     await recordAudit(req, { action: "storage.create", entityType: "storage_target", entityId: tgt.id, detail: { name: tgt.name, type: tgt.type } });
@@ -51,7 +51,7 @@ storageRouter.post("/", authorize("servers:write"), async (req, res, next) => {
   }
 });
 
-storageRouter.patch("/:id", authorize("servers:write"), async (req, res, next) => {
+storageRouter.patch("/:id", authorize("storage:manage"), async (req, res, next) => {
   try {
     const tgt = await service.updateTarget(String(req.params.id), updateSchema.parse(req.body));
     await recordAudit(req, { action: "storage.update", entityType: "storage_target", entityId: tgt.id });
@@ -62,7 +62,7 @@ storageRouter.patch("/:id", authorize("servers:write"), async (req, res, next) =
 });
 
 // Marca el destino como por defecto de su tipo.
-storageRouter.post("/:id/default", authorize("servers:write"), async (req, res, next) => {
+storageRouter.post("/:id/default", authorize("storage:manage"), async (req, res, next) => {
   try {
     const tgt = await service.setDefault(String(req.params.id));
     await recordAudit(req, { action: "storage.set_default", entityType: "storage_target", entityId: tgt.id });
@@ -72,7 +72,7 @@ storageRouter.post("/:id/default", authorize("servers:write"), async (req, res, 
   }
 });
 
-storageRouter.delete("/:id", authorize("servers:delete"), async (req, res, next) => {
+storageRouter.delete("/:id", authorize("storage:manage"), async (req, res, next) => {
   try {
     const id = String(req.params.id);
     await service.deleteTarget(id);

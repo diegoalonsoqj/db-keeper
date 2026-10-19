@@ -40,7 +40,7 @@ cloudCredentialsRouter.get("/compute", authorize("servers:read"), async (_req, r
   }
 });
 
-cloudCredentialsRouter.post("/compute", authorize("servers:write"), async (req, res, next) => {
+cloudCredentialsRouter.post("/compute", authorize("storage:manage"), async (req, res, next) => {
   try {
     const acc = await service.createComputeCredential();
     await recordAudit(req, { action: "cloud_credentials.create", entityType: "cloud_credential", entityId: acc.id, detail: { name: acc.name, provider: acc.provider, kind: acc.kind } });
@@ -50,7 +50,7 @@ cloudCredentialsRouter.post("/compute", authorize("servers:write"), async (req, 
   }
 });
 
-cloudCredentialsRouter.post("/", authorize("servers:write"), async (req, res, next) => {
+cloudCredentialsRouter.post("/", authorize("storage:manage"), async (req, res, next) => {
   try {
     const acc = await service.createCredential(createSchema.parse(req.body));
     await recordAudit(req, { action: "cloud_credentials.create", entityType: "cloud_credential", entityId: acc.id, detail: { name: acc.name, provider: acc.provider } });
@@ -60,7 +60,7 @@ cloudCredentialsRouter.post("/", authorize("servers:write"), async (req, res, ne
   }
 });
 
-cloudCredentialsRouter.patch("/:id", authorize("servers:write"), async (req, res, next) => {
+cloudCredentialsRouter.patch("/:id", authorize("storage:manage"), async (req, res, next) => {
   try {
     const acc = await service.updateCredential(String(req.params.id), updateSchema.parse(req.body));
     await recordAudit(req, { action: "cloud_credentials.update", entityType: "cloud_credential", entityId: acc.id });
@@ -70,7 +70,7 @@ cloudCredentialsRouter.patch("/:id", authorize("servers:write"), async (req, res
   }
 });
 
-cloudCredentialsRouter.post("/:id/default", authorize("servers:write"), async (req, res, next) => {
+cloudCredentialsRouter.post("/:id/default", authorize("storage:manage"), async (req, res, next) => {
   try {
     const acc = await service.setDefault(String(req.params.id));
     await recordAudit(req, { action: "cloud_credentials.set_default", entityType: "cloud_credential", entityId: acc.id });
@@ -80,7 +80,7 @@ cloudCredentialsRouter.post("/:id/default", authorize("servers:write"), async (r
   }
 });
 
-cloudCredentialsRouter.delete("/:id", authorize("servers:delete"), async (req, res, next) => {
+cloudCredentialsRouter.delete("/:id", authorize("storage:manage"), async (req, res, next) => {
   try {
     const id = String(req.params.id);
     await service.deleteCredential(id);
