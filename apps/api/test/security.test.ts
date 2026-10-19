@@ -32,6 +32,8 @@ vi.mock("../src/modules/users/users.repository.js", () => ({
   setUserRoles: vi.fn(async () => {}),
   deleteUser: vi.fn(async () => {}),
 }));
+const sessions = vi.hoisted(() => ({ revokeAllSessions: vi.fn(async () => {}) }));
+vi.mock("../src/modules/auth/sessions.repository.js", () => sessions);
 vi.mock("../src/modules/roles/roles.repository.js", () => ({
   listRoles: vi.fn(async () =>
     Object.entries(rolePerms).map(([key, permissions]) => ({ id: key, key, name: key, permissions })),
@@ -109,6 +111,10 @@ describe("escalada de privilegios: usuarios", () => {
   it("lo permitido sigue funcionando", async () => {
     await expect(usersService.updateUser(actor("adm"), "ed", { roleKeys: ["editor", "viewer"], password: "nueva-clave-123" })).resolves.toBeDefined();
     await expect(usersService.updateUser(actor("root"), "adm", { roleKeys: ["superadmin"] })).resolves.toBeDefined();
+ 
+    // La contraseña puesta por el admin cierra las sesiones del usuario; cambiar roles no.
+    expect(sessions.revokeAllSessions).toHaveBeenCalledTimes(1);
+    expect(sessions.revokeAllSessions).toHaveBeenCalledWith("ed");
   });
 });
 

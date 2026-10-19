@@ -12,6 +12,7 @@ import {
 } from "../../lib/totp.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as repo from "./totp.repository.js";
+import { revokeAllSessions } from "./sessions.repository.js";
 
 const ISSUER = "DBKeeper";
 
@@ -47,6 +48,7 @@ export async function confirmTotpSetup(userId: string, code: string): Promise<st
   if (step == null) throw HttpError.badRequest("Código incorrecto. Revisa la hora del teléfono e inténtalo de nuevo.");
   const codes = generateRecoveryCodes();
   await repo.enableTotp(userId, step, codes.map(hashRecoveryCode));
+  await revokeAllSessions(userId);
   return codes;
 }
 
@@ -72,6 +74,7 @@ export async function disableOwnTotp(userId: string, password: string, code: str
   if (!hash || !(await verifyPassword(password, hash))) throw HttpError.badRequest("La contraseña actual es incorrecta");
   if (!(await verifySecondFactor(userId, code))) throw HttpError.badRequest("Código incorrecto");
   await repo.disableTotp(userId);
+  await revokeAllSessions(userId);
 }
 
 export const recoveryCodesLeft = (userId: string) => repo.countRecoveryCodesLeft(userId);

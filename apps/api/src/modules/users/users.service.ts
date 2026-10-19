@@ -6,6 +6,7 @@ import { isSuperadmin, permissionsBeyond, SUPERADMIN_ROLE } from "../auth/privil
 import { listRoles } from "../roles/roles.repository.js";
 import * as totpRepo from "../auth/totp.repository.js";
 import * as repo from "./users.repository.js";
+import { revokeAllSessions } from "../auth/sessions.repository.js";
 
 function toDto(u: repo.UserWithSecret): UserDto {
   const { passwordHash: _omit, ...dto } = u;
@@ -152,6 +153,8 @@ export async function updateUser(actor: AuthIdentity, id: string, data: UpdateUs
     passwordHash,
   });
   if (data.roleKeys) await repo.setUserRoles(id, data.roleKeys);
+  // Contraseña nueva puesta por un admin: fuera las sesiones abiertas con la anterior.
+  if (passwordHash !== undefined) await revokeAllSessions(id);
   return getUser(id);
 }
 
@@ -162,6 +165,7 @@ export async function resetUserTotp(actor: AuthIdentity, id: string): Promise<vo
   await assertCanManage(actor, existing);
   if (!existing.totpEnabled) throw HttpError.badRequest("El usuario no tiene segundo factor activo");
   await totpRepo.disableTotp(id);
+  await revokeAllSessions(id);
 }
 
 export async function deleteUser(actor: AuthIdentity, id: string): Promise<void> {

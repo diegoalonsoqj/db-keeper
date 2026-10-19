@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "../config/env.js";
 
@@ -5,6 +6,8 @@ import { env } from "../config/env.js";
  * Tokens de sesión (JWT HS256) firmados con APP_SECRET_KEY.
  * El token viaja en una cookie httpOnly; el payload solo lleva identidad mínima,
  * los permisos se resuelven en cada request desde la BD (fuente de verdad).
+ * `ver` es la versión de sesión del usuario al emitirlo y `jti` identifica el token
+ * para revocarlo con logout (ver sessions.repository).
  */
 const secret = new TextEncoder().encode(env.APP_SECRET_KEY);
 const ISSUER = "dbkeeper";
@@ -15,11 +18,19 @@ export const SESSION_COOKIE = "dbk_session";
 export interface SessionClaims {
   sub: string; // user id
   username: string;
+  ver: number; // versión de sesión (auth.users.session_version)
+}
+
+/** Claims verificados: además el vencimiento y el id del token. */
+export interface VerifiedSession extends SessionClaims {
+  exp: number; // segundos
+  jti: string | null; // null en tokens emitidos antes de existir la revocación
 }
 
 export async function signSession(claims: SessionClaims): Promise<string> {
-  return new SignJWT({ username: claims.username })
+  return new SignJWT({ username: claims.username, ver: claims.ver })
     .setProtectedHeader({ alg: "HS256" })
+    .setJti(randomUUID())
     .setSubject(claims.sub)
     .setIssuer(ISSUER)
     .setIssuedAt()
@@ -27,11 +38,15 @@ export async function signSession(claims: SessionClaims): Promise<string> {
     .sign(secret);
 }
 
-export async function verifySession(token: string): Promise<SessionClaims | null> {
+export async function verifySession(token: string): Promise<VerifiedSession | null> {
   try {
     const { payload } = await jwtVerify(token, secret, { issuer: ISSUER });
     if (!payload.sub || typeof payload.username !== "string") return null;
-    return { sub: payload.sub, username: payload.username };
+    if (typeof payload.exp !== "number") return null;
+    // Tokens previos a la revocación no traen `ver`: cuentan como 0 (el valor inicial)
+    // y siguen valiendo hasta que se revoque o venzan.
+    const ver = typeof payload.ver === "number" ? payload.ver : 0;
+    return { sub: payload.sub, username: payload.username, ver, exp: payload.exp, jti: payload.jti ?? null };
   } catch {
     return null;
   }

@@ -1,14 +1,16 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { AuthIdentity, PermissionKey } from "@dbkeeper/shared";
 import { HttpError } from "../lib/http-error.js";
-import { SESSION_COOKIE, verifySession } from "../lib/jwt.js";
+import { SESSION_COOKIE, verifySession, type VerifiedSession } from "../lib/jwt.js";
 import { getIdentity } from "../modules/auth/auth.service.js";
+import { isSessionRevoked } from "../modules/auth/sessions.repository.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       auth?: AuthIdentity;
+      session?: VerifiedSession;
     }
   }
 }
@@ -24,11 +26,15 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
 
     const claims = await verifySession(token);
     if (!claims) throw HttpError.unauthorized("Sesión inválida o expirada");
+    if (await isSessionRevoked(claims.sub, claims.ver, claims.jti)) {
+      throw HttpError.unauthorized("Sesión inválida o expirada");
+    }
 
     const identity = await getIdentity(claims.sub);
     if (!identity) throw HttpError.unauthorized("Sesión inválida o expirada");
 
     req.auth = identity;
+    req.session = claims;
     next();
   } catch (err) {
     next(err);

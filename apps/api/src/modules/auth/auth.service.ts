@@ -5,6 +5,7 @@ import * as usersRepo from "../users/users.repository.js";
 import type { UserWithSecret } from "../users/users.repository.js";
 import { getLdapRuntimeConfig } from "../settings/settings.service.js";
 import { authenticateLdap, normalizeAdUsername } from "./ldap.js";
+import { revokeAllSessions } from "./sessions.repository.js";
 
 function stripSecret(u: UserWithSecret): UserDto {
   const { passwordHash: _omit, ...dto } = u;
@@ -90,4 +91,5 @@ export async function changeOwnPassword(
     throw HttpError.badRequest("La contraseña actual es incorrecta");
   }
   await usersRepo.updateUser(userId, { passwordHash: await hashPassword(newPassword) });
+  await revokeAllSessions(userId);
 }

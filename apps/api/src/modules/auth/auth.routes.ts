@@ -12,6 +12,7 @@ import { getSecurity } from "../settings/settings.service.js";
 import type { Response } from "express";
 import { changeOwnPassword, getIdentity, login, requiresTotp, touchLastLogin, updateOwnProfile } from "./auth.service.js";
 import * as totp from "./totp.service.js";
+import { getSessionVersion, revokeSession } from "./sessions.repository.js";
 
 export const authRouter: Router = Router();
 
@@ -31,7 +32,9 @@ const MFA_POLICY = { maxAttempts: 5, windowMs: 5 * 60_000, lockMs: 15 * 60_000 }
 
 const mfaCookieOpts = { httpOnly: true, secure: cookieSecure, sameSite: "lax" as const, path: "/api/auth" };
 
-function setSessionCookie(res: Response, token: string): void {
+/** Emite la cookie de sesión con la versión vigente del usuario (ver sessions.repository). */
+async function issueSession(res: Response, userId: string, username: string): Promise<void> {
+  const token = await signSession({ sub: userId, username, ver: await getSessionVersion(userId) });
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: cookieSecure,
@@ -65,7 +68,7 @@ authRouter.post("/login", async (req, res, next) => {
       return;
     }
 
-    setSessionCookie(res, await signSession({ sub: user.id, username: user.username }));
+    await issueSession(res, user.id, user.username);
 
     await recordAudit(req, {
       action: "auth.login",
@@ -127,7 +130,7 @@ authRouter.post("/login/totp", async (req, res, next) => {
 
     resetKey(mfaKey(userId));
     res.clearCookie(MFA_COOKIE, mfaCookieOpts);
-    setSessionCookie(res, await signSession({ sub: userId, username: identity.user.username }));
+    await issueSession(res, userId, identity.user.username);
     await touchLastLogin(userId);
     await recordAudit(req, {
       action: "auth.login",
@@ -145,6 +148,9 @@ authRouter.post("/login/totp", async (req, res, next) => {
 authRouter.post("/logout", authenticate, async (req, res, next) => {
   try {
     await recordAudit(req, { action: "auth.logout" });
+    // Sin esto el token seguiría valiendo hasta vencer aunque se borre la cookie.
+    const s = req.session!;
+    if (s.jti) await revokeSession(s.jti, new Date(s.exp * 1000));
     res.clearCookie(SESSION_COOKIE, { path: "/", httpOnly: true, secure: cookieSecure, sameSite: "lax" });
     ok(res, { loggedOut: true });
   } catch (err) {
@@ -194,6 +200,8 @@ authRouter.post("/change-password", authenticate, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = passwordSchema.parse(req.body);
     await changeOwnPassword(req.auth!.user.id, currentPassword, newPassword);
+    // Las demás sesiones quedaron revocadas; esta sigue con un token nuevo.
+    await issueSession(res, req.auth!.user.id, req.auth!.user.username);
     await recordAudit(req, { action: "profile.change_password", entityType: "user", entityId: req.auth!.user.id });
     ok(res, { changed: true });
   } catch (err) {
@@ -226,6 +234,7 @@ authRouter.post("/totp/enable", authenticate, async (req, res, next) => {
   try {
     const { code } = totpCodeSchema.parse(req.body);
     const recoveryCodes = await totp.confirmTotpSetup(req.auth!.user.id, code);
+    await issueSession(res, req.auth!.user.id, req.auth!.user.username);
     await recordAudit(req, { action: "profile.totp_enable", entityType: "user", entityId: req.auth!.user.id });
     ok(res, { recoveryCodes });
   } catch (err) {
@@ -239,6 +248,7 @@ authRouter.post("/totp/disable", authenticate, async (req, res, next) => {
   try {
     const { code, password } = totpDisableSchema.parse(req.body);
     await totp.disableOwnTotp(req.auth!.user.id, password, code);
+    await issueSession(res, req.auth!.user.id, req.auth!.user.username);
     await recordAudit(req, { action: "profile.totp_disable", entityType: "user", entityId: req.auth!.user.id });
     ok(res, { disabled: true });
   } catch (err) {
