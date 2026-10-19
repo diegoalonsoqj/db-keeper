@@ -3,7 +3,7 @@ import { z } from "zod";
 import { cookieSecure } from "../../config/env.js";
 import { ok } from "../../lib/respond.js";
 import { MFA_COOKIE, MFA_TTL_MS, SESSION_COOKIE, signMfaChallenge, signSession, verifyMfaChallenge } from "../../lib/jwt.js";
-import { APP_LOCALES, UI_MODES, UI_PALETTES } from "@dbkeeper/shared";
+import { APP_LOCALES, DEFAULT_SECURITY_SETTINGS, UI_MODES, UI_PALETTES } from "@dbkeeper/shared";
 import { authenticate } from "../../middleware/auth.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { HttpError } from "../../lib/http-error.js";
@@ -45,21 +45,25 @@ async function issueSession(res: Response, userId: string, username: string): Pr
 }
 
 authRouter.post("/login", async (req, res, next) => {
-  const security = await getSecurity().catch(() => null);
-  const limitOn = security?.loginLimitEnabled === true;
+  // Sin poder leer los ajustes se aplican los de por defecto: antes el login quedaba sin límite.
+  const security = await getSecurity().catch((err) => {
+    req.log?.warn({ err }, "No se pudieron leer los ajustes de seguridad: límite de intentos por defecto");
+    return DEFAULT_SECURITY_SETTINGS;
+  });
+  const limitOn = security.loginLimitEnabled;
   let attemptedUser: string | null = null;
   try {
     const { username, password } = loginSchema.parse(req.body);
     attemptedUser = username;
     if (limitOn) {
-      const wait = Math.max(lockRemainingMs(userKey(username)), lockRemainingMs(ipKey(req.ip)));
+      const wait = Math.max(await lockRemainingMs(userKey(username)), await lockRemainingMs(ipKey(req.ip)));
       if (wait > 0) {
         const minutes = Math.ceil(wait / 60_000);
         throw new HttpError(429, "TOO_MANY_ATTEMPTS", `Demasiados intentos fallidos. Vuelve a intentarlo en ${minutes} min.`);
       }
     }
     const user = await login(username, password);
-    if (limitOn) resetKey(userKey(username));
+    if (limitOn) await resetKey(userKey(username));
 
     // Contraseña correcta pero falta el código: desafío corto en cookie, sin sesión.
     if (requiresTotp(user)) {
@@ -82,11 +86,14 @@ authRouter.post("/login", async (req, res, next) => {
   } catch (err) {
     // Cuenta solo fallos de credenciales/cuenta (401/403), no bloqueos ni errores internos.
     const status = err instanceof HttpError ? err.status : 0;
-    if (limitOn && security && attemptedUser && (status === 401 || status === 403)) {
+    if (limitOn && attemptedUser && (status === 401 || status === 403)) {
       const windowMs = security.windowMinutes * 60_000;
       const lockMs = security.lockMinutes * 60_000;
-      registerFailure(userKey(attemptedUser), { maxAttempts: security.maxAttemptsPerUser, windowMs, lockMs });
-      registerFailure(ipKey(req.ip), { maxAttempts: security.maxAttemptsPerIp, windowMs, lockMs });
+      // Un fallo al contar no debe tapar la respuesta del login.
+      await Promise.all([
+        registerFailure(userKey(attemptedUser), { maxAttempts: security.maxAttemptsPerUser, windowMs, lockMs }),
+        registerFailure(ipKey(req.ip), { maxAttempts: security.maxAttemptsPerIp, windowMs, lockMs }),
+      ]).catch((e) => req.log?.error({ err: e }, "No se pudo registrar el intento de login fallido"));
     }
     // Auditar intentos fallidos sin exponer detalles.
     if (req.body && typeof req.body === "object" && "username" in req.body) {
@@ -110,7 +117,7 @@ authRouter.post("/login/totp", async (req, res, next) => {
     userId = challenge ? await verifyMfaChallenge(challenge) : null;
     if (!userId) throw new HttpError(401, "MFA_EXPIRED", "La verificación venció. Vuelve a ingresar tu contraseña.");
 
-    const wait = lockRemainingMs(mfaKey(userId));
+    const wait = await lockRemainingMs(mfaKey(userId));
     if (wait > 0) {
       throw new HttpError(429, "TOO_MANY_ATTEMPTS", `Demasiados códigos incorrectos. Vuelve a intentarlo en ${Math.ceil(wait / 60_000)} min.`);
     }
@@ -118,7 +125,7 @@ authRouter.post("/login/totp", async (req, res, next) => {
     if (!identity) throw new HttpError(401, "MFA_EXPIRED", "La verificación venció. Vuelve a ingresar tu contraseña.");
     const method = await totp.verifySecondFactor(userId, code);
     if (!method) {
-      registerFailure(mfaKey(userId), MFA_POLICY);
+      await registerFailure(mfaKey(userId), MFA_POLICY);
       await recordAudit(req, {
         action: "auth.mfa_failed",
         entityType: "user",
@@ -128,7 +135,7 @@ authRouter.post("/login/totp", async (req, res, next) => {
       throw HttpError.unauthorized("Código incorrecto");
     }
 
-    resetKey(mfaKey(userId));
+    await resetKey(mfaKey(userId));
     res.clearCookie(MFA_COOKIE, mfaCookieOpts);
     await issueSession(res, userId, identity.user.username);
     await touchLastLogin(userId);
