@@ -1,4 +1,4 @@
-import type { BackupJobDto, BackupMethod, ExecutionDto } from "@dbkeeper/shared";
+import type { AuthIdentity, BackupJobDto, BackupMethod, ExecutionDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import * as serversRepo from "../servers/servers.repository.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
@@ -19,6 +19,7 @@ import { getBackupSettings, getScratchSettings } from "../settings/settings.serv
 import { isCancellable, requestCancel } from "./engine/cancel.js";
 import { isDirectoryArtifact, suggestParallelJobs, type ParallelEnvironmentDto } from "@dbkeeper/shared";
 import { detectInstanceIdentity } from "../../lib/gce-metadata.js";
+import { assertCanUseCredential } from "../credentials/credential-guard.js";
 
 export interface JobData {
   name: string;
@@ -178,8 +179,9 @@ async function assertActiveBucket(bucketId: string | null | undefined): Promise<
   if (t && !t.isActive) throw HttpError.badRequest(`El destino '${t.name}' está inactivo`);
 }
 
-export async function createJob(data: JobData): Promise<BackupJobDto> {
+export async function createJob(actor: AuthIdentity, data: JobData): Promise<BackupJobDto> {
   await validateRefs(data);
+  await assertCanUseCredential(actor, data.credentialId, data.serverId);
   await assertActiveBucket(data.bucketId);
   if (data.method === "cloudsql_export") await assertCloudSqlExport(data.serverId, data.bucketId);
   else await assertDumpable(data.serverId);
@@ -196,7 +198,7 @@ export async function createJob(data: JobData): Promise<BackupJobDto> {
   return getJob(id);
 }
 
-export async function updateJob(id: string, data: Partial<JobData>): Promise<BackupJobDto> {
+export async function updateJob(actor: AuthIdentity, id: string, data: Partial<JobData>): Promise<BackupJobDto> {
   const current = await repo.findJobById(id);
   if (!current) throw HttpError.notFound("Evento de backup no encontrado");
   await validateRefs(data);
@@ -217,6 +219,10 @@ export async function updateJob(id: string, data: Partial<JobData>): Promise<Bac
   const bucketId = data.bucketId !== undefined ? data.bucketId : current.bucketId;
   if (method === "pg_parallel") await assertParallel(serverId, bucketId);
   const credentialId = data.credentialId !== undefined ? data.credentialId : current.credentialId;
+  // Credencial alternativa nueva, o la misma llevada a otra instancia.
+  if (credentialId !== current.credentialId || serverId !== current.serverId) {
+    await assertCanUseCredential(actor, credentialId, serverId);
+  }
   const environment = await resolveEnvironment(serverId, credentialId);
   const { databases: _omit, ...fields } = data;
   // Recalcula si cambian las opciones, el método (al pasar a bucket se quita la

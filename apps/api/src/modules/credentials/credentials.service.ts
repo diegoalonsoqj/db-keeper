@@ -14,7 +14,7 @@ export async function getCredential(id: string): Promise<CredentialDto> {
   return c;
 }
 
-export async function createCredential(data: CredentialInput): Promise<CredentialDto> {
+export async function createCredential(actorId: string, data: CredentialInput): Promise<CredentialDto> {
   if (await repo.findByName(data.name)) {
     throw HttpError.conflict("Ya existe una credencial con ese nombre");
   }
@@ -26,11 +26,13 @@ export async function createCredential(data: CredentialInput): Promise<Credentia
     extraEncrypted: data.extra ? encryptSecret(JSON.stringify(data.extra)) : null,
     environment: data.environment ?? null,
     description: data.description ?? null,
+    passwordSetBy: actorId,
   });
   return getCredential(id);
 }
 
 export async function updateCredential(
+  actorId: string,
   id: string,
   data: Partial<CredentialInput>,
 ): Promise<CredentialDto> {
@@ -48,7 +50,10 @@ export async function updateCredential(
     environment: data.environment,
     description: data.description,
   };
-  if (data.password) fields.passwordEncrypted = encryptSecret(data.password);
+  if (data.password) {
+    fields.passwordEncrypted = encryptSecret(data.password);
+    fields.passwordSetBy = actorId;
+  }
   if (data.extra !== undefined) {
     fields.extraEncrypted = data.extra ? encryptSecret(JSON.stringify(data.extra)) : null;
   }

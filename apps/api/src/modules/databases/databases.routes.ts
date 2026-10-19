@@ -32,7 +32,7 @@ databasesRouter.post("/schemas", authorize("servers:read"), async (req, res, nex
   try {
     const serverId = idSchema.parse(req.params.serverId);
     const { dbName, credentialId } = schemasBodySchema.parse(req.body ?? {});
-    ok(res, await service.listSchemas(serverId, dbName, credentialId));
+    ok(res, await service.listSchemas(req.auth!, serverId, dbName, credentialId));
   } catch (err) {
     next(err);
   }
@@ -43,7 +43,7 @@ databasesRouter.post("/extensions", authorize("servers:read"), async (req, res, 
   try {
     const serverId = idSchema.parse(req.params.serverId);
     const { dbName, credentialId } = schemasBodySchema.parse(req.body ?? {});
-    ok(res, await service.listExtensions(serverId, dbName, credentialId));
+    ok(res, await service.listExtensions(req.auth!, serverId, dbName, credentialId));
   } catch (err) {
     next(err);
   }
@@ -54,7 +54,7 @@ databasesRouter.post("/event-triggers", authorize("servers:read"), async (req, r
   try {
     const serverId = idSchema.parse(req.params.serverId);
     const { dbName, credentialId } = schemasBodySchema.parse(req.body ?? {});
-    ok(res, await service.listEventTriggers(serverId, dbName, credentialId));
+    ok(res, await service.listEventTriggers(req.auth!, serverId, dbName, credentialId));
   } catch (err) {
     next(err);
   }
@@ -65,7 +65,7 @@ databasesRouter.post("/collections", authorize("servers:read"), async (req, res,
   try {
     const serverId = idSchema.parse(req.params.serverId);
     const { dbName, credentialId } = schemasBodySchema.parse(req.body ?? {});
-    ok(res, await service.listCollections(serverId, dbName, credentialId));
+    ok(res, await service.listCollections(req.auth!, serverId, dbName, credentialId));
   } catch (err) {
     next(err);
   }
@@ -75,7 +75,7 @@ databasesRouter.post("/discover", authorize("servers:read"), async (req, res, ne
   try {
     const serverId = idSchema.parse(req.params.serverId);
     const { credentialId, via } = discoverBodySchema.parse(req.body ?? {});
-    ok(res, via === "cloudsql" ? await service.discoverCloudSql(serverId) : await service.discover(serverId, credentialId));
+    ok(res, via === "cloudsql" ? await service.discoverCloudSql(serverId) : await service.discover(req.auth!, serverId, credentialId));
   } catch (err) {
     next(err);
   }

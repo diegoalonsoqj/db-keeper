@@ -1,10 +1,11 @@
-import type { CloudSqlCheckDto, DbEngine, ServerDto } from "@dbkeeper/shared";
+import type { AuthIdentity, CloudSqlCheckDto, DbEngine, ServerDto } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { getInstance } from "../../lib/cloudsql.js";
 import * as credsRepo from "../credentials/credentials.repository.js";
 import { assertAssignable, resolveGcpServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
 import * as repo from "./servers.repository.js";
 import type { ServerFields } from "./servers.repository.js";
+import { assertCanRetarget, assertCanUseCredential } from "../credentials/credential-guard.js";
 
 export async function listServers(p: repo.ServerListQuery) {
   return repo.listServers(p);
@@ -70,19 +71,34 @@ function assertHost(host: string | null, isCloudSql: boolean): void {
   if (!host && !isCloudSql) throw HttpError.badRequest("Indica el host o IP de la instancia");
 }
 
-export async function createServer(data: ServerData): Promise<ServerDto> {
+export async function createServer(actor: AuthIdentity, data: ServerData): Promise<ServerDto> {
   assertHost(data.host, data.isCloudSql);
   if (await repo.findByName(data.name)) {
     throw HttpError.conflict("Ya existe una instancia con ese nombre");
   }
   await assertCredentialExists(data.credentialId);
+  await assertCanUseCredential(actor, data.credentialId, null);
   await assertCloudCredential(data.cloudCredentialId);
   const fields = platformFieldsFor(mongoFieldsFor(data, data.engine), data.engine, data.isCloudSql);
   const id = await repo.insertServer(fields as ServerFields);
   return getServer(id);
 }
 
-export async function updateServer(id: string, data: Partial<ServerData>): Promise<ServerDto> {
+/** ¿Cambia a dónde se conecta (y por tanto a dónde viajan las contraseñas)? */
+function targetChanges(existing: ServerDto, data: Partial<ServerData>): boolean {
+  const differs = <T>(next: T | undefined, cur: T) => next !== undefined && JSON.stringify(next) !== JSON.stringify(cur);
+  const sorted = (o: Record<string, string> | undefined) =>
+    o && Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
+  return (
+    differs(data.host, existing.host) ||
+    differs(data.port, existing.port) ||
+    differs(data.engine, existing.engine) ||
+    differs(data.mongoSrv, existing.mongoSrv) ||
+    differs(sorted(data.connOptions), sorted(existing.connOptions))
+  );
+}
+
+export async function updateServer(actor: AuthIdentity, id: string, data: Partial<ServerData>): Promise<ServerDto> {
   const existing = await repo.findById(id);
   if (!existing) throw HttpError.notFound("Instancia no encontrada");
   assertHost(data.host !== undefined ? data.host : existing.host, data.isCloudSql ?? existing.isCloudSql);
@@ -101,6 +117,11 @@ export async function updateServer(id: string, data: Partial<ServerData>): Promi
     if (dup && dup.id !== id) throw HttpError.conflict("Ya existe una instancia con ese nombre");
   }
   await assertCredentialExists(data.credentialId);
+  const credentialId = data.credentialId !== undefined ? data.credentialId : existing.credentialId;
+  if (credentialId !== existing.credentialId) await assertCanUseCredential(actor, credentialId, id);
+  if (targetChanges(existing, data)) {
+    await assertCanRetarget(actor, [credentialId, ...(await credsRepo.jobCredentialsOfServer(id))]);
+  }
   await assertCloudCredential(data.cloudCredentialId, existing.cloudCredentialId);
   // Si deja de ser MongoDB se limpian SRV/opciones; si lo es, solo se tocan si vienen.
   const engine = data.engine ?? existing.engine;

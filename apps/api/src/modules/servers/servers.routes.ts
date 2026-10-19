@@ -49,22 +49,24 @@ const serverFields = {
 
 const createSchema = z.object({ ...serverFields, host: hostSchema.transform((v) => v ?? null) });
 
+// Campos omitidos (undefined) NO se tocan; null limpia el valor. (Con el
+// `.transform(v ?? null)` de serverFields, omitir la credencial la desvinculaba.)
 const updateSchema = z.object({
   name: serverFields.name.optional(),
   engine: serverFields.engine.optional(),
   host: serverFields.host,
   port: serverFields.port.optional(),
-  environment: serverFields.environment,
+  environment: z.string().max(60).nullable().optional(),
   useSsl: z.boolean().optional(),
   mongoSrv: z.boolean().optional(),
   connOptions: connOptionsSchema.optional(),
   isCloudSql: z.boolean().optional(),
   isAlloyDb: z.boolean().optional(),
-  gcpProject: serverFields.gcpProject,
-  gcpInstance: serverFields.gcpInstance,
-  cloudCredentialId: serverFields.cloudCredentialId,
-  notes: serverFields.notes,
-  credentialId: serverFields.credentialId,
+  gcpProject: z.string().max(255).nullable().optional(),
+  gcpInstance: z.string().max(255).nullable().optional(),
+  cloudCredentialId: z.string().uuid().nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+  credentialId: z.string().uuid().nullable().optional(),
 });
 
 const serverListSchema = listQuerySchema(SERVER_SORTS).extend({
@@ -101,7 +103,7 @@ serversRouter.get("/:id/cloudsql/check", authorize("servers:read"), async (req, 
 serversRouter.post("/", authorize("servers:write"), async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    const server = await service.createServer(data);
+    const server = await service.createServer(req.auth!, data);
     await recordAudit(req, { action: "servers.create", entityType: "server", entityId: server.id, detail: { name: server.name, engine: server.engine } });
     ok(res, server, 201);
   } catch (err) {
@@ -112,7 +114,7 @@ serversRouter.post("/", authorize("servers:write"), async (req, res, next) => {
 serversRouter.patch("/:id", authorize("servers:write"), async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
-    const server = await service.updateServer(String(req.params.id), data);
+    const server = await service.updateServer(req.auth!, String(req.params.id), data);
     await recordAudit(req, { action: "servers.update", entityType: "server", entityId: server.id });
     ok(res, server);
   } catch (err) {

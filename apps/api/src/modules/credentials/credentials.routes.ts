@@ -44,7 +44,7 @@ credentialsRouter.get("/", authorize("servers:read"), async (req, res, next) => 
 credentialsRouter.post("/", authorize("servers:write"), async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    const cred = await service.createCredential(data);
+    const cred = await service.createCredential(req.auth!.user.id, data);
     await recordAudit(req, { action: "credentials.create", entityType: "credential", entityId: cred.id, detail: { name: cred.name } });
     ok(res, cred, 201);
   } catch (err) {
@@ -55,7 +55,7 @@ credentialsRouter.post("/", authorize("servers:write"), async (req, res, next) =
 credentialsRouter.patch("/:id", authorize("servers:write"), async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
-    const cred = await service.updateCredential(String(req.params.id), data);
+    const cred = await service.updateCredential(req.auth!.user.id, String(req.params.id), data);
     await recordAudit(req, { action: "credentials.update", entityType: "credential", entityId: cred.id });
     ok(res, cred);
   } catch (err) {

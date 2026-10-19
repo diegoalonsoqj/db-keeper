@@ -1,4 +1,4 @@
-import type { DiscoveredDatabase, MongoCollectionInfo, PgEventTrigger, PgExtension } from "@dbkeeper/shared";
+import type { AuthIdentity, DiscoveredDatabase, MongoCollectionInfo, PgEventTrigger, PgExtension } from "@dbkeeper/shared";
 import { HttpError } from "../../lib/http-error.js";
 import { decryptSecret } from "../../lib/crypto.js";
 import { maskSecret } from "../../lib/mask-secret.js";
@@ -10,6 +10,7 @@ import { getDiscoverer } from "./discovery/index.js";
 import { listPostgresEventTriggers, listPostgresExtensions, listPostgresSchemas } from "./discovery/postgres.js";
 import { listMongoCollectionsOf } from "./discovery/mongo.js";
 import type { ConnInfo } from "./discovery/types.js";
+import { assertCanUseCredential } from "../credentials/credential-guard.js";
 
 /** Elimina cualquier rastro de la contraseña del mensaje de error del driver. */
 function safeMessage(err: unknown, password: string): string {
@@ -23,9 +24,10 @@ function safeMessage(err: unknown, password: string): string {
  * evento) y, si no se pasa, la asignada a la instancia. Así se puede descubrir una
  * instancia sin credencial base usando una credencial existente.
  */
-async function resolveConn(serverId: string, credentialId?: string | null) {
+async function resolveConn(actor: AuthIdentity, serverId: string, credentialId?: string | null) {
   const server = await serversRepo.findById(serverId);
   if (!server) throw HttpError.notFound("Instancia no encontrada");
+  if (credentialId) await assertCanUseCredential(actor, credentialId, serverId);
   if (!server.host) {
     throw HttpError.badRequest("La instancia no tiene host/IP: lista sus BDs por la API de Cloud SQL");
   }
@@ -50,8 +52,8 @@ async function resolveConn(serverId: string, credentialId?: string | null) {
 }
 
 /** Conecta a la instancia y lista sus BDs reales. */
-export async function discover(serverId: string, credentialId?: string | null): Promise<DiscoveredDatabase[]> {
-  const { engine, conn } = await resolveConn(serverId, credentialId);
+export async function discover(actor: AuthIdentity, serverId: string, credentialId?: string | null): Promise<DiscoveredDatabase[]> {
+  const { engine, conn } = await resolveConn(actor, serverId, credentialId);
   try {
     return await getDiscoverer(engine)(conn);
   } catch (err) {
@@ -60,8 +62,8 @@ export async function discover(serverId: string, credentialId?: string | null): 
 }
 
 /** Esquemas de una BD de PostgreSQL (para elegir cuáles excluir del dump). */
-export async function listSchemas(serverId: string, dbName: string, credentialId?: string | null): Promise<string[]> {
-  const { engine, conn } = await resolveConn(serverId, credentialId);
+export async function listSchemas(actor: AuthIdentity, serverId: string, dbName: string, credentialId?: string | null): Promise<string[]> {
+  const { engine, conn } = await resolveConn(actor, serverId, credentialId);
   if (engine !== "postgres") throw HttpError.badRequest("Los esquemas solo aplican a PostgreSQL");
   try {
     return await listPostgresSchemas(conn, dbName);
@@ -71,12 +73,11 @@ export async function listSchemas(serverId: string, dbName: string, credentialId
 }
 
 /** Extensiones instaladas en una BD de PostgreSQL (para elegir cuáles excluir del dump). */
-export async function listExtensions(
-  serverId: string,
+export async function listExtensions(actor: AuthIdentity, serverId: string,
   dbName: string,
   credentialId?: string | null,
 ): Promise<PgExtension[]> {
-  const { engine, conn } = await resolveConn(serverId, credentialId);
+  const { engine, conn } = await resolveConn(actor, serverId, credentialId);
   if (engine !== "postgres") throw HttpError.badRequest("Las extensiones solo aplican a PostgreSQL");
   try {
     return await listPostgresExtensions(conn, dbName);
@@ -86,12 +87,11 @@ export async function listExtensions(
 }
 
 /** Event triggers de una BD de PostgreSQL (para elegir cuáles excluir del dump). */
-export async function listEventTriggers(
-  serverId: string,
+export async function listEventTriggers(actor: AuthIdentity, serverId: string,
   dbName: string,
   credentialId?: string | null,
 ): Promise<PgEventTrigger[]> {
-  const { engine, conn } = await resolveConn(serverId, credentialId);
+  const { engine, conn } = await resolveConn(actor, serverId, credentialId);
   if (engine !== "postgres") throw HttpError.badRequest("Los event triggers solo aplican a PostgreSQL");
   try {
     return await listPostgresEventTriggers(conn, dbName);
@@ -103,12 +103,11 @@ export async function listEventTriggers(
 }
 
 /** Colecciones de una BD de MongoDB (para elegir cuáles excluir del dump). */
-export async function listCollections(
-  serverId: string,
+export async function listCollections(actor: AuthIdentity, serverId: string,
   dbName: string,
   credentialId?: string | null,
 ): Promise<MongoCollectionInfo[]> {
-  const { engine, conn } = await resolveConn(serverId, credentialId);
+  const { engine, conn } = await resolveConn(actor, serverId, credentialId);
   if (engine !== "mongo") throw HttpError.badRequest("Las colecciones solo aplican a MongoDB");
   try {
     return await listMongoCollectionsOf(conn, dbName);

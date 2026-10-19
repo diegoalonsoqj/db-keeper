@@ -46,12 +46,13 @@ const jobFields = {
 
 const createSchema = z.object({ ...jobFields });
 
+// Omitidos (undefined) no se tocan; null limpia (la credencial alternativa o el bucket).
 const updateSchema = z.object({
   name: jobFields.name.optional(),
   serverId: jobFields.serverId.optional(),
-  credentialId: jobFields.credentialId,
+  credentialId: z.string().uuid().nullable().optional(),
   method: jobFields.method.optional(),
-  bucketId: jobFields.bucketId,
+  bucketId: z.string().uuid().nullable().optional(),
   options: z.record(z.unknown()).optional(),
   isActive: z.boolean().optional(),
   databases: z.array(dbNameSchema).min(1).max(2000).optional(),
@@ -263,7 +264,7 @@ backupsRouter.get("/:id", authorize("backups:read"), async (req, res, next) => {
 backupsRouter.post("/", authorize("backups:schedule"), async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    const job = await service.createJob(data);
+    const job = await service.createJob(req.auth!, data);
     await recordAudit(req, {
       action: "backups.create",
       entityType: "backup_job",
@@ -279,7 +280,7 @@ backupsRouter.post("/", authorize("backups:schedule"), async (req, res, next) =>
 backupsRouter.patch("/:id", authorize("backups:schedule"), async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
-    const job = await service.updateJob(String(req.params.id), data);
+    const job = await service.updateJob(req.auth!, String(req.params.id), data);
     await recordAudit(req, { action: "backups.update", entityType: "backup_job", entityId: job.id });
     ok(res, job);
   } catch (err) {

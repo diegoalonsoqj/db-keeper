@@ -20,6 +20,11 @@ export const PERMISSIONS = [
   { key: "servers:read", category: "servers", description: "Ver instancias y bases" },
   { key: "servers:write", category: "servers", description: "Crear y editar instancias" },
   { key: "servers:delete", category: "servers", description: "Eliminar instancias" },
+  {
+    key: "credentials:use",
+    category: "servers",
+    description: "Usar credenciales guardadas con instancias o eventos nuevos y cambiar el destino de instancias con credencial",
+  },
   // Backups (Etapa 4+)
   { key: "backups:read", category: "backups", description: "Ver trabajos e historial de backups" },
   { key: "backups:run", category: "backups", description: "Ejecutar backups a demanda" },
@@ -54,6 +59,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     "servers:read",
     "servers:write",
     "servers:delete",
+    "credentials:use",
     "backups:read",
     "backups:run",
     "backups:schedule",

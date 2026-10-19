@@ -90,12 +90,14 @@ export interface CredentialFields {
   extraEncrypted: string | null;
   environment: string | null;
   description: string | null;
+  /** Usuario que escribió la contraseña (ver credential-guard). */
+  passwordSetBy: string | null;
 }
 
 export async function insertCredential(fields: CredentialFields): Promise<string> {
   const { rows } = await query<{ id: string }>(
-    `INSERT INTO secrets.credentials (name, username, password_encrypted, extra_encrypted, environment, description)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    `INSERT INTO secrets.credentials (name, username, password_encrypted, extra_encrypted, environment, description, password_set_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
     [
       fields.name,
       fields.username,
@@ -103,6 +105,7 @@ export async function insertCredential(fields: CredentialFields): Promise<string
       fields.extraEncrypted,
       fields.environment,
       fields.description,
+      fields.passwordSetBy,
     ],
   );
   return rows[0]!.id;
@@ -116,6 +119,7 @@ export async function updateCredential(id: string, fields: Partial<CredentialFie
     extraEncrypted: "extra_encrypted",
     environment: "environment",
     description: "description",
+    passwordSetBy: "password_set_by",
   };
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -134,6 +138,34 @@ export async function deleteCredential(id: string): Promise<void> {
 }
 
 /** Cuántas instancias usan esta credencial (para avisar antes de borrar). */
+/** Quién escribió la contraseña (null = credencial anterior a registrarlo). */
+export async function getPasswordSetBy(id: string): Promise<string | null> {
+  const { rows } = await query<{ password_set_by: string | null }>(
+    "SELECT password_set_by FROM secrets.credentials WHERE id = $1",
+    [id],
+  );
+  return rows[0]?.password_set_by ?? null;
+}
+
+/** ¿La instancia ya usa la credencial (como propia o en alguno de sus eventos)? */
+export async function isLinkedToServer(credentialId: string, serverId: string): Promise<boolean> {
+  const { rows } = await query<{ linked: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM core.servers WHERE id = $2 AND credential_id = $1)
+         OR EXISTS (SELECT 1 FROM core.backup_jobs WHERE server_id = $2 AND credential_id = $1) AS linked`,
+    [credentialId, serverId],
+  );
+  return rows[0]?.linked ?? false;
+}
+
+/** Credenciales alternativas de los eventos de la instancia. */
+export async function jobCredentialsOfServer(serverId: string): Promise<string[]> {
+  const { rows } = await query<{ credential_id: string }>(
+    "SELECT DISTINCT credential_id FROM core.backup_jobs WHERE server_id = $1 AND credential_id IS NOT NULL",
+    [serverId],
+  );
+  return rows.map((r) => r.credential_id);
+}
+
 export async function countServersUsing(id: string): Promise<number> {
   const { rows } = await query<{ count: string }>(
     "SELECT count(*)::text AS count FROM core.servers WHERE credential_id = $1",
