@@ -184,6 +184,7 @@ export function ExecutionsPage() {
   const { t, i18n } = useTranslation();
   const { has } = useAuth();
   const canRun = has("backups:run");
+  const canDownload = has("backups:download");
   const environments = useEnvironments();
   const toast = useToast();
   const [data, setData] = useState<Paginated<ExecutionDto>>({ items: [], total: 0 });
@@ -631,6 +632,7 @@ export function ExecutionsPage() {
                                         <Copy size={16} />
                                       </button>
                                     ) : (
+                                      canDownload && (
                                       <button
                                         className="icon-btn"
                                         title={t("executions.download")}
@@ -639,6 +641,7 @@ export function ExecutionsPage() {
                                       >
                                         <Download size={16} />
                                       </button>
+                                      )
                                     ))
                                   )}
                                 </td>

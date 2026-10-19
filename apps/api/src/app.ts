@@ -60,8 +60,10 @@ export function createApp(): Express {
         : undefined,
     }),
   );
-  // CORS con credenciales para permitir la cookie de sesión desde el frontend.
-  app.use(cors({ origin: true, credentials: true }));
+  // Sin CORS por defecto: el front llama a /api desde el mismo origen. Reflejar
+  // cualquier origen con credenciales dejaría a otra app del mismo host (otro
+  // puerto = mismo "site" para la cookie) leer la API con la sesión del usuario.
+  if (env.CORS_ORIGINS.length > 0) app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use(

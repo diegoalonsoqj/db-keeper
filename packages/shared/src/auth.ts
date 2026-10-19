@@ -24,6 +24,7 @@ export const PERMISSIONS = [
   { key: "backups:read", category: "backups", description: "Ver trabajos e historial de backups" },
   { key: "backups:run", category: "backups", description: "Ejecutar backups a demanda" },
   { key: "backups:schedule", category: "backups", description: "Programar backups" },
+  { key: "backups:download", category: "backups", description: "Descargar archivos de backup" },
   // Grupos de eventos
   { key: "groups:read", category: "groups", description: "Ver grupos de eventos" },
   { key: "groups:write", category: "groups", description: "Crear, editar y programar grupos de eventos" },
@@ -56,6 +57,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     "backups:read",
     "backups:run",
     "backups:schedule",
+    "backups:download",
     "groups:read",
     "groups:write",
     "groups:run",

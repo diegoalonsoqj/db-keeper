@@ -106,15 +106,22 @@ backupsRouter.get("/executions/stream", authorize("backups:read"), (req, res) =>
   });
 });
 
-// Descarga del archivo de un ítem (una BD) de una ejecución.
+// Descarga del archivo de un ítem (una BD) de una ejecución. Permiso propio y
+// auditada: el archivo trae el contenido completo de la BD.
 backupsRouter.get(
   "/executions/:execId/items/:itemId/download",
-  authorize("backups:read"),
+  authorize("backups:download"),
   async (req, res, next) => {
     try {
       const execId = z.string().uuid().parse(req.params.execId);
       const itemId = z.string().uuid().parse(req.params.itemId);
       const src = await service.getItemDownload(execId, itemId);
+      await recordAudit(req, {
+        action: "backups.download",
+        entityType: "execution",
+        entityId: execId,
+        detail: { itemId, fileName: src.fileName },
+      });
       if (src.kind === "local") {
         res.download(src.filePath, src.fileName, (err) => {
           if (err && !res.headersSent) next(err);

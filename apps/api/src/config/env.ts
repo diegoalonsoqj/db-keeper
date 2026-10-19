@@ -56,6 +56,15 @@ const envSchema = z.object({
   // se sirve directo. Detrás de un proxy/balanceador: "1" (saltos) o su IP/subred.
   TRUST_PROXY: z.string().default("false"),
 
+  // Orígenes (scheme://host:puerto, separados por coma) que pueden llamar a la API con
+  // la cookie de sesión desde otro origen. Vacío (por defecto) = sin CORS: el front se
+  // sirve desde el mismo origen (SERVE_WEB) o por el proxy de Vite, y no lo necesita.
+  CORS_ORIGINS: z
+    .string()
+    .default("")
+    .transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean))
+    .pipe(z.array(z.string().url("CORS_ORIGINS: cada origen debe ser una URL (p. ej. https://app.empresa.com)"))),
+
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   // --- Servir el front desde la propia API (despliegue de un solo puerto, sin reverse proxy) ---
