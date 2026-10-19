@@ -12,6 +12,8 @@ export const logger = pino({
     paths: [
       "req.headers.authorization",
       "req.headers.cookie",
+      // La respuesta del login trae el JWT de sesión.
+      'res.headers["set-cookie"]',
       "*.password",
       "*.token",
       "*.secret",
