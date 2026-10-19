@@ -1,16 +1,27 @@
 import { CronExpressionParser } from "cron-parser";
 import { HttpError } from "../../lib/http-error.js";
 
+/**
+ * Varias expresiones separadas por `|` se combinan: dispara cuando cualquiera lo hace
+ * (p. ej. `0 2 * * 0#1 | 0 2 * * 0#3`, 1.º y 3.º domingo, que un solo cron no admite).
+ */
+function splitCron(cron: string): string[] {
+  const parts = cron.split("|").map((c) => c.trim());
+  if (parts.some((c) => c === "")) throw new Error("Expresión cron vacía");
+  return parts;
+}
+
 /** Último disparo del cron en o antes de `before` (lanza si el cron es inválido). */
 export function prevRunForCron(cron: string, timezone: string, before: Date): Date {
-  return CronExpressionParser.parse(cron, { currentDate: before, tz: timezone }).prev().toDate();
+  const runs = splitCron(cron).map((c) => CronExpressionParser.parse(c, { currentDate: before, tz: timezone }).prev().getTime());
+  return new Date(Math.max(...runs));
 }
 
 /** Próximo disparo de un cron en una zona horaria, a partir de `from`. */
 export function nextRunForCron(cron: string, timezone: string, from: Date): Date {
   try {
-    const it = CronExpressionParser.parse(cron, { currentDate: from, tz: timezone });
-    return it.next().toDate();
+    const runs = splitCron(cron).map((c) => CronExpressionParser.parse(c, { currentDate: from, tz: timezone }).next().getTime());
+    return new Date(Math.min(...runs));
   } catch {
     throw HttpError.badRequest("Expresión cron inválida");
   }

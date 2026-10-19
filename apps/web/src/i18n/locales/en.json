@@ -286,7 +286,7 @@
     "weekday": "Day of week",
     "dayOfMonth": "Day of month",
     "cron": "Cron expression",
-    "cronHint": "Format: minute hour day-of-month month day-of-week (e.g. 0 21 * * *).",
+    "cronHint": "Format: minute hour day-of-month month day-of-week (e.g. 0 21 * * *). Separate several with | (e.g. 1st and 3rd Sunday: 0 2 * * 0#1 | 0 2 * * 0#3).",
     "cronRequired": "Enter the cron expression.",
     "nextRun": "Next run",
     "tzNote": "Time in {{tz}}"
