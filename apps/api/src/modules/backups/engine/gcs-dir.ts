@@ -15,6 +15,8 @@ export const MANIFEST_FORMAT = "dbkeeper-pgdir/1";
 /** Archivos chicos se suben en una sola petición; los grandes, reanudables. */
 const RESUMABLE_MIN_BYTES = 16 * 1024 * 1024;
 const PROGRESS_LOG_MS = 60_000;
+/** Cada cuánto se revisa si la subida sigue avanzando. */
+const STALL_CHECK_MS = 15_000;
 
 export interface ManifestFile {
   /** Ruta relativa dentro de la carpeta del backup (con `/`). */
@@ -88,6 +90,8 @@ export function diffUploaded(
  * compara cada objeto del bucket con lo calculado y, si todo coincide, sube
  * `manifest.json`: su presencia marca el backup como completo. Si algo falla,
  * los objetos ya subidos quedan sin manifiesto (la app no borra objetos de buckets).
+ * Con `inactivityMs`, la subida se aborta si pasa ese tiempo sin transferir bytes
+ * (una petición colgada retendría el disco temporal indefinidamente).
  */
 export async function uploadDirectoryToGcs(
   auth: GcsAuth,
@@ -98,6 +102,7 @@ export async function uploadDirectoryToGcs(
     manifestExtra: Record<string, unknown>;
     onLog?: (line: string) => void;
     signal?: AbortSignal;
+    inactivityMs?: number;
   },
 ): Promise<DirUploadResult> {
   const bucket = gcsClient(auth.serviceAccountJson).bucket(auth.bucket);
@@ -112,6 +117,24 @@ export async function uploadDirectoryToGcs(
   let nextLog = Date.now() + PROGRESS_LOG_MS;
   const start = Date.now();
 
+  // Señal propia: aborta por cancelación (señal externa) o por subida estancada.
+  const ac = new AbortController();
+  const onExternalAbort = (): void => ac.abort();
+  if (opts.signal?.aborted) ac.abort();
+  else opts.signal?.addEventListener("abort", onExternalAbort, { once: true });
+  let lastActivity = Date.now();
+  let stalled = false;
+  const stallTimer =
+    opts.inactivityMs && opts.inactivityMs > 0
+      ? setInterval(() => {
+          if (!ac.signal.aborted && Date.now() - lastActivity >= opts.inactivityMs!) {
+            stalled = true;
+            ac.abort();
+          }
+        }, Math.min(STALL_CHECK_MS, opts.inactivityMs))
+      : null;
+  stallTimer?.unref();
+
   const uploadOne = async (f: { abs: string; rel: string; bytes: number }): Promise<void> => {
     const sha = createHash("sha256");
     const md5 = createHash("md5");
@@ -121,6 +144,7 @@ export async function uploadDirectoryToGcs(
         sha.update(chunk);
         md5.update(chunk);
         crc.update(chunk);
+        lastActivity = Date.now();
         cb(null, chunk);
       },
     });
@@ -129,7 +153,8 @@ export async function uploadDirectoryToGcs(
       validation: "crc32c",
       metadata: { contentType: "application/octet-stream" },
     });
-    await pipeline(createReadStream(f.abs), hasher, dest, { signal: opts.signal });
+    await pipeline(createReadStream(f.abs), hasher, dest, { signal: ac.signal });
+    lastActivity = Date.now();
     done.push({ name: f.rel, bytes: f.bytes, sha256: sha.digest("hex"), md5: md5.digest("hex"), crc32c: crc.toString() });
     uploadedBytes += f.bytes;
     if (Date.now() >= nextLog) {
@@ -143,7 +168,7 @@ export async function uploadDirectoryToGcs(
   let failed = false; // un fallo detiene a los demás workers (no toman más archivos)
   const worker = async (): Promise<void> => {
     for (let f = queue.shift(); f && !failed; f = queue.shift()) {
-      if (opts.signal?.aborted) throw new Error("Cancelada");
+      if (ac.signal.aborted) throw new Error("Cancelada");
       try {
         await uploadOne(f);
       } catch (err) {
@@ -152,10 +177,25 @@ export async function uploadDirectoryToGcs(
       }
     }
   };
-  // allSettled: no se devuelve el error mientras otro worker siga subiendo.
-  const results = await Promise.allSettled(Array.from({ length: Math.min(opts.concurrency, files.length) }, worker));
+  let results: PromiseSettledResult<void>[];
+  try {
+    // allSettled: no se devuelve el error mientras otro worker siga subiendo.
+    results = await Promise.allSettled(Array.from({ length: Math.min(opts.concurrency, files.length) }, worker));
+  } finally {
+    if (stallTimer) clearInterval(stallTimer);
+    opts.signal?.removeEventListener("abort", onExternalAbort);
+  }
   const rejected = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
-  if (rejected) throw opts.signal?.aborted ? new Error("Cancelada") : rejected.reason;
+  if (rejected) {
+    if (opts.signal?.aborted) throw new Error("Cancelada");
+    if (stalled) {
+      throw new Error(
+        `Subida detenida: ${formatDuration(opts.inactivityMs!)} sin transferir datos al bucket ` +
+          `(${done.length}/${files.length} archivos subidos).`,
+      );
+    }
+    throw rejected.reason;
+  }
   log(`Subida completada en ${formatDuration(Date.now() - start)}. Verificando objetos en el bucket…`);
 
   // Verificación: tamaño y CRC32C de cada objeto contra lo calculado al subir.

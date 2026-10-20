@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import { cpus } from "node:os";
 import path from "node:path";
 import type { BackupJobDto, BackupSettings, ExecutionItemDto, ServerDto } from "@dbkeeper/shared";
-import { formatDuration } from "@dbkeeper/shared";
+import { formatDuration, PGDIR_MANIFEST } from "@dbkeeper/shared";
 import { logger } from "../../../config/logger.js";
 import { formatBytes } from "../../../lib/format.js";
 import { getScratchSettings } from "../../settings/settings.service.js";
@@ -87,6 +87,12 @@ export async function runParallelItems(input: ParallelRunInput): Promise<BackupI
   try {
     let setupError: string | null = null;
     try {
+      // Una pasada del recolector que empezó sin ver esta ejecución podría desmontar
+      // el disco recién creado: se espera a que termine (nunca rechaza).
+      if (gcPass) {
+        pre("Esperando a que termine la limpieza de discos temporales huérfanos…");
+        await gcPass;
+      }
       const scratch = await getScratchSettings();
       if (!scratch.enabled) throw new Error("El disco temporal está deshabilitado (Configuración → Disco temporal)");
       ctx = await resolveScratchContext(scratch);
@@ -183,6 +189,8 @@ async function runItem(
     (b) => emitProgress(executionId, item.dbName, b),
     5_000,
   );
+  /** Destino en el bucket, una vez que empieza la subida (para avisar de objetos parciales). */
+  let uploadUri: string | null = null;
   try {
     const dumpStart = Date.now();
     const dump = await dumpPostgresDirectory({
@@ -220,9 +228,11 @@ async function runItem(
 
     const prefix = [input.gcs.prefix, input.safeFileName(input.server.name), name].filter(Boolean).join("/");
     const restoreDir = `/restore/${name}`;
+    uploadUri = `gs://${input.gcs.bucket}/${prefix}/`;
     const up = await uploadDirectoryToGcs({ bucket: input.gcs.bucket, serviceAccountJson: input.gcs.serviceAccountJson }, dir, prefix, {
       concurrency: p.uploadConcurrency,
       signal: p.signal,
+      inactivityMs: bs.dumpInactivityMinutes * 60_000,
       onLog: ls.onLog,
       manifestExtra: {
         dbName: item.dbName,
@@ -252,6 +262,7 @@ async function runItem(
         },
       },
     });
+    uploadUri = null; // backup completo (con manifiesto): ya no hay objetos parciales
     // Solo tras subir y verificar: se libera espacio para la siguiente BD.
     await rm(dir, { recursive: true, force: true });
     ls.onLog("Carpeta local eliminada del disco temporal.");
@@ -266,7 +277,11 @@ async function runItem(
     return { dbName: item.dbName, status: "success", bytes: up.bytes };
   } catch (err) {
     stopWatch();
-    const message = p.signal.aborted ? (cancelReason(executionId) ?? "Cancelada") : input.safeMessage(err);
+    let message = p.signal.aborted ? (cancelReason(executionId) ?? "Cancelada") : input.safeMessage(err);
+    // La app no borra objetos de buckets: lo ya subido queda facturando sin manifiesto.
+    if (uploadUri) {
+      message += `\nPueden haber quedado objetos parciales en ${uploadUri} (sin ${PGDIR_MANIFEST}: no es un backup válido); bórralos a mano si no los necesitas.`;
+    }
     // La carpeta parcial ocuparía el disco que necesita la siguiente BD.
     await rm(dir, { recursive: true, force: true }).catch(() => {});
     ls.onLog(message);
@@ -317,27 +332,34 @@ async function release(
 }
 
 let gcTimer: NodeJS.Timeout | null = null;
+/** Pasada del recolector en curso; un dump paralelo la espera antes de crear su disco. */
+let gcPass: Promise<void> | null = null;
 
 /**
  * Recolector de discos temporales huérfanos: al arrancar y cada N minutos
  * (Configuración → Disco temporal). Solo actúa si el disco temporal está
- * habilitado y DBKeeper corre en GCE.
+ * habilitado y DBKeeper corre en GCE. La primera pasada se lanza en el acto, antes
+ * de la cola: así un disco que quedó montado tras un reinicio se libera antes de
+ * que el siguiente dump paralelo intente montar el suyo.
  */
 export function startScratchGc(): void {
-  if (gcTimer) return;
+  if (gcTimer || gcPass) return;
   const tick = async (): Promise<void> => {
     let minutes = 30;
-    try {
-      const settings = await getScratchSettings();
-      minutes = settings.gcIntervalMinutes;
-      if (settings.enabled) await collectOrphanScratchDisks(settings, activeCancellableIds());
-    } catch (err) {
-      logger.error({ err }, "Fallo en el recolector de discos temporales");
-    }
+    const pass = (async (): Promise<void> => {
+      try {
+        const settings = await getScratchSettings();
+        minutes = settings.gcIntervalMinutes;
+        if (settings.enabled) await collectOrphanScratchDisks(settings, activeCancellableIds());
+      } catch (err) {
+        logger.error({ err }, "Fallo en el recolector de discos temporales");
+      }
+    })();
+    gcPass = pass;
+    await pass;
+    if (gcPass === pass) gcPass = null;
     gcTimer = setTimeout(() => void tick(), minutes * 60_000);
     gcTimer.unref();
   };
-  // Primera pasada tras el arranque (después de recoverStaleExecutions).
-  gcTimer = setTimeout(() => void tick(), 60_000);
-  gcTimer.unref();
+  void tick();
 }

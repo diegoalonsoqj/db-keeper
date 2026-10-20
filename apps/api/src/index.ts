@@ -23,12 +23,13 @@ const server = app.listen(env.APP_PORT, () => {
   logger.info(`DBKeeper API escuchando en http://localhost:${env.APP_PORT} [${env.APP_ENV}]`);
   // Solo la instancia líder corre el trabajo en segundo plano (ver lib/leader.ts).
   runAsLeader(() => {
+    // Antes de la cola: un dump paralelo espera a esta primera pasada del recolector.
+    startScratchGc();
     // El modelo de ejecución es en-proceso: un reinicio mata las corridas en curso.
     // Tras cerrar/retomar las corridas interrumpidas, lanza las que quedaron en cola.
     void recoverStaleExecutions().finally(startExecutionQueue);
     // Exports de Cloud SQL que superaron el timeout: se verifican en segundo plano.
     startCloudSqlVerifier();
-    startScratchGc();
     // Poller de programaciones (agendadas/recurrentes).
     startScheduler();
   });
