@@ -950,12 +950,25 @@ pre.log.log-modal {
   align-content: start;
 }
 .settings-content .form-card > h2,
+.settings-content .form-card > h3,
 .settings-content .form-card > p,
 .settings-content .form-card > fieldset,
 .settings-content .form-card > label.inline,
 .settings-content .form-card > label.full,
 .settings-content .form-card > .form-actions {
   grid-column: 1 / -1;
+}
+/* Títulos de grupo (Backups): separan bloques; el primero va pegado al título. */
+.settings-content .form-card > h3 {
+  margin: 0.5rem 0 -0.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.settings-content .form-card > h2 + h3 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 /* Fieldsets (Notificaciones) con la misma rejilla de 2 columnas. */
 .settings-content .form-card fieldset {
