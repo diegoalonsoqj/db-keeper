@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Copy, Download, History } from "lucide-react";
 import {
   ARTIFACT_KINDS,
@@ -20,22 +20,43 @@ import { SortTh } from "../components/SortTh";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { useListParams } from "../lib/useListParams";
 import { useEnvironments, environmentLabel } from "../lib/environments";
+import { fmtBytes } from "../lib/format";
+import { ArtifactScanPanel } from "../components/ArtifactScanPanel";
 
 const errMsg = (e: unknown) => (e instanceof ApiClientError ? e.message : String(e));
 const COLS = 10;
 
-/** Formatea bytes a B/KB/MB/GB. Devuelve «—» si no hay dato. */
-const fmtBytes = (n: number | null) => {
-  if (n == null) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let v = n;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) (v /= 1024), i++;
-  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-};
+const VIEWS = ["catalog", "scan"] as const;
+type View = (typeof VIEWS)[number];
 
-/** Catálogo de archivos de backup en disco local (solo lectura). */
+/** Archivos de backup en disco local: catálogo y conciliación con el disco (solo lectura). */
 export function ArtifactsPage() {
+  const { t } = useTranslation();
+  const [sp, setSp] = useSearchParams();
+  const view: View = sp.get("view") === "scan" ? "scan" : "catalog";
+  return (
+    <>
+      <div className="tabs" role="tablist">
+        {VIEWS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            className={view === v ? "active" : ""}
+            // Cada vista tiene sus propios filtros: al cambiar se descartan los de la otra.
+            onClick={() => setSp(v === "catalog" ? {} : { view: v }, { replace: true })}
+          >
+            {t(`artifacts.view_${v}`)}
+          </button>
+        ))}
+      </div>
+      {view === "scan" ? <ArtifactScanPanel /> : <CatalogView />}
+    </>
+  );
+}
+
+function CatalogView() {
   const { t, i18n } = useTranslation();
   const { has } = useAuth();
   const canDownload = has("backups:download");

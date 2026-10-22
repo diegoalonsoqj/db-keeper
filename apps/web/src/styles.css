@@ -1345,3 +1345,25 @@ pre.log.log-modal {
   text-decoration: line-through;
   opacity: 0.7;
 }
+
+/* Pestañas de una página (p. ej. Archivos: catálogo / conciliación). */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 8px 14px;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.tabs button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}

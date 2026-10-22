@@ -714,3 +714,42 @@ export interface BackupArtifactDto {
   prunedAt: string | null;
   checksums: FileChecksums | null;
 }
+
+/**
+ * Hallazgo de la conciliación con el disco: `orphan` = archivo sin registro; `missing` =
+ * registrado y disponible pero ausente; `stale` = registrado como purgado pero presente.
+ */
+export const SCAN_FINDING_KINDS = ["orphan", "missing", "stale"] as const;
+export type ScanFindingKind = (typeof SCAN_FINDING_KINDS)[number];
+
+export type StorageScanStatus = "running" | "done" | "failed";
+
+/** Último escaneo del disco de un host. */
+export interface StorageScanDto {
+  id: string;
+  runnerHost: string;
+  status: StorageScanStatus;
+  startedBy: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  filesScanned: number;
+  /** Se alcanzó el tope de archivos o de hallazgos: el resultado es parcial. */
+  truncated: boolean;
+  /** Destinos recorridos y los que no existen en el host (por nombre). */
+  roots: { scanned: number; missing: string[] } | null;
+  counts: Record<ScanFindingKind, number>;
+  error: string | null;
+}
+
+export interface ScanFindingDto {
+  id: number;
+  runnerHost: string;
+  kind: ScanFindingKind;
+  storageName: string | null;
+  relativePath: string;
+  fileBytes: number | null;
+  modifiedAt: string | null;
+  /** Registro del catálogo (missing/stale); null en los huérfanos. */
+  itemId: string | null;
+  executionId: string | null;
+}

@@ -42,6 +42,12 @@ const envSchema = z.object({
   // Prioridad (nice) de los procesos de dump: más alto = cede CPU a la API. 0 = normal.
   DUMP_PROCESS_NICE: z.coerce.number().int().min(0).max(19).default(10),
 
+  // --- Conciliación de Archivos con el disco local ---
+  // Tope de archivos recorridos por escaneo (protege disco y memoria; el resultado queda parcial).
+  ARTIFACT_SCAN_MAX_FILES: z.coerce.number().int().positive().default(200_000),
+  // Archivos modificados hace menos de esto se ignoran: pueden ser dumps en curso.
+  ARTIFACT_SCAN_GRACE_MINUTES: z.coerce.number().int().min(0).default(120),
+
   // --- Dump paralelo (pg_parallel) con disco temporal de GCE ---
   // pg_restore valida el TOC del dump en formato directorio antes de subirlo (no
   // restaura nada). Vacío = el de la misma carpeta que PG_DUMP_PATH (ver pgRestorePath).

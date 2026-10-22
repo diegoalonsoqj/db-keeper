@@ -37,7 +37,7 @@ export function locate(stored: string, roots: LocalRoot[]): { storageName: strin
  * Destinos locales actuales + BACKUP_DIR (raíz de los registros heredados), resueltos
  * como el runner. BACKUP_DIR va al final: ante la misma ruta gana el destino con nombre.
  */
-async function localRoots(): Promise<LocalRoot[]> {
+export async function localRoots(): Promise<LocalRoot[]> {
   const targets = await storageRepo.listLocalRoots();
   return [
     ...targets.map((t) => ({ name: t.name, abs: path.resolve(process.cwd(), t.path.trim()) })),
