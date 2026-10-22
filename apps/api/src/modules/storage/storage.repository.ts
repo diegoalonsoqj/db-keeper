@@ -164,3 +164,29 @@ export async function listLocalRoots(): Promise<{ name: string; path: string }[]
   );
   return rows;
 }
+
+export interface BucketRoot {
+  name: string;
+  bucket: string;
+  prefix: string | null;
+  cloudCredentialId: string | null;
+  isActive: boolean;
+}
+
+/** Destinos tipo bucket, para ubicar y conciliar los objetos del catálogo. */
+export async function listBucketRoots(): Promise<BucketRoot[]> {
+  const { rows } = await query<{
+    name: string;
+    bucket: string;
+    prefix: string | null;
+    cloud_credential_id: string | null;
+    is_active: boolean;
+  }>("SELECT name, bucket, prefix, cloud_credential_id, is_active FROM core.storage_targets WHERE type = 'bucket'");
+  return rows.map((r) => ({
+    name: r.name,
+    bucket: r.bucket,
+    prefix: r.prefix,
+    cloudCredentialId: r.cloud_credential_id,
+    isActive: r.is_active,
+  }));
+}

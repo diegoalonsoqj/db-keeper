@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
-import { ARTIFACT_KINDS, ARTIFACT_SORTS, ARTIFACT_STATES, DB_ENGINES, SCAN_FINDING_KINDS } from "@dbkeeper/shared";
+import {
+  ARTIFACT_KINDS,
+  ARTIFACT_LOCATIONS,
+  ARTIFACT_SORTS,
+  ARTIFACT_STATES,
+  DB_ENGINES,
+  SCAN_FINDING_KINDS,
+} from "@dbkeeper/shared";
 import { ok } from "../../lib/respond.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { listQuerySchema, textParam } from "../../lib/list-query.js";
@@ -18,6 +25,7 @@ artifactsRouter.use(authenticate);
 
 const listSchema = listQuerySchema(ARTIFACT_SORTS).extend({
   kind: z.enum(ARTIFACT_KINDS).optional(),
+  location: z.enum(ARTIFACT_LOCATIONS).optional(),
   state: z.enum(ARTIFACT_STATES).optional(),
   environment: textParam,
   engine: z.enum(DB_ENGINES).optional(),
@@ -47,8 +55,11 @@ artifactsRouter.get("/hosts", authorize("backups:read"), async (_req, res, next)
 const findingListSchema = paginationSchema.extend({
   q: textParam,
   kind: z.enum(SCAN_FINDING_KINDS).optional(),
-  runnerHost: textParam,
+  location: z.enum(ARTIFACT_LOCATIONS).optional(),
+  scope: textParam,
 });
+
+const scanStartSchema = z.object({ location: z.enum(ARTIFACT_LOCATIONS).default("local") });
 
 artifactsRouter.get("/scans", authorize("backups:read"), async (_req, res, next) => {
   try {
@@ -58,11 +69,13 @@ artifactsRouter.get("/scans", authorize("backups:read"), async (_req, res, next)
   }
 });
 
-// Recorre el disco del host que atiende la petición: mismo permiso que gestionar destinos.
+// local: recorre el disco del host que atiende la petición; gcs: lista los buckets.
+// Mismo permiso que gestionar destinos.
 artifactsRouter.post("/scans", authorize("storage:manage"), async (req, res, next) => {
   try {
-    const result = await scans.startScan(req.auth?.user.id ?? null);
-    await recordAudit(req, { action: "artifacts.scan", entityType: "storage" });
+    const { location } = scanStartSchema.parse(req.body ?? {});
+    const result = await scans.startScan(location, req.auth?.user.id ?? null);
+    await recordAudit(req, { action: "artifacts.scan", entityType: "storage", detail: { location } });
     ok(res, result, 202);
   } catch (err) {
     next(err);

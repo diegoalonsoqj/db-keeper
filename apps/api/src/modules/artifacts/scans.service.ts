@@ -1,12 +1,16 @@
 import { lstat, readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import type { StorageScanDto } from "@dbkeeper/shared";
+import type { ArtifactLocation, StorageScanDto } from "@dbkeeper/shared";
 import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 import { HttpError } from "../../lib/http-error.js";
 import { INSTANCE_HOST } from "../../lib/instance.js";
 import { resolveBackupFile } from "../backups/engine/files.js";
-import { locate, localRoots, type LocalRoot } from "./artifacts.service.js";
+import { listGcsObjectsPage, parseGcsUri, type GcsListedObject } from "../backups/engine/gcs.js";
+import { getServiceAccountJson } from "../cloud-credentials/cloud-credentials.service.js";
+import * as storageRepo from "../storage/storage.repository.js";
+import type { BucketRoot } from "../storage/storage.repository.js";
+import { locate, locateObject, localRoots, normalizePrefix, type LocalRoot } from "./artifacts.service.js";
 import * as repo from "./scans.repository.js";
 import type { NewFinding, RegisteredFile } from "./scans.repository.js";
 
@@ -68,7 +72,8 @@ export async function reconcile(input: ReconcileInput): Promise<ReconcileResult>
   };
 
   const byPath = new Map<string, RegisteredFile[]>();
-  for (const reg of input.registered) {
+  // Los objetos de bucket no están en este disco (su URI no es una ruta local).
+  for (const reg of input.registered.filter((r) => r.kind !== "object")) {
     let abs: string;
     try {
       abs = resolveBackupFile(reg.fileName);
@@ -159,42 +164,219 @@ export async function reconcile(input: ReconcileInput): Promise<ReconcileResult>
   return { findings, filesScanned, truncated, detail: { scanned: scannedRoots.length, missing: missingRoots } };
 }
 
+export interface BucketTarget extends BucketRoot {
+  serviceAccountJson: string | null;
+}
+
+/** Lista una página de objetos de un destino (inyectable para pruebas). */
+export type ObjectPageLister = (
+  target: BucketTarget,
+  prefix: string,
+  pageToken?: string,
+) => Promise<{ objects: GcsListedObject[]; nextPageToken?: string }>;
+
+export interface ReconcileGcsInput {
+  targets: BucketTarget[];
+  registered: RegisteredFile[];
+  now: Date;
+  graceMs: number;
+  maxObjects: number;
+  maxFindings?: number;
+  listPage: ObjectPageLister;
+}
+
+/** Quita los destinos cuyo prefijo cae dentro de otro del mismo bucket (se listarían dos veces). */
+function topLevelTargets(targets: BucketTarget[]): BucketTarget[] {
+  const sorted = [...targets].sort((a, b) => normalizePrefix(a.prefix).length - normalizePrefix(b.prefix).length);
+  const out: BucketTarget[] = [];
+  for (const t of sorted) {
+    const p = normalizePrefix(t.prefix);
+    const inside = out.some((o) => {
+      if (o.bucket !== t.bucket) return false;
+      const op = normalizePrefix(o.prefix);
+      return op === "" || p === op || p.startsWith(`${op}/`);
+    });
+    if (!inside) out.push(t);
+  }
+  return out;
+}
+
+/** ¿El objeto cae bajo el prefijo del destino? */
+function underTarget(t: BucketTarget, bucket: string, object: string): boolean {
+  const p = normalizePrefix(t.prefix);
+  return t.bucket === bucket && (p === "" || object.startsWith(`${p}/`));
+}
+
 /**
- * Lanza el escaneo del disco de este host (el que atiende la petición). Responde al
- * registrarlo; el recorrido corre en segundo plano. Uno a la vez por host.
+ * Compara los buckets de los destinos con el catálogo. Solo lista (lectura): nunca
+ * borra objetos. Una carpeta del dump paralelo (URI terminada en "/") cubre todos los
+ * objetos bajo ella. Los faltantes solo se informan en destinos listados completos: con
+ * un listado cortado no se puede afirmar que un objeto no exista.
  */
-export async function startScan(userId: string | null): Promise<StorageScanDto[]> {
-  const id = await repo.insertScan(INSTANCE_HOST, userId, STALE_MINUTES);
-  if (!id) throw HttpError.conflict("Ya hay un escaneo en curso en este host");
-  void runScan(id);
+export async function reconcileGcs(input: ReconcileGcsInput): Promise<ReconcileResult> {
+  const maxFindings = input.maxFindings ?? MAX_FINDINGS;
+  const findings: NewFinding[] = [];
+  let truncated = false;
+  const push = (f: NewFinding) => {
+    if (findings.length < maxFindings) findings.push(f);
+    else truncated = true;
+  };
+
+  // Registrados por bucket: objetos exactos y carpetas ("a/b/c/").
+  const exact = new Map<string, Map<string, RegisteredFile>>();
+  const dirs = new Map<string, Map<string, RegisteredFile>>();
+  for (const reg of input.registered) {
+    if (reg.kind !== "object") continue;
+    const parsed = parseGcsUri(reg.fileName);
+    if (!parsed) continue;
+    const bag = parsed.object.endsWith("/") ? dirs : exact;
+    let m = bag.get(parsed.bucket);
+    if (!m) bag.set(parsed.bucket, (m = new Map()));
+    m.set(parsed.object, reg);
+  }
+
+  const seen = new Set<string>();
+  const complete: BucketTarget[] = [];
+  const inaccessible: string[] = [];
+  let scanned = 0;
+  let objectsListed = 0;
+  const cutoff = input.now.getTime() - input.graceMs;
+
+  for (const target of topLevelTargets(input.targets)) {
+    const prefix = normalizePrefix(target.prefix);
+    const exactHere = exact.get(target.bucket);
+    const dirsHere = dirs.get(target.bucket);
+    let pageToken: string | undefined;
+    let listedAll = false;
+    try {
+      do {
+        if (objectsListed >= input.maxObjects) {
+          truncated = true;
+          break;
+        }
+        const page = await input.listPage(target, prefix ? `${prefix}/` : "", pageToken);
+        for (const o of page.objects) {
+          objectsListed++;
+          if (exactHere?.has(o.name)) {
+            seen.add(`${target.bucket}/${o.name}`);
+            continue;
+          }
+          // ¿Pertenece a una carpeta registrada? Se prueba cada carpeta ancestra.
+          let dir: string | null = null;
+          for (let i = o.name.indexOf("/"); i !== -1 && !dir; i = o.name.indexOf("/", i + 1)) {
+            const candidate = o.name.slice(0, i + 1);
+            if (dirsHere?.has(candidate)) dir = candidate;
+          }
+          if (dir) {
+            seen.add(`${target.bucket}/${dir}`);
+            continue;
+          }
+          // Recientes: pueden ser subidas o exports en curso.
+          if (o.updated && o.updated.getTime() > cutoff) continue;
+          push({
+            kind: "orphan",
+            ...locateObject(`gs://${target.bucket}/${o.name}`, input.targets),
+            fileBytes: o.bytes,
+            modifiedAt: o.updated,
+            itemId: null,
+            executionId: null,
+          });
+        }
+        pageToken = page.nextPageToken;
+        listedAll = !pageToken;
+      } while (pageToken);
+      scanned++;
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, target: target.name }, "Conciliación: no se pudo listar el bucket");
+      inaccessible.push(target.name);
+      continue;
+    }
+    if (listedAll) complete.push(target);
+  }
+
+  // Faltantes: registrados bajo un destino listado completo que no aparecieron.
+  for (const bag of [exact, dirs]) {
+    for (const [bucket, objs] of bag) {
+      for (const [object, reg] of objs) {
+        if (seen.has(`${bucket}/${object}`)) continue;
+        if (!complete.some((t) => underTarget(t, bucket, object))) continue;
+        push({
+          kind: "missing",
+          ...locateObject(`gs://${bucket}/${object}`, input.targets),
+          fileBytes: null,
+          modifiedAt: null,
+          itemId: reg.itemId,
+          executionId: reg.executionId,
+        });
+      }
+    }
+  }
+
+  return { findings, filesScanned: objectsListed, truncated, detail: { scanned, missing: inaccessible } };
+}
+
+/** Destinos bucket activos con su credencial; los que no la pueden resolver van como inaccesibles. */
+async function bucketTargets(): Promise<{ targets: BucketTarget[]; failed: string[] }> {
+  const roots = (await storageRepo.listBucketRoots()).filter((b) => b.isActive);
+  const targets: BucketTarget[] = [];
+  const failed: string[] = [];
+  for (const b of roots) {
+    try {
+      const sa = b.cloudCredentialId ? await getServiceAccountJson(b.cloudCredentialId) : null;
+      targets.push({ ...b, serviceAccountJson: sa });
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, target: b.name }, "Conciliación: credencial del bucket no disponible");
+      failed.push(b.name);
+    }
+  }
+  return { targets, failed };
+}
+
+const listPage: ObjectPageLister = (t, prefix, pageToken) =>
+  listGcsObjectsPage({ bucket: t.bucket, serviceAccountJson: t.serviceAccountJson }, prefix, pageToken);
+
+/**
+ * Lanza un escaneo: `local` recorre el disco de este host (el que atiende la petición);
+ * `gcs` lista los buckets de los destinos (compartidos: uno a la vez en total). Responde
+ * al registrarlo; el trabajo corre en segundo plano.
+ */
+export async function startScan(location: ArtifactLocation, userId: string | null): Promise<StorageScanDto[]> {
+  const scope = location === "gcs" ? "gcs" : INSTANCE_HOST;
+  const id = await repo.insertScan({ location, scope, host: INSTANCE_HOST, userId }, STALE_MINUTES);
+  if (!id) {
+    throw HttpError.conflict(location === "gcs" ? "Ya hay un escaneo de buckets en curso" : "Ya hay un escaneo en curso en este host");
+  }
+  void runScan(id, location, scope);
   return repo.listLatestScans();
 }
 
-async function runScan(id: string): Promise<void> {
+async function runScan(id: string, location: ArtifactLocation, scope: string): Promise<void> {
   try {
-    const [roots, registered] = await Promise.all([localRoots(), repo.listRegisteredFiles()]);
-    const res = await reconcile({
-      roots,
-      registered,
-      host: INSTANCE_HOST,
-      now: new Date(),
-      graceMs: env.ARTIFACT_SCAN_GRACE_MINUTES * 60_000,
-      maxFiles: env.ARTIFACT_SCAN_MAX_FILES,
-    });
+    const registered = await repo.listRegisteredFiles();
+    const now = new Date();
+    const graceMs = env.ARTIFACT_SCAN_GRACE_MINUTES * 60_000;
+    let res: ReconcileResult;
+    if (location === "gcs") {
+      const { targets, failed } = await bucketTargets();
+      res = await reconcileGcs({ targets, registered, now, graceMs, maxObjects: env.ARTIFACT_SCAN_MAX_OBJECTS, listPage });
+      res.detail.missing.push(...failed);
+    } else {
+      res = await reconcile({ roots: await localRoots(), registered, host: INSTANCE_HOST, now, graceMs, maxFiles: env.ARTIFACT_SCAN_MAX_FILES });
+    }
     await repo.insertFindings(id, res.findings);
-    await repo.finishScan(id, INSTANCE_HOST, {
+    await repo.finishScan(id, scope, {
       status: "done",
       filesScanned: res.filesScanned,
       truncated: res.truncated,
       detail: res.detail,
       error: null,
     });
-    logger.info({ scanId: id, files: res.filesScanned, findings: res.findings.length }, "Conciliación de archivos terminada");
+    logger.info({ scanId: id, location, files: res.filesScanned, findings: res.findings.length }, "Conciliación de archivos terminada");
   } catch (err) {
-    logger.error({ err, scanId: id }, "Fallo en la conciliación de archivos");
+    logger.error({ err, scanId: id, location }, "Fallo en la conciliación de archivos");
     const msg = err instanceof Error ? err.message : String(err);
     await repo
-      .finishScan(id, INSTANCE_HOST, { status: "failed", filesScanned: 0, truncated: false, detail: null, error: msg.slice(0, 500) })
+      .finishScan(id, scope, { status: "failed", filesScanned: 0, truncated: false, detail: null, error: msg.slice(0, 500) })
       .catch(() => {});
   }
 }

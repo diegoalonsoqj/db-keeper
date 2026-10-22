@@ -684,10 +684,19 @@ export function formatBytes(bytes: number | null | undefined): string {
 
 /**
  * Archivo de backup del catálogo. `file`: el backup de un evento a disco; `copy`: la
- * copia conservada en disco de un backup subido a bucket (keepLocalCopy).
+ * copia conservada en disco de un backup subido a bucket (keepLocalCopy); `object`: el
+ * backup en bucket (archivo, o carpeta del dump paralelo si la ruta termina en "/").
  */
-export const ARTIFACT_KINDS = ["file", "copy"] as const;
+export const ARTIFACT_KINDS = ["file", "copy", "object"] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+
+/** Dónde vive un archivo del catálogo: disco del host o bucket. */
+export const ARTIFACT_LOCATIONS = ["local", "gcs"] as const;
+export type ArtifactLocation = (typeof ARTIFACT_LOCATIONS)[number];
+
+export function artifactLocation(kind: ArtifactKind): ArtifactLocation {
+  return kind === "object" ? "gcs" : "local";
+}
 
 /** available: el archivo sigue registrado; pruned: se borró por retención. */
 export const ARTIFACT_STATES = ["available", "pruned"] as const;
@@ -703,9 +712,12 @@ export interface BackupArtifactDto {
   engine: DbEngine | null;
   serverName: string | null;
   dbName: string;
-  /** Destino local que contiene el archivo; null si no coincide con ninguno actual. */
+  /** Destino (carpeta local o bucket) que contiene el archivo; null si no coincide con ninguno actual. */
   storageName: string | null;
-  /** Ruta relativa al destino (o solo el nombre del archivo): nunca la ruta absoluta. */
+  /**
+   * Ruta relativa al destino (al prefijo, en buckets) o solo el nombre del archivo: nunca
+   * la ruta absoluta ni el nombre del bucket. Termina en "/" si es una carpeta.
+   */
   relativePath: string;
   fileBytes: number | null;
   /** Host que generó el archivo: el disco es local a ese host. */
@@ -724,9 +736,12 @@ export type ScanFindingKind = (typeof SCAN_FINDING_KINDS)[number];
 
 export type StorageScanStatus = "running" | "done" | "failed";
 
-/** Último escaneo del disco de un host. */
+/** Último escaneo de un ámbito: el disco de un host (`scope` = host) o los buckets (`scope` = "gcs"). */
 export interface StorageScanDto {
   id: string;
+  location: ArtifactLocation;
+  scope: string;
+  /** Host que corrió el escaneo. */
   runnerHost: string;
   status: StorageScanStatus;
   startedBy: string | null;
@@ -735,7 +750,7 @@ export interface StorageScanDto {
   filesScanned: number;
   /** Se alcanzó el tope de archivos o de hallazgos: el resultado es parcial. */
   truncated: boolean;
-  /** Destinos recorridos y los que no existen en el host (por nombre). */
+  /** Destinos recorridos y los inaccesibles (por nombre): carpeta inexistente o bucket sin acceso. */
   roots: { scanned: number; missing: string[] } | null;
   counts: Record<ScanFindingKind, number>;
   error: string | null;
@@ -743,7 +758,8 @@ export interface StorageScanDto {
 
 export interface ScanFindingDto {
   id: number;
-  runnerHost: string;
+  location: ArtifactLocation;
+  scope: string;
   kind: ScanFindingKind;
   storageName: string | null;
   relativePath: string;

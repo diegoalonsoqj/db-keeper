@@ -1,4 +1,4 @@
-import type { ScanFindingDto, ScanFindingKind, StorageScanDto, StorageScanStatus } from "@dbkeeper/shared";
+import type { ArtifactKind, ArtifactLocation, ScanFindingDto, ScanFindingKind, StorageScanDto, StorageScanStatus } from "@dbkeeper/shared";
 import { query } from "../../db/pool.js";
 import { isUniqueViolation } from "../../lib/pg-error.js";
 import { SqlWhere } from "../../lib/list-query.js";
@@ -6,6 +6,7 @@ import { SqlWhere } from "../../lib/list-query.js";
 /** Archivo registrado en el catálogo, tal como se guardó (lo normaliza el servicio). */
 export interface RegisteredFile {
   itemId: string;
+  kind: ArtifactKind;
   executionId: string;
   fileName: string;
   pruned: boolean;
@@ -15,13 +16,15 @@ export interface RegisteredFile {
 export async function listRegisteredFiles(): Promise<RegisteredFile[]> {
   const { rows } = await query<{
     item_id: string;
+    kind: ArtifactKind;
     execution_id: string;
     file_name: string;
     pruned: boolean;
     runner_host: string | null;
-  }>("SELECT item_id, execution_id, file_name, pruned_at IS NOT NULL AS pruned, runner_host FROM core.backup_artifacts");
+  }>("SELECT item_id, kind, execution_id, file_name, pruned_at IS NOT NULL AS pruned, runner_host FROM core.backup_artifacts");
   return rows.map((r) => ({
     itemId: r.item_id,
+    kind: r.kind,
     executionId: r.execution_id,
     fileName: r.file_name,
     pruned: r.pruned,
@@ -30,19 +33,23 @@ export async function listRegisteredFiles(): Promise<RegisteredFile[]> {
 }
 
 /**
- * Registra un escaneo `running` para el host. Antes libera los de ese host que quedaron
- * colgados (el proceso se reinició a mitad). Devuelve null si ya hay uno en curso.
+ * Registra un escaneo `running` para el ámbito (host o "gcs"). Antes libera los de ese
+ * ámbito que quedaron colgados (el proceso se reinició a mitad). Devuelve null si ya hay
+ * uno en curso.
  */
-export async function insertScan(host: string, userId: string | null, staleMinutes: number): Promise<string | null> {
+export async function insertScan(
+  s: { location: ArtifactLocation; scope: string; host: string; userId: string | null },
+  staleMinutes: number,
+): Promise<string | null> {
   await query(
     `UPDATE core.storage_scans SET status = 'failed', finished_at = now(), error = 'Interrumpido'
-     WHERE runner_host = $1 AND status = 'running' AND started_at < now() - make_interval(mins => $2::int)`,
-    [host, staleMinutes],
+     WHERE scope = $1 AND status = 'running' AND started_at < now() - make_interval(mins => $2::int)`,
+    [s.scope, staleMinutes],
   );
   try {
     const { rows } = await query<{ id: string }>(
-      "INSERT INTO core.storage_scans (runner_host, started_by) VALUES ($1, $2) RETURNING id",
-      [host, userId],
+      "INSERT INTO core.storage_scans (location, scope, runner_host, started_by) VALUES ($1, $2, $3, $4) RETURNING id",
+      [s.location, s.scope, s.host, s.userId],
     );
     return rows[0]!.id;
   } catch (err) {
@@ -88,12 +95,12 @@ export async function insertFindings(scanId: string, findings: NewFinding[]): Pr
 }
 
 /**
- * Cierra el escaneo y limpia los anteriores del host: si terminó bien, reemplaza a todos;
+ * Cierra el escaneo y limpia los anteriores del ámbito: si terminó bien, reemplaza a todos;
  * si falló, se conserva el último correcto (sus hallazgos siguen siendo la referencia).
  */
 export async function finishScan(
   id: string,
-  host: string,
+  scope: string,
   r: { status: Exclude<StorageScanStatus, "running">; filesScanned: number; truncated: boolean; detail: unknown; error: string | null },
 ): Promise<void> {
   await query(
@@ -104,13 +111,15 @@ export async function finishScan(
   );
   await query(
     `DELETE FROM core.storage_scans
-     WHERE runner_host = $1 AND id <> $2 AND status <> 'running' AND ($3 = 'done' OR status = 'failed')`,
-    [host, id, r.status],
+     WHERE scope = $1 AND id <> $2 AND status <> 'running' AND ($3 = 'done' OR status = 'failed')`,
+    [scope, id, r.status],
   );
 }
 
 interface ScanRow {
   id: string;
+  location: ArtifactLocation;
+  scope: string;
   runner_host: string;
   status: StorageScanStatus;
   started_by: string | null;
@@ -123,22 +132,24 @@ interface ScanRow {
   counts: Record<ScanFindingKind, number> | null;
 }
 
-/** Escaneo más reciente de cada host (en curso, correcto o fallido), con sus conteos. */
+/** Escaneo más reciente de cada ámbito (en curso, correcto o fallido), con sus conteos. */
 export async function listLatestScans(): Promise<StorageScanDto[]> {
   const { rows } = await query<ScanRow>(
-    `SELECT s.id, s.runner_host, s.status, u.username AS started_by, s.started_at, s.finished_at,
+    `SELECT s.id, s.location, s.scope, s.runner_host, s.status, u.username AS started_by, s.started_at, s.finished_at,
        s.files_scanned, s.truncated, s.detail, s.error,
        (SELECT json_build_object(
           'orphan', count(*) FILTER (WHERE f.kind = 'orphan'),
           'missing', count(*) FILTER (WHERE f.kind = 'missing'),
           'stale', count(*) FILTER (WHERE f.kind = 'stale'))
         FROM core.storage_scan_findings f WHERE f.scan_id = s.id) AS counts
-     FROM (SELECT DISTINCT ON (runner_host) * FROM core.storage_scans ORDER BY runner_host, started_at DESC) s
+     FROM (SELECT DISTINCT ON (scope) * FROM core.storage_scans ORDER BY scope, started_at DESC) s
      LEFT JOIN auth.users u ON u.id = s.started_by
-     ORDER BY s.runner_host`,
+     ORDER BY s.location DESC, s.scope`,
   );
   return rows.map((r) => ({
     id: r.id,
+    location: r.location,
+    scope: r.scope,
     runnerHost: r.runner_host,
     status: r.status,
     startedBy: r.started_by,
@@ -157,21 +168,23 @@ export interface FindingListQuery {
   offset: number;
   q?: string;
   kind?: ScanFindingKind;
-  runnerHost?: string;
+  location?: ArtifactLocation;
+  scope?: string;
 }
 
-/** Hallazgos del último escaneo correcto de cada host. */
+/** Hallazgos del último escaneo correcto de cada ámbito. */
 export async function listFindings(p: FindingListQuery): Promise<{ items: ScanFindingDto[]; total: number }> {
-  const w = new SqlWhere().eq("f.kind", p.kind).eq("s.runner_host", p.runnerHost).search(["f.relative_path"], p.q);
+  const w = new SqlWhere().eq("f.kind", p.kind).eq("s.location", p.location).eq("s.scope", p.scope).search(["f.relative_path"], p.q);
   const from = `
     FROM core.storage_scan_findings f
-    JOIN (SELECT DISTINCT ON (runner_host) id, runner_host FROM core.storage_scans
-          WHERE status = 'done' ORDER BY runner_host, started_at DESC) s ON s.id = f.scan_id`;
+    JOIN (SELECT DISTINCT ON (scope) id, location, scope FROM core.storage_scans
+          WHERE status = 'done' ORDER BY scope, started_at DESC) s ON s.id = f.scan_id`;
   const totalRes = await query<{ count: string }>(`SELECT count(*)::text AS count ${from} ${w.sql}`, w.params);
   const n = w.params.length;
   const { rows } = await query<{
     id: string;
-    runner_host: string;
+    location: ArtifactLocation;
+    scope: string;
     kind: ScanFindingKind;
     storage_name: string | null;
     relative_path: string;
@@ -180,10 +193,10 @@ export async function listFindings(p: FindingListQuery): Promise<{ items: ScanFi
     item_id: string | null;
     execution_id: string | null;
   }>(
-    `SELECT f.id::text, s.runner_host, f.kind, f.storage_name, f.relative_path, f.file_bytes::text,
+    `SELECT f.id::text, s.location, s.scope, f.kind, f.storage_name, f.relative_path, f.file_bytes::text,
             f.modified_at, f.item_id, f.execution_id
      ${from} ${w.sql}
-     ORDER BY f.kind, s.runner_host, f.storage_name NULLS LAST, f.relative_path, f.id
+     ORDER BY f.kind, s.location DESC, s.scope, f.storage_name NULLS LAST, f.relative_path, f.id
      LIMIT $${n + 1} OFFSET $${n + 2}`,
     [...w.params, p.limit, p.offset],
   );
@@ -191,7 +204,8 @@ export async function listFindings(p: FindingListQuery): Promise<{ items: ScanFi
     total: Number(totalRes.rows[0]?.count ?? 0),
     items: rows.map((r) => ({
       id: Number(r.id),
-      runnerHost: r.runner_host,
+      location: r.location,
+      scope: r.scope,
       kind: r.kind,
       storageName: r.storage_name,
       relativePath: r.relative_path,

@@ -9,11 +9,11 @@ vi.hoisted(() => {
 });
 
 const repo = vi.hoisted(() => ({ listArtifacts: vi.fn(), listRunnerHosts: vi.fn() }));
-const storage = vi.hoisted(() => ({ listLocalRoots: vi.fn() }));
+const storage = vi.hoisted(() => ({ listLocalRoots: vi.fn(), listBucketRoots: vi.fn() }));
 vi.mock("../src/modules/artifacts/artifacts.repository.js", () => repo);
 vi.mock("../src/modules/storage/storage.repository.js", () => storage);
 
-import { listArtifacts, locate } from "../src/modules/artifacts/artifacts.service.js";
+import { listArtifacts, locate, locateObject } from "../src/modules/artifacts/artifacts.service.js";
 import { BACKUP_ROOT } from "../src/modules/backups/engine/files.js";
 
 const base = path.resolve("/srv/bk");
@@ -46,6 +46,7 @@ describe("listArtifacts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     storage.listLocalRoots.mockResolvedValue([{ name: "General", path: base }]);
+    storage.listBucketRoots.mockResolvedValue([]);
   });
 
   it("no devuelve la ruta absoluta guardada", async () => {
@@ -72,5 +73,25 @@ describe("listArtifacts", () => {
     const res = await listArtifacts({ limit: 10, offset: 0 });
     expect(res.items[0]).toMatchObject({ storageName: null, relativePath: "postgres/e.dump" });
     expect(BACKUP_ROOT).toBeTruthy();
+  });
+});
+
+describe("locateObject", () => {
+  const buckets = [
+    { name: "PRD", bucket: "b", prefix: "dbk", cloudCredentialId: null, isActive: true },
+    { name: "PRD-SQL", bucket: "b", prefix: "dbk/sql/", cloudCredentialId: null, isActive: true },
+  ];
+
+  it("usa el prefijo más específico y no expone el bucket", () => {
+    expect(locateObject("gs://b/dbk/sql/s1/a.bak", buckets)).toEqual({ storageName: "PRD-SQL", relativePath: "s1/a.bak" });
+    expect(locateObject("gs://b/dbk/pg/a.sql.gz", buckets)).toEqual({ storageName: "PRD", relativePath: "pg/a.sql.gz" });
+  });
+
+  it("un prefijo de nombre no cuenta (dbk2 no está en dbk)", () => {
+    expect(locateObject("gs://b/dbk2/a.dump", buckets)).toEqual({ storageName: null, relativePath: "a.dump" });
+  });
+
+  it("bucket no registrado: solo el nombre; las carpetas conservan la barra final", () => {
+    expect(locateObject("gs://secreto/x/y/db_1/", buckets)).toEqual({ storageName: null, relativePath: "db_1/" });
   });
 });

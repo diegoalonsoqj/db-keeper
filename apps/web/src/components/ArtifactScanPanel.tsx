@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { History, RefreshCw } from "lucide-react";
+import { Cloud, HardDrive, History } from "lucide-react";
 import {
   executionCode,
   SCAN_FINDING_KINDS,
+  type ArtifactLocation,
   type Paginated,
   type ScanFindingDto,
   type StorageScanDto,
@@ -34,8 +35,8 @@ export function ArtifactScanPanel() {
   const [scans, setScans] = useState<StorageScanDto[]>([]);
   const [data, setData] = useState<Paginated<ScanFindingDto>>({ items: [], total: 0 });
   const [starting, setStarting] = useState(false);
-  const list = useListParams<"kind" | "runnerHost", "kind">({
-    filters: ["kind", "runnerHost"],
+  const list = useListParams<"kind" | "scope", "kind">({
+    filters: ["kind", "scope"],
     defaultSort: { key: "kind", dir: "asc" },
   });
 
@@ -67,10 +68,10 @@ export function ArtifactScanPanel() {
       .catch((e) => toast.error(errMsg(e)));
   }, [list.apiQuery, scanKey, toast]);
 
-  async function startScan() {
+  async function startScan(location: ArtifactLocation) {
     setStarting(true);
     try {
-      setScans(await api.post<StorageScanDto[]>("/artifacts/scans", {}));
+      setScans(await api.post<StorageScanDto[]>("/artifacts/scans", { location }));
       toast.success(t("artifacts.scanStarted"));
     } catch (err) {
       toast.error(errMsg(err));
@@ -78,6 +79,11 @@ export function ArtifactScanPanel() {
       setStarting(false);
     }
   }
+
+  /** Ámbito legible: el host (disco local) o «Buckets». */
+  const scopeLabel = (location: ArtifactLocation, scope: string) =>
+    location === "gcs" ? t("artifacts.location_gcs") : scope;
+  const busy = (location: ArtifactLocation) => scans.some((s) => s.location === location && s.status === "running");
 
   const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString(i18n.language) : "—");
 
@@ -87,9 +93,14 @@ export function ArtifactScanPanel() {
         <div className="card-head">
           <h2>{t("artifacts.scanTitle")}</h2>
           {canScan && (
-            <button type="button" onClick={() => void startScan()} disabled={starting || running}>
-              <RefreshCw size={16} aria-hidden /> {running ? t("artifacts.scanRunning") : t("artifacts.scanNow")}
-            </button>
+            <div className="row-actions">
+              <button type="button" onClick={() => void startScan("local")} disabled={starting || busy("local")}>
+                <HardDrive size={16} aria-hidden /> {busy("local") ? t("artifacts.scanRunning") : t("artifacts.scanNow")}
+              </button>
+              <button type="button" onClick={() => void startScan("gcs")} disabled={starting || busy("gcs")}>
+                <Cloud size={16} aria-hidden /> {busy("gcs") ? t("artifacts.scanRunning") : t("artifacts.scanBuckets")}
+              </button>
+            </div>
           )}
         </div>
         <p className="muted">{t("artifacts.scanHelp")}</p>
@@ -99,7 +110,7 @@ export function ArtifactScanPanel() {
           <table className="grid">
             <thead>
               <tr>
-                <th>{t("artifacts.host")}</th>
+                <th>{t("artifacts.scope")}</th>
                 <th>{t("artifacts.state")}</th>
                 <th>{t("artifacts.scanWhen")}</th>
                 <th>{t("artifacts.scanFiles")}</th>
@@ -111,7 +122,7 @@ export function ArtifactScanPanel() {
             <tbody>
               {scans.map((s) => (
                 <tr key={s.id}>
-                  <td>{s.runnerHost}</td>
+                  <td title={t("artifacts.scanRanOn", { host: s.runnerHost })}>{scopeLabel(s.location, s.scope)}</td>
                   <td>
                     <span className={`badge badge-${s.status === "done" ? "success" : s.status}`}>
                       {t(`artifacts.scanStatus_${s.status}`)}
@@ -160,12 +171,12 @@ export function ArtifactScanPanel() {
         </label>
         {scans.length > 1 && (
           <label>
-            {t("artifacts.host")}
-            <select value={list.filters.runnerHost} onChange={(e) => list.update({ runnerHost: e.target.value })}>
+            {t("artifacts.scope")}
+            <select value={list.filters.scope} onChange={(e) => list.update({ scope: e.target.value })}>
               <option value="">{t("list.all")}</option>
               {scans.map((s) => (
-                <option key={s.runnerHost} value={s.runnerHost}>
-                  {s.runnerHost}
+                <option key={s.scope} value={s.scope}>
+                  {scopeLabel(s.location, s.scope)}
                 </option>
               ))}
             </select>
@@ -178,7 +189,7 @@ export function ArtifactScanPanel() {
           <thead>
             <tr>
               <th>{t("artifacts.kind")}</th>
-              <th>{t("artifacts.host")}</th>
+              <th>{t("artifacts.scope")}</th>
               <th>{t("artifacts.location")}</th>
               <th>{t("artifacts.size")}</th>
               <th>{t("artifacts.modified")}</th>
@@ -200,7 +211,7 @@ export function ArtifactScanPanel() {
                     {t(`artifacts.finding_${f.kind}`)}
                   </span>
                 </td>
-                <td>{f.runnerHost}</td>
+                <td>{scopeLabel(f.location, f.scope)}</td>
                 <td>
                   {f.storageName && <span className="muted">{f.storageName} · </span>}
                   <code>{f.relativePath}</code>

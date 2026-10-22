@@ -1,4 +1,4 @@
-import type { ArtifactKind, ArtifactSort, ArtifactState, DbEngine, FileChecksums, SortDir } from "@dbkeeper/shared";
+import type { ArtifactKind, ArtifactLocation, ArtifactSort, ArtifactState, DbEngine, FileChecksums, SortDir } from "@dbkeeper/shared";
 import { query } from "../../db/pool.js";
 import { orderBy, SqlWhere } from "../../lib/list-query.js";
 
@@ -8,6 +8,7 @@ export interface ArtifactListQuery {
   /** Nombre del evento o de la BD. */
   q?: string;
   kind?: ArtifactKind;
+  location?: ArtifactLocation;
   state?: ArtifactState;
   environment?: string;
   engine?: DbEngine;
@@ -98,6 +99,7 @@ export async function listArtifacts(p: ArtifactListQuery): Promise<{ items: Arti
     .eq("s.engine", p.engine)
     .eq("a.runner_host", p.runnerHost)
     .search(["a.label", "a.db_name"], p.q);
+  if (p.location) w.add(`a.kind ${p.location === "gcs" ? "=" : "<>"} 'object'`);
   if (p.state) w.add(p.state === "pruned" ? "a.pruned_at IS NOT NULL" : "a.pruned_at IS NULL");
   if (p.from) w.add(`a.finished_at >= ${w.param(p.from)}`);
   if (p.to) w.add(`a.finished_at < ${w.param(p.to)}::timestamptz + interval '1 day'`);

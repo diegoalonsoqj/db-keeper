@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Copy, Download, History } from "lucide-react";
 import {
   ARTIFACT_KINDS,
+  ARTIFACT_LOCATIONS,
   ARTIFACT_STATES,
   DB_ENGINES,
   executionCode,
@@ -64,8 +65,8 @@ function CatalogView() {
   const environments = useEnvironments();
   const [data, setData] = useState<Paginated<BackupArtifactDto>>({ items: [], total: 0 });
   const [hosts, setHosts] = useState<string[]>([]);
-  const list = useListParams<"kind" | "state" | "environment" | "engine" | "runnerHost" | "from" | "to", ArtifactSort>({
-    filters: ["kind", "state", "environment", "engine", "runnerHost", "from", "to"],
+  const list = useListParams<"kind" | "location" | "state" | "environment" | "engine" | "runnerHost" | "from" | "to", ArtifactSort>({
+    filters: ["kind", "location", "state", "environment", "engine", "runnerHost", "from", "to"],
     dateFilters: ["from", "to"],
     defaultSort: { key: "finished", dir: "desc" },
   });
@@ -116,6 +117,17 @@ function CatalogView() {
             {ARTIFACT_STATES.map((s) => (
               <option key={s} value={s}>
                 {t(`artifacts.state_${s}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("artifacts.location")}
+          <select value={list.filters.location} onChange={(e) => list.update({ location: e.target.value })}>
+            <option value="">{t("list.all")}</option>
+            {ARTIFACT_LOCATIONS.map((l) => (
+              <option key={l} value={l}>
+                {t(`artifacts.location_${l}`)}
               </option>
             ))}
           </select>
@@ -212,9 +224,9 @@ function CatalogView() {
                 <td>
                   {a.storageName && <span className="muted">{a.storageName} · </span>}
                   <code>{a.relativePath}</code>
-                  {a.kind === "copy" && (
-                    <span className="badge" title={t("artifacts.copyHint")}>
-                      {t("artifacts.kind_copy")}
+                  {a.kind !== "file" && (
+                    <span className="badge" title={t(`artifacts.kind_${a.kind}_hint`)}>
+                      {t(`artifacts.kind_${a.kind}`)}
                     </span>
                   )}
                 </td>
@@ -248,8 +260,11 @@ function CatalogView() {
                       <Copy size={16} />
                     </button>
                   )}
-                  {/* La descarga sirve el archivo del evento: en una copia sería el objeto del bucket. */}
-                  {canDownload && !a.prunedAt && a.kind === "file" && (
+                  {/*
+                    La descarga sirve el archivo del evento: en una copia sería el objeto del
+                    bucket (se descarga desde su fila). Las carpetas no se descargan desde la web.
+                  */}
+                  {canDownload && !a.prunedAt && a.kind !== "copy" && !a.relativePath.endsWith("/") && (
                     <button
                       className="icon-btn"
                       title={t("executions.download")}

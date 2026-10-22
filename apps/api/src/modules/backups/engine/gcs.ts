@@ -58,3 +58,28 @@ export function parseGcsUri(uri: string): { bucket: string; object: string } | n
   const m = /^gs:\/\/([^/]+)\/(.+)$/.exec(uri);
   return m ? { bucket: m[1]!, object: m[2]! } : null;
 }
+
+export interface GcsListedObject {
+  name: string;
+  bytes: number;
+  updated: Date | null;
+}
+
+/** Una página (hasta 1000) de los objetos bajo `prefix`; `nextPageToken` si hay más. */
+export async function listGcsObjectsPage(
+  auth: GcsAuth,
+  prefix: string,
+  pageToken?: string,
+): Promise<{ objects: GcsListedObject[]; nextPageToken?: string }> {
+  const [files, next] = await gcsClient(auth.serviceAccountJson)
+    .bucket(auth.bucket)
+    .getFiles({ prefix: prefix || undefined, maxResults: 1000, autoPaginate: false, pageToken });
+  return {
+    objects: files.map((f) => ({
+      name: f.name,
+      bytes: Number(f.metadata.size ?? 0),
+      updated: f.metadata.updated ? new Date(f.metadata.updated) : null,
+    })),
+    nextPageToken: (next as { pageToken?: string } | null)?.pageToken,
+  };
+}

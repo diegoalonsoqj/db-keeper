@@ -14,7 +14,7 @@ vi.mock("../src/modules/artifacts/scans.repository.js", () => ({ listLatestScans
 vi.mock("../src/modules/artifacts/artifacts.repository.js", () => ({}));
 vi.mock("../src/modules/storage/storage.repository.js", () => ({}));
 
-import { reconcile } from "../src/modules/artifacts/scans.service.js";
+import { reconcile, reconcileGcs, type BucketTarget } from "../src/modules/artifacts/scans.service.js";
 
 const HOUR = 3_600_000;
 const now = new Date();
@@ -32,6 +32,7 @@ async function file(rel: string, ageMs = 5 * HOUR): Promise<string> {
 
 const reg = (fileName: string, over: Record<string, unknown> = {}) => ({
   itemId: "i-" + path.basename(fileName),
+  kind: "file" as "file" | "copy" | "object",
   executionId: "e1",
   fileName,
   pruned: false,
@@ -126,5 +127,128 @@ describe("reconcile", () => {
     const res = await run([], { roots: [{ name: "Local", abs: dir }, { name: "Sub", abs: path.join(dir, "sub") }] });
     expect(res.filesScanned).toBe(1);
     expect(res.findings[0]).toMatchObject({ storageName: "Sub", relativePath: "a.dump" });
+  });
+});
+
+describe("reconcile (local) ignora los objetos de bucket", () => {
+  it("una URI gs:// no se trata como ruta local faltante", async () => {
+    const res = await run([reg("gs://b/pg/x.sql.gz", { kind: "object" })]);
+    expect(res.findings).toEqual([]);
+  });
+});
+
+describe("reconcileGcs", () => {
+  const target = (over: Partial<BucketTarget> = {}): BucketTarget => ({
+    name: "Bucket PRD",
+    bucket: "b",
+    prefix: "dbk",
+    cloudCredentialId: null,
+    isActive: true,
+    serviceAccountJson: null,
+    ...over,
+  });
+  const old = new Date(now.getTime() - 5 * HOUR);
+  const obj = (name: string, updated = old) => ({ name, bytes: 10, updated });
+  const greg = (uri: string) => reg(uri, { kind: "object" });
+
+  /** Listador falso: devuelve los objetos en páginas de `pageSize`. */
+  function lister(objects: ReturnType<typeof obj>[], pageSize = 1000) {
+    const calls: string[] = [];
+    const fn = async (_t: BucketTarget, prefix: string, token?: string) => {
+      calls.push(prefix);
+      const all = objects.filter((o) => o.name.startsWith(prefix));
+      const start = Number(token ?? 0);
+      const next = start + pageSize < all.length ? String(start + pageSize) : undefined;
+      return { objects: all.slice(start, start + pageSize), nextPageToken: next };
+    };
+    return { fn, calls };
+  }
+
+  const runGcs = (registered: ReturnType<typeof reg>[], objects: ReturnType<typeof obj>[], over: Record<string, unknown> = {}) => {
+    const l = lister(objects, (over.pageSize as number) ?? 1000);
+    return reconcileGcs({
+      targets: [target()],
+      registered,
+      now,
+      graceMs: 2 * HOUR,
+      maxObjects: 1000,
+      listPage: l.fn,
+      ...over,
+    });
+  };
+
+  it("huérfanos y faltantes, con ruta relativa al prefijo y sin nombre de bucket", async () => {
+    const res = await runGcs(
+      [greg("gs://b/dbk/srv/ok.sql.gz"), greg("gs://b/dbk/srv/borrado.sql.gz")],
+      [obj("dbk/srv/ok.sql.gz"), obj("dbk/srv/suelto.sql.gz")],
+    );
+    expect(res.findings).toEqual([
+      expect.objectContaining({ kind: "orphan", storageName: "Bucket PRD", relativePath: "srv/suelto.sql.gz", fileBytes: 10 }),
+      expect.objectContaining({ kind: "missing", storageName: "Bucket PRD", relativePath: "srv/borrado.sql.gz" }),
+    ]);
+    expect(JSON.stringify(res.findings)).not.toContain("gs://");
+  });
+
+  it("los objetos dentro de una carpeta registrada (dump paralelo) no son huérfanos", async () => {
+    const res = await runGcs([greg("gs://b/dbk/srv/db_20261022/")], [obj("dbk/srv/db_20261022/manifest.json"), obj("dbk/srv/db_20261022/3001.dat.gz")]);
+    expect(res.findings).toEqual([]);
+  });
+
+  it("una carpeta registrada sin objetos es faltante", async () => {
+    const res = await runGcs([greg("gs://b/dbk/srv/db_vacia/")], []);
+    expect(res.findings).toEqual([expect.objectContaining({ kind: "missing", relativePath: "srv/db_vacia/" })]);
+  });
+
+  it("ignora objetos recientes (subidas o exports en curso)", async () => {
+    const res = await runGcs([], [obj("dbk/nuevo.bak", new Date(now.getTime() - 60_000))]);
+    expect(res.findings).toEqual([]);
+  });
+
+  it("recorre todas las páginas", async () => {
+    const objects = ["a", "b", "c", "d", "e"].map((n) => obj(`dbk/${n}.dump`));
+    const res = await runGcs([], objects, { pageSize: 2 });
+    expect(res.filesScanned).toBe(5);
+    expect(res.findings).toHaveLength(5);
+    expect(res.truncated).toBe(false);
+  });
+
+  it("con el listado cortado por el tope no informa faltantes (no se puede afirmar)", async () => {
+    const objects = ["a", "b", "c"].map((n) => obj(`dbk/${n}.dump`));
+    const res = await runGcs([greg("gs://b/dbk/z.dump")], objects, { pageSize: 2, maxObjects: 2 });
+    expect(res.truncated).toBe(true);
+    expect(res.findings.some((f) => f.kind === "missing")).toBe(false);
+  });
+
+  it("un bucket inaccesible se informa por nombre y sus registrados no salen como faltantes", async () => {
+    const res = await reconcileGcs({
+      targets: [target()],
+      registered: [greg("gs://b/dbk/x.dump")],
+      now,
+      graceMs: 0,
+      maxObjects: 1000,
+      listPage: async () => {
+        throw new Error("403 Forbidden");
+      },
+    });
+    expect(res.findings).toEqual([]);
+    expect(res.detail).toEqual({ scanned: 0, missing: ["Bucket PRD"] });
+  });
+
+  it("un destino con prefijo dentro de otro del mismo bucket se lista una sola vez", async () => {
+    const l = lister([obj("dbk/sub/a.dump")]);
+    await reconcileGcs({
+      targets: [target(), target({ name: "Sub", prefix: "/dbk/sub/" })],
+      registered: [],
+      now,
+      graceMs: 0,
+      maxObjects: 1000,
+      listPage: l.fn,
+    });
+    expect(l.calls).toEqual(["dbk/"]);
+  });
+
+  it("los registrados de buckets que no son destinos no se informan", async () => {
+    const res = await runGcs([greg("gs://otro/dbk/x.dump")], []);
+    expect(res.findings).toEqual([]);
   });
 });

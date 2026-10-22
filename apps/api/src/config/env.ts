@@ -45,6 +45,8 @@ const envSchema = z.object({
   // --- Conciliación de Archivos con el disco local ---
   // Tope de archivos recorridos por escaneo (protege disco y memoria; el resultado queda parcial).
   ARTIFACT_SCAN_MAX_FILES: z.coerce.number().int().positive().default(200_000),
+  // Tope de objetos listados por escaneo de buckets (cada 1000 = una operación de listado en GCS).
+  ARTIFACT_SCAN_MAX_OBJECTS: z.coerce.number().int().positive().default(100_000),
   // Archivos modificados hace menos de esto se ignoran: pueden ser dumps en curso.
   ARTIFACT_SCAN_GRACE_MINUTES: z.coerce.number().int().min(0).default(120),
 
