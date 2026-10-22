@@ -156,3 +156,11 @@ export async function findBucketByName(bucket: string): Promise<StorageTargetDto
   );
   return rows[0] ? toDto(rows[0]) : null;
 }
+
+/** Destinos locales (nombre + ruta tal como se configuró), para ubicar archivos del catálogo. */
+export async function listLocalRoots(): Promise<{ name: string; path: string }[]> {
+  const { rows } = await query<{ name: string; path: string }>(
+    "SELECT name, path FROM core.storage_targets WHERE type = 'local' AND path IS NOT NULL",
+  );
+  return rows;
+}

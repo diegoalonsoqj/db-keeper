@@ -22,6 +22,7 @@ import { storageRouter } from "./modules/storage/storage.routes.js";
 import { cloudCredentialsRouter } from "./modules/cloud-credentials/cloud-credentials.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js";
+import { artifactsRouter } from "./modules/artifacts/artifacts.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 
 /**
@@ -98,6 +99,7 @@ export function createApp(): Express {
   app.use("/api/cloud-credentials", cloudCredentialsRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/artifacts", artifactsRouter);
 
   // Front (SPA) servido por la propia API: despliegue de un solo puerto. Va tras
   // los routers /api para que la API siempre tenga prioridad sobre los estáticos.

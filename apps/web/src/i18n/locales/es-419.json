@@ -12,6 +12,7 @@
     "backups": "Backups",
     "groups": "Grupos",
     "executions": "Ejecuciones",
+    "artifacts": "Archivos",
     "storage": "Almacenamiento",
     "cloud": "Cuentas de servicio",
     "users": "Usuarios",
@@ -700,5 +701,23 @@
     "preset_last30": "Últimos 30 días",
     "preset_thisMonth": "Este mes",
     "preset_prevMonth": "Mes anterior"
+  },
+  "artifacts": {
+    "searchPlaceholder": "Evento o base de datos",
+    "date": "Fecha",
+    "database": "Base de datos",
+    "location": "Ubicación",
+    "host": "Host",
+    "size": "Tamaño",
+    "state": "Estado",
+    "state_available": "Disponible",
+    "state_pruned": "Purgado",
+    "kind": "Tipo",
+    "kind_file": "Backup local",
+    "kind_copy": "Copia local",
+    "copyHint": "Copia en disco de un backup subido a bucket; la retención local la purga sin tocar el objeto del bucket.",
+    "viewExecution": "Ver ejecución",
+    "copySha": "Copiar SHA-256",
+    "empty": "Aún no hay archivos de backup en disco local."
   }
 }

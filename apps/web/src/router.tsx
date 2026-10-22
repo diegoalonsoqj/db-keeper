@@ -9,6 +9,7 @@ import { GcpProjectsPage } from "./pages/GcpProjectsPage";
 import { CredentialsPage } from "./pages/CredentialsPage";
 import { BackupsPage } from "./pages/BackupsPage";
 import { ExecutionsPage } from "./pages/ExecutionsPage";
+import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { StoragePage } from "./pages/StoragePage";
 import { CloudCredentialsPage } from "./pages/CloudCredentialsPage";
@@ -81,6 +82,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission perm="backups:read">
             <ExecutionsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "artifacts",
+        element: (
+          <RequirePermission perm="backups:read">
+            <ArtifactsPage />
           </RequirePermission>
         ),
       },

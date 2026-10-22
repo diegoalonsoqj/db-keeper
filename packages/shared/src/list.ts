@@ -36,3 +36,6 @@ export function parseExecutionCode(q: string): string | null {
   const m = /^#?([0-9a-f]{4,8})$/i.exec(q.trim());
   return m ? m[1]!.toLowerCase() : null;
 }
+
+export const ARTIFACT_SORTS = ["finished", "label", "database", "environment", "size"] as const;
+export type ArtifactSort = (typeof ARTIFACT_SORTS)[number];

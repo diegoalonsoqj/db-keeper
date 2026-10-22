@@ -681,3 +681,36 @@ export function formatBytes(bytes: number | null | undefined): string {
   }
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
+
+/**
+ * Archivo de backup del catálogo. `file`: el backup de un evento a disco; `copy`: la
+ * copia conservada en disco de un backup subido a bucket (keepLocalCopy).
+ */
+export const ARTIFACT_KINDS = ["file", "copy"] as const;
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+
+/** available: el archivo sigue registrado; pruned: se borró por retención. */
+export const ARTIFACT_STATES = ["available", "pruned"] as const;
+export type ArtifactState = (typeof ARTIFACT_STATES)[number];
+
+export interface BackupArtifactDto {
+  /** Ítem de ejecución dueño del archivo (con `executionId`, identifica la descarga). */
+  itemId: string;
+  executionId: string;
+  kind: ArtifactKind;
+  label: string;
+  environment: string | null;
+  engine: DbEngine | null;
+  serverName: string | null;
+  dbName: string;
+  /** Destino local que contiene el archivo; null si no coincide con ninguno actual. */
+  storageName: string | null;
+  /** Ruta relativa al destino (o solo el nombre del archivo): nunca la ruta absoluta. */
+  relativePath: string;
+  fileBytes: number | null;
+  /** Host que generó el archivo: el disco es local a ese host. */
+  runnerHost: string | null;
+  finishedAt: string | null;
+  prunedAt: string | null;
+  checksums: FileChecksums | null;
+}
