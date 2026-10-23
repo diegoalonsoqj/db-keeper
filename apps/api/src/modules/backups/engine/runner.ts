@@ -23,6 +23,7 @@ import { emitExecution, emitLog, emitProgress } from "../events.js";
 import { watchFileSize } from "./progress.js";
 import { runParallelItems } from "./parallel-runner.js";
 import { maskSecret } from "../../../lib/mask-secret.js";
+import { createLogBuffer } from "./log-buffer.js";
 
 /**
  * Raíz local donde escribir los dumps: la ruta del destino local **por defecto**
@@ -37,9 +38,6 @@ export async function resolveLocalRoot(): Promise<string> {
 
 /** Ejecuciones en curso en este proceso (evita disparos duplicados). */
 const inFlight = new Set<string>();
-
-/** Tope de líneas de consola guardadas por ítem (para persistir en el log). */
-const MAX_LOG_LINES = 2000;
 
 interface LogStream {
   /** Recibe una línea del motor (la agrupa y la empuja por SSE). */
@@ -62,7 +60,7 @@ function makeLogStream(
   scrub: (l: string) => string,
   initial: string | null = null,
 ): LogStream {
-  const all: string[] = initial ? initial.split("\n") : [];
+  const buffer = createLogBuffer(initial);
   let pending: string[] = [];
   let timer: NodeJS.Timeout | null = null;
   const flush = (): void => {
@@ -73,8 +71,8 @@ function makeLogStream(
   };
   return {
     onLog(line) {
-      const s = scrub(line);
-      if (all.length < MAX_LOG_LINES) all.push(s);
+      // La consola en vivo recibe la misma línea con hora que se guarda.
+      const s = buffer.push(scrub(line));
       pending.push(s);
       if (pending.length >= 50) flush();
       else if (!timer) {
@@ -92,7 +90,7 @@ function makeLogStream(
       }
       flush();
     },
-    getLog: () => (all.length ? all.join("\n").slice(0, 64_000) : null),
+    getLog: buffer.text,
   };
 }
 
@@ -401,14 +399,14 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
           await emitExecution(executionId);
           return;
         }
-        ls.done();
         const message =
           err instanceof CloudSqlTimeoutError
             ? `Se superó el tope de ${Math.round(exportMaxMs / 3_600_000)} h; se deja de verificar la operación ${err.operationName} (puede seguir en curso en GCP).`
             : safeMessage(err, "");
         // Conserva lo registrado (p. ej. el id de la operación) junto al error.
-        const log = [ls.getLog(), message].filter(Boolean).join("\n");
-        await repo.finishItem(item.id, { status: "failed", log });
+        for (const line of message.split("\n")) ls.onLog(line);
+        ls.done();
+        await repo.finishItem(item.id, { status: "failed", log: ls.getLog() });
         results.push({ dbName: item.dbName, status: "failed", error: message });
       }
       await emitExecution(executionId);
@@ -685,7 +683,6 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
       }
       results.push({ dbName: item.dbName, status: "success", bytes: dumpRes.bytes });
     } catch (err) {
-      ls?.done();
       const message = safeMessage(err, password);
       // Destino GCS: si el dump llegó a generarse (falló la subida o su verificación),
       // se conserva para no perderlo; los dumps parciales ya los borra cada dumper.
@@ -693,9 +690,12 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
         gcs && localPath
           ? `Dump conservado en local: ${localPath}\nSúbelo con: gcloud storage cp "${localPath}" gs://${gcs.bucket}/${[gcs.prefix, safeFileName(server.name)].filter(Boolean).join("/")}/`
           : null;
+      // Se conserva la salida del motor y el error queda al final, con su hora.
+      for (const line of [message, kept].filter(Boolean).join("\n").split("\n")) ls?.onLog(line);
+      ls?.done();
       await repo.finishItem(item.id, {
         status: "failed",
-        log: [context, message, kept].filter(Boolean).join("\n"),
+        log: ls ? ls.getLog() : [context, message, kept].filter(Boolean).join("\n"),
       });
       results.push({ dbName: item.dbName, status: "failed", error: message });
     } finally {
