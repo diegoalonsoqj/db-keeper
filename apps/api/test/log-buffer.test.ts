@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, createLogBuffer, MAX_LOG_CHARS } from "../src/modules/backups/engine/log-buffer.js";
+import { clock, createLogBuffer, isErrorLine, MAX_LOG_CHARS } from "../src/modules/backups/engine/log-buffer.js";
 
 const at = (h: number, m: number, s: number) => () => new Date(2026, 9, 22, h, m, s);
 
@@ -41,6 +41,65 @@ describe("createLogBuffer", () => {
     expect(text.startsWith("10:00:00 0 ")).toBe(true);
     expect(text.endsWith("Integridad verificada en el bucket")).toBe(true);
     expect(text).toMatch(/… \d+ líneas omitidas …/);
+  });
+
+  it("rescata del medio omitido las líneas con error, en orden y entre marcas", () => {
+    const b = createLogBuffer(null, at(10, 0, 0));
+    for (let i = 1; i <= 5000; i++) {
+      if (i === 1500) b.push('pg_dump: error: query failed: permission denied for table "x"');
+      else if (i === 2500) b.push("mongodump: Failed: error reading collection");
+      else b.push(`l${i}`);
+    }
+    b.push("SHA-256: abc");
+    const lines = b.text()!.split("\n");
+    const mark = lines.indexOf("… 2999 líneas omitidas; se conservan abajo 2 con error o aviso …");
+    expect(mark).toBe(1000);
+    expect(lines[mark + 1]).toBe('10:00:00 pg_dump: error: query failed: permission denied for table "x"');
+    expect(lines[mark + 2]).toBe("10:00:00 mongodump: Failed: error reading collection");
+    expect(lines[mark + 3]).toBe("…");
+    expect(lines[mark + 4]).toBe("10:00:00 l4002");
+    expect(lines.at(-1)).toBe("10:00:00 SHA-256: abc");
+  });
+
+  it("rescata también errores que salen del final en el último recorte (sin lote completo)", () => {
+    const b = createLogBuffer(null, at(10, 0, 0));
+    for (let i = 1; i <= 2500; i++) b.push(i === 1200 ? "WARNING: archivo truncado" : `l${i}`);
+    const text = b.text()!;
+    expect(text).toContain("se conservan abajo 1 con error o aviso");
+    expect(text).toContain("10:00:00 WARNING: archivo truncado");
+  });
+
+  it("pone tope a los errores rescatados e informa cuántos hubo", () => {
+    const b = createLogBuffer(null, at(10, 0, 0));
+    for (let i = 1; i <= 1000; i++) b.push(`l${i}`);
+    for (let i = 1; i <= 5000; i++) b.push(`warning: fila ${i}`);
+    for (let i = 1; i <= 1000; i++) b.push(`t${i}`);
+    const text = b.text()!;
+    expect(text.length).toBeLessThanOrEqual(MAX_LOG_CHARS);
+    expect(text).toContain("se conservan abajo 200 de 5000 con error o aviso");
+    expect(text.endsWith("10:00:00 t1000")).toBe(true);
+  });
+
+  it("sin errores en el medio deja la marca de siempre", () => {
+    const b = createLogBuffer(null, at(10, 0, 0));
+    for (let i = 1; i <= 2001; i++) b.push(`l${i}`);
+    expect(b.text()!.split("\n")).toContain("… 1 línea omitida …");
+  });
+});
+
+describe("isErrorLine", () => {
+  it("reconoce errores y avisos de los motores sin falsos positivos obvios", () => {
+    for (const l of [
+      "pg_dump: error: connection failed",
+      "mysqldump: Got error: 1045: Access denied",
+      "Failed: cannot dump collection",
+      "Msg 3201, Level 16, State 1",
+      "FATAL: password authentication failed",
+      "La subida falló",
+    ])
+      expect(isErrorLine(l), l).toBe(true);
+    for (const l of ["pg_dump: dumping contents of table public.errores_log", "Msg 3211, Level 0, State 1: 10 percent processed", "writing 1000 documents"])
+      expect(isErrorLine(l), l).toBe(false);
   });
 });
 
