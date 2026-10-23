@@ -87,6 +87,8 @@ export async function enforceRetentionForJob(jobId: string): Promise<void> {
     for (const item of items) {
       try {
         await deletePhysical(item.fileName);
+        // El log completo local sigue la suerte de su dump (comparte pruned_at).
+        if (item.logFile) await deletePhysical(item.logFile);
         await repo.markItemPruned(item.id, target);
         pruned++;
       } catch (err) {

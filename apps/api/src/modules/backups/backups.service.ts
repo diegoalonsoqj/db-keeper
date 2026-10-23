@@ -341,10 +341,26 @@ export async function getItemDownload(executionId: string, itemId: string): Prom
         `Cópialo con: gcloud storage cp -r ${item.fileName} <destino>`,
     );
   }
+  return resolveDownload(item.fileName, "El archivo de backup ya no está disponible");
+}
 
+/** Log completo de un ítem (archivo junto al backup), para descargarlo. */
+export async function getItemLogDownload(executionId: string, itemId: string): Promise<DownloadSource> {
+  const item = await repo.findItemFile(executionId, itemId);
+  if (!item) throw HttpError.notFound("Ítem de ejecución no encontrado");
+  if (!item.logFile) throw HttpError.notFound("Esta base de datos no tiene log completo guardado");
+  // Un log local se purga con su dump; el del bucket se conserva.
+  if (item.prunedAt && !item.logFile.startsWith("gs://")) {
+    throw HttpError.notFound("El log se eliminó junto con el backup por la política de retención");
+  }
+  return resolveDownload(item.logFile, "El archivo de log ya no está disponible");
+}
+
+/** Origen de descarga de un archivo registrado: objeto en bucket o archivo local. */
+async function resolveDownload(fileName: string, missingMessage: string): Promise<DownloadSource> {
   // Objeto en GCS: resolver credenciales por el bucket y servir por streaming.
-  if (item.fileName.startsWith("gs://")) {
-    const parsed = parseGcsUri(item.fileName);
+  if (fileName.startsWith("gs://")) {
+    const parsed = parseGcsUri(fileName);
     if (!parsed) throw HttpError.badRequest("URI de backup inválida");
     const target = await storageRepo.findBucketByName(parsed.bucket);
     const serviceAccountJson = target?.cloudCredentialId
@@ -359,13 +375,13 @@ export async function getItemDownload(executionId: string, itemId: string): Prom
     };
   }
 
-  const filePath = resolveBackupFile(item.fileName);
+  const filePath = resolveBackupFile(fileName);
   try {
     await access(filePath);
   } catch {
-    throw HttpError.notFound("El archivo de backup ya no está disponible");
+    throw HttpError.notFound(missingMessage);
   }
-  return { kind: "local", filePath, fileName: path.basename(item.fileName) };
+  return { kind: "local", filePath, fileName: path.basename(fileName) };
 }
 
 /** Datos para el formulario del dump paralelo: vCPU de esta máquina, VM y disco por defecto. */

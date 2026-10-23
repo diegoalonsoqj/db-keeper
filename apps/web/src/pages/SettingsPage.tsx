@@ -584,6 +584,17 @@ export function SettingsPage() {
           {t("settings.mongoPasswordViaConfig")}
         </label>
         <small className="full">{t("settings.mongoPasswordViaConfigHint")}</small>
+        <h3 className="full">{t("settings.backupsEvidenceGroup")}</h3>
+        <label className="inline full">
+          <input
+            type="checkbox"
+            checked={data.backups.saveFullLog}
+            disabled={!canWrite}
+            onChange={(e) => setData((d) => (d ? { ...d, backups: { ...d.backups, saveFullLog: e.target.checked } } : d))}
+          />
+          {t("settings.saveFullLog")}
+        </label>
+        <small className="full">{t("settings.saveFullLogHint")}</small>
         {canWrite && (
           <div className="form-actions">
             <button onClick={() => notify(saveBackups)}>{t("common.save")}</button>

@@ -99,7 +99,8 @@ export async function listArtifacts(p: ArtifactListQuery): Promise<{ items: Arti
     .eq("s.engine", p.engine)
     .eq("a.runner_host", p.runnerHost)
     .search(["a.label", "a.db_name"], p.q);
-  if (p.location) w.add(`a.kind ${p.location === "gcs" ? "=" : "<>"} 'object'`);
+  // La ubicación la da la ruta: los logs pueden estar en disco o en bucket.
+  if (p.location) w.add(`a.file_name ${p.location === "gcs" ? "LIKE" : "NOT LIKE"} 'gs://%'`);
   if (p.state) w.add(p.state === "pruned" ? "a.pruned_at IS NOT NULL" : "a.pruned_at IS NULL");
   if (p.from) w.add(`a.finished_at >= ${w.param(p.from)}`);
   if (p.to) w.add(`a.finished_at < ${w.param(p.to)}::timestamptz + interval '1 day'`);

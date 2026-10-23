@@ -198,6 +198,8 @@ export interface ExecutionItemDto {
   checksums: FileChecksums | null;
   /** Última verificación de integridad a demanda; null = nunca se verificó. */
   verification: ItemVerificationDto | null;
+  /** Log completo guardado como archivo; null si no se guardó (interruptor apagado o anterior). */
+  fullLog: { bytes: number | null; sha256: string | null } | null;
 }
 
 export const VERIFY_MODES = ["quick", "deep"] as const;
@@ -578,6 +580,11 @@ export interface BackupSettings {
    * línea de comandos, donde cualquier usuario del servidor la ve con `ps`.
    */
   mongoPasswordViaConfig: boolean;
+  /**
+   * Guarda el log completo de cada BD (todas las líneas, con hora) como archivo junto al
+   * backup, con su SHA-256. La BD conserva siempre el resumen (principio y final).
+   */
+  saveFullLog: boolean;
 }
 
 /** Límites de los ajustes de backups (formulario y API). */
@@ -592,8 +599,8 @@ export const BACKUP_SETTINGS_LIMITS = {
   staleAlertGraceHours: { min: 0, max: 168 },
   defaultKeepLast: { min: 0, max: 1000 },
   diskFreeAlertPercent: { min: 0, max: 90 },
-  // Solo los numéricos; mongoPasswordViaConfig es un interruptor.
-} as const satisfies Record<Exclude<keyof BackupSettings, "mongoPasswordViaConfig">, { min: number; max: number }>;
+  // Solo los numéricos; mongoPasswordViaConfig y saveFullLog son interruptores.
+} as const satisfies Record<Exclude<keyof BackupSettings, "mongoPasswordViaConfig" | "saveFullLog">, { min: number; max: number }>;
 
 /** Valores por defecto (en la API, los de tiempo toman como base las variables del .env). */
 export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
@@ -608,6 +615,7 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   defaultKeepLast: 0,
   diskFreeAlertPercent: 10,
   mongoPasswordViaConfig: true,
+  saveFullLog: false,
 };
 
 export interface SettingsDto {
@@ -687,16 +695,13 @@ export function formatBytes(bytes: number | null | undefined): string {
  * copia conservada en disco de un backup subido a bucket (keepLocalCopy); `object`: el
  * backup en bucket (archivo, o carpeta del dump paralelo si la ruta termina en "/").
  */
-export const ARTIFACT_KINDS = ["file", "copy", "object"] as const;
+/** `log`: log completo de una BD, en disco o en bucket (la ruta lo dice). */
+export const ARTIFACT_KINDS = ["file", "copy", "object", "log"] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
 /** Dónde vive un archivo del catálogo: disco del host o bucket. */
 export const ARTIFACT_LOCATIONS = ["local", "gcs"] as const;
 export type ArtifactLocation = (typeof ARTIFACT_LOCATIONS)[number];
-
-export function artifactLocation(kind: ArtifactKind): ArtifactLocation {
-  return kind === "object" ? "gcs" : "local";
-}
 
 /** available: el archivo sigue registrado; pruned: se borró por retención. */
 export const ARTIFACT_STATES = ["available", "pruned"] as const;

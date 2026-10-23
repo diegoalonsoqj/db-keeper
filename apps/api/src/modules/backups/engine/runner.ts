@@ -24,6 +24,7 @@ import { watchFileSize } from "./progress.js";
 import { runParallelItems } from "./parallel-runner.js";
 import { maskSecret } from "../../../lib/mask-secret.js";
 import { createLogBuffer } from "./log-buffer.js";
+import { createFullLog, type FullLogDest, type FullLogRef } from "./full-log.js";
 
 /**
  * Raíz local donde escribir los dumps: la ruta del destino local **por defecto**
@@ -46,6 +47,8 @@ interface LogStream {
   done: () => void;
   /** Texto acumulado para persistir en `execution_items.log` (o null si vacío). */
   getLog: () => string | null;
+  /** Cierra y ubica el log completo; null si no se guarda (interruptor apagado o fallo). */
+  saveFull: (dest: FullLogDest) => Promise<FullLogRef | null>;
 }
 
 /**
@@ -53,13 +56,16 @@ interface LogStream {
  * contraseña), acumula para persistir y empuja por SSE en lotes cortos (cada 300
  * ms o cada 50 líneas) para no saturar con eventos en dumps muy verbosos.
  * `initial`: log ya persistido (al retomar); se acumula sin volver a emitirlo.
+ * `fullLogPath`: si se indica, cada línea se escribe también en ese archivo.
  */
 function makeLogStream(
   executionId: string,
   dbName: string,
   scrub: (l: string) => string,
   initial: string | null = null,
+  fullLogPath: string | null = null,
 ): LogStream {
+  const full = fullLogPath ? createFullLog(fullLogPath) : null;
   const buffer = createLogBuffer(initial);
   let pending: string[] = [];
   let timer: NodeJS.Timeout | null = null;
@@ -73,6 +79,7 @@ function makeLogStream(
     onLog(line) {
       // La consola en vivo recibe la misma línea con hora que se guarda.
       const s = buffer.push(scrub(line));
+      full?.write(s);
       pending.push(s);
       if (pending.length >= 50) flush();
       else if (!timer) {
@@ -91,6 +98,7 @@ function makeLogStream(
       flush();
     },
     getLog: buffer.text,
+    saveFull: async (dest) => (full ? full.save(dest) : null),
   };
 }
 
@@ -486,6 +494,9 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
   if (job.method === "pg_parallel") {
     if (!gcs) return fail("El evento no tiene bucket de destino");
     if (server.engine !== "postgres") return fail("El dump paralelo solo está disponible para PostgreSQL");
+    // Log completo: se escribe en el disco local de DBKeeper y al terminar se sube al bucket.
+    const logDir = bs.saveFullLog ? path.join(await resolveLocalRoot(), server.engine, safeFileName(server.name)) : null;
+    if (logDir) await mkdir(logDir, { recursive: true });
     await repo.markExecutionRunning(executionId);
     await emitExecution(executionId);
     notify("start");
@@ -511,7 +522,8 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
       excludeSchemasFor,
       excludeExtensionsFor,
       excludeEventTriggersFor,
-      makeLog: (db) => makeLogStream(executionId, db, scrub),
+      makeLog: (db, fileBase) =>
+        makeLogStream(executionId, db, scrub, null, logDir ? path.join(logDir, `${fileBase}.log`) : null),
       safeFileName,
       safeMessage: (err) => safeMessage(err, password),
     });
@@ -560,7 +572,18 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
     await repo.markItemRunning(item.id);
     await emitExecution(executionId);
     let localPath: string | undefined;
-    const ls = isSqlServer ? undefined : makeLogStream(executionId, item.dbName, scrub);
+    const fileBase = `${safeFileName(item.dbName)}${envSuffix}_${ts}`;
+    // Log completo junto al dump (mismo nombre base + .log); SQL Server nativo no tiene consola.
+    const fullLogPath = bs.saveFullLog && !isSqlServer ? path.join(destDir, `${fileBase}.log`) : null;
+    const ls = isSqlServer ? undefined : makeLogStream(executionId, item.dbName, scrub, null, fullLogPath);
+    // En bucket, el log va al lado del objeto del dump: <prefijo>/<instancia>/<nombre>.log
+    const fullLogDest: FullLogDest = gcs
+      ? {
+          kind: "gcs",
+          auth: { bucket: gcs.bucket, serviceAccountJson: gcs.serviceAccountJson },
+          objectName: [gcs.prefix, safeFileName(server.name), `${fileBase}.log`].filter(Boolean).join("/"),
+        }
+      : { kind: "local" };
     if (context) ls?.onLog(context);
     const excludedSchemas = excludeSchemasFor(item.dbName);
     if (excludedSchemas.length > 0) ls?.onLog(`Esquemas excluidos (no se respaldan): ${excludedSchemas.join(", ")}`);
@@ -574,7 +597,6 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
     }
     let stopWatch = (): void => {};
     try {
-      const fileBase = `${safeFileName(item.dbName)}${envSuffix}_${ts}`;
       // Progreso en vivo: vigila el tamaño del archivo de dump mientras crece.
       if (!isSqlServer) {
         const expectedPath = path.join(destDir, `${fileBase}${dumpExt}`);
@@ -670,6 +692,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
           checksums: { sha256: hashes.sha256, md5: md5Base64ToHex(obj.md5), crc32c: obj.crc32c },
           // Registrada para que la retención pueda purgarla (si no, se acumula en disco).
           localFileName: keepLocalCopy ? localPath : null,
+          fullLog: await ls?.saveFull(fullLogDest),
         });
       } else {
         ls?.done();
@@ -679,6 +702,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
           fileBytes: dumpRes.bytes,
           log: ls?.getLog(),
           checksums: { sha256: hashes.sha256, md5: hashes.md5, crc32c: hashes.crc32c },
+          fullLog: await ls?.saveFull(fullLogDest),
         });
       }
       results.push({ dbName: item.dbName, status: "success", bytes: dumpRes.bytes });
@@ -696,6 +720,7 @@ async function execute(executionId: string, resume: boolean): Promise<void> {
       await repo.finishItem(item.id, {
         status: "failed",
         log: ls ? ls.getLog() : [context, message, kept].filter(Boolean).join("\n"),
+        fullLog: await ls?.saveFull(fullLogDest),
       });
       results.push({ dbName: item.dbName, status: "failed", error: message });
     } finally {

@@ -72,8 +72,8 @@ export async function reconcile(input: ReconcileInput): Promise<ReconcileResult>
   };
 
   const byPath = new Map<string, RegisteredFile[]>();
-  // Los objetos de bucket no están en este disco (su URI no es una ruta local).
-  for (const reg of input.registered.filter((r) => r.kind !== "object")) {
+  // Lo que vive en un bucket (objetos y logs subidos) no está en este disco.
+  for (const reg of input.registered.filter((r) => !r.fileName.startsWith("gs://"))) {
     let abs: string;
     try {
       abs = resolveBackupFile(reg.fileName);
@@ -226,7 +226,7 @@ export async function reconcileGcs(input: ReconcileGcsInput): Promise<ReconcileR
   const exact = new Map<string, Map<string, RegisteredFile>>();
   const dirs = new Map<string, Map<string, RegisteredFile>>();
   for (const reg of input.registered) {
-    if (reg.kind !== "object") continue;
+    if (!reg.fileName.startsWith("gs://")) continue;
     const parsed = parseGcsUri(reg.fileName);
     if (!parsed) continue;
     const bag = parsed.object.endsWith("/") ? dirs : exact;

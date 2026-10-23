@@ -82,7 +82,7 @@ export async function listArtifacts(p: repo.ArtifactListQuery): Promise<{ items:
   const [page, roots, buckets] = await Promise.all([repo.listArtifacts(p), localRoots(), storageRepo.listBucketRoots()]);
   const items = page.items.map(({ fileName, ...r }) => ({
     ...r,
-    ...(r.kind === "object" ? locateObject(fileName, buckets) : locate(fileName, roots)),
+    ...(fileName.startsWith("gs://") ? locateObject(fileName, buckets) : locate(fileName, roots)),
   }));
   return { items, total: page.total };
 }

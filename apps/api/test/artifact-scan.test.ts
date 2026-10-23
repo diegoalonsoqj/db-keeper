@@ -32,7 +32,7 @@ async function file(rel: string, ageMs = 5 * HOUR): Promise<string> {
 
 const reg = (fileName: string, over: Record<string, unknown> = {}) => ({
   itemId: "i-" + path.basename(fileName),
-  kind: "file" as "file" | "copy" | "object",
+  kind: "file" as "file" | "copy" | "object" | "log",
   executionId: "e1",
   fileName,
   pruned: false,
@@ -135,6 +135,19 @@ describe("reconcile (local) ignora los objetos de bucket", () => {
     const res = await run([reg("gs://b/pg/x.sql.gz", { kind: "object" })]);
     expect(res.findings).toEqual([]);
   });
+
+  it("un log en bucket tampoco es un faltante local", async () => {
+    const res = await run([reg("gs://b/pg/x.log", { kind: "log" })]);
+    expect(res.findings).toEqual([]);
+  });
+
+  it("el log completo local registrado no es huérfano; uno purgado presente sí se informa", async () => {
+    const dump = await file("pg/db_1.sql.gz");
+    const log = await file("pg/db_1.log");
+    const oldLog = await file("pg/db_0.log");
+    const res = await run([reg(dump), reg(log, { kind: "log" }), reg(oldLog, { kind: "log", itemId: "i0", pruned: true })]);
+    expect(res.findings).toEqual([expect.objectContaining({ kind: "stale", relativePath: "pg/db_0.log" })]);
+  });
 });
 
 describe("reconcileGcs", () => {
@@ -191,6 +204,14 @@ describe("reconcileGcs", () => {
 
   it("los objetos dentro de una carpeta registrada (dump paralelo) no son huérfanos", async () => {
     const res = await runGcs([greg("gs://b/dbk/srv/db_20261022/")], [obj("dbk/srv/db_20261022/manifest.json"), obj("dbk/srv/db_20261022/3001.dat.gz")]);
+    expect(res.findings).toEqual([]);
+  });
+
+  it("el log subido junto a la carpeta del dump paralelo no es huérfano", async () => {
+    const res = await runGcs(
+      [greg("gs://b/dbk/srv/db_20261022/"), reg("gs://b/dbk/srv/db_20261022.log", { kind: "log" })],
+      [obj("dbk/srv/db_20261022/manifest.json"), obj("dbk/srv/db_20261022.log")],
+    );
     expect(res.findings).toEqual([]);
   });
 

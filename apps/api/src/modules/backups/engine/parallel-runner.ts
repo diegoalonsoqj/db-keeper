@@ -16,6 +16,7 @@ import { uploadDirectoryToGcs } from "./gcs-dir.js";
 import { dirSize, dumpPostgresDirectory, RESTORE_LIST } from "./pg-parallel.js";
 import { getPgDumpMajor } from "./postgres.js";
 import { watchFileSize } from "./progress.js";
+import type { FullLogDest, FullLogRef } from "./full-log.js";
 import {
   collectOrphanScratchDisks,
   provisionScratchDisk,
@@ -30,6 +31,7 @@ export interface ItemLog {
   onLog: (line: string) => void;
   done: () => void;
   getLog: () => string | null;
+  saveFull: (dest: FullLogDest) => Promise<FullLogRef | null>;
 }
 
 export interface ParallelRunInput {
@@ -58,7 +60,8 @@ export interface ParallelRunInput {
   excludeSchemasFor: (db: string) => string[];
   excludeExtensionsFor: (db: string) => string[];
   excludeEventTriggersFor: (db: string) => string[];
-  makeLog: (dbName: string) => ItemLog;
+  /** `fileBase`: nombre de la carpeta del dump (el log completo se llama igual + `.log`). */
+  makeLog: (dbName: string, fileBase: string) => ItemLog;
   safeFileName: (name: string) => string;
   safeMessage: (err: unknown) => string;
 }
@@ -165,12 +168,16 @@ async function runItem(
   const { executionId } = input;
   await repo.markItemRunning(item.id);
   await emitExecution(executionId);
-  const ls = input.makeLog(item.dbName);
+  const name = `${input.safeFileName(item.dbName)}${input.envSuffix}_${input.ts}`;
+  const ls = input.makeLog(item.dbName, name);
   if (input.context) ls.onLog(input.context);
   if (p.preamble) p.preamble.forEach((l) => ls.onLog(l));
   else ls.onLog(`Disco temporal ${p.diskName} montado en ${p.ctx.mountPoint}.`);
 
-  const name = `${input.safeFileName(item.dbName)}${input.envSuffix}_${input.ts}`;
+  const gcsAuth = { bucket: input.gcs.bucket, serviceAccountJson: input.gcs.serviceAccountJson };
+  const prefix = [input.gcs.prefix, input.safeFileName(input.server.name), name].filter(Boolean).join("/");
+  // El log completo va junto a la carpeta del dump: <prefijo>/<instancia>/<nombre>.log
+  const fullLogDest: FullLogDest = { kind: "gcs", auth: gcsAuth, objectName: `${prefix}.log` };
   const dir = path.join(p.ctx.mountPoint, name);
   const excludeSchemas = input.excludeSchemasFor(item.dbName);
   const excludeExtensions = input.excludeExtensionsFor(item.dbName);
@@ -226,10 +233,9 @@ async function runItem(
       );
     }
 
-    const prefix = [input.gcs.prefix, input.safeFileName(input.server.name), name].filter(Boolean).join("/");
     const restoreDir = `/restore/${name}`;
     uploadUri = `gs://${input.gcs.bucket}/${prefix}/`;
-    const up = await uploadDirectoryToGcs({ bucket: input.gcs.bucket, serviceAccountJson: input.gcs.serviceAccountJson }, dir, prefix, {
+    const up = await uploadDirectoryToGcs(gcsAuth, dir, prefix, {
       concurrency: p.uploadConcurrency,
       signal: p.signal,
       inactivityMs: bs.dumpInactivityMinutes * 60_000,
@@ -273,6 +279,7 @@ async function runItem(
       fileBytes: up.bytes,
       log: ls.getLog(),
       checksums: { sha256: up.manifest.sha256, md5: up.manifest.md5, crc32c: up.manifest.crc32c },
+      fullLog: await ls.saveFull(fullLogDest),
     });
     return { dbName: item.dbName, status: "success", bytes: up.bytes };
   } catch (err) {
@@ -286,7 +293,7 @@ async function runItem(
     await rm(dir, { recursive: true, force: true }).catch(() => {});
     ls.onLog(message);
     ls.done();
-    await repo.finishItem(item.id, { status: "failed", log: ls.getLog() });
+    await repo.finishItem(item.id, { status: "failed", log: ls.getLog(), fullLog: await ls.saveFull(fullLogDest) });
     return { dbName: item.dbName, status: "failed", error: message };
   }
 }

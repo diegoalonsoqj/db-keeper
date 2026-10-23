@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import {
   BACKUP_METHODS,
@@ -107,18 +107,22 @@ backupsRouter.get("/executions/stream", authorize("backups:read"), (req, res) =>
   });
 });
 
-// Descarga del archivo de un ítem (una BD) de una ejecución. Permiso propio y
-// auditada: el archivo trae el contenido completo de la BD.
-backupsRouter.get(
-  "/executions/:execId/items/:itemId/download",
-  authorize("backups:download"),
-  async (req, res, next) => {
+/**
+ * Descarga auditada de un archivo de un ítem (una BD): el backup o su log completo.
+ * Permiso propio: el backup trae el contenido completo de la BD, y el log, nombres de
+ * esquemas y tablas.
+ */
+function itemDownload(
+  action: string,
+  resolve: (execId: string, itemId: string) => Promise<service.DownloadSource>,
+): RequestHandler {
+  return async (req, res, next) => {
     try {
       const execId = z.string().uuid().parse(req.params.execId);
       const itemId = z.string().uuid().parse(req.params.itemId);
-      const src = await service.getItemDownload(execId, itemId);
+      const src = await resolve(execId, itemId);
       await recordAudit(req, {
-        action: "backups.download",
+        action,
         entityType: "execution",
         entityId: execId,
         detail: { itemId, fileName: src.fileName },
@@ -140,7 +144,18 @@ backupsRouter.get(
     } catch (err) {
       next(err);
     }
-  },
+  };
+}
+
+backupsRouter.get(
+  "/executions/:execId/items/:itemId/download",
+  authorize("backups:download"),
+  itemDownload("backups.download", service.getItemDownload),
+);
+backupsRouter.get(
+  "/executions/:execId/items/:itemId/log",
+  authorize("backups:download"),
+  itemDownload("backups.download_log", service.getItemLogDownload),
 );
 
 // "Verificar ahora": compara la huella actual del archivo con la registrada.

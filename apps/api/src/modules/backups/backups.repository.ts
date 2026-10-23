@@ -269,7 +269,9 @@ const SELECT_EXECUTION = `
             THEN json_build_object('sha256', i.file_sha256, 'md5', i.file_md5, 'crc32c', i.file_crc32c) END,
           'verification', CASE WHEN i.verify_status IS NOT NULL
             THEN json_build_object('status', i.verify_status, 'mode', i.verify_mode,
-              'at', i.verified_at, 'detail', i.verify_detail) END
+              'at', i.verified_at, 'detail', i.verify_detail) END,
+          'fullLog', CASE WHEN i.log_file IS NOT NULL
+            THEN json_build_object('bytes', i.log_bytes, 'sha256', i.log_sha256) END
         ) ORDER BY i.db_name
       ) FILTER (WHERE i.id IS NOT NULL), '[]'
     ) AS items
@@ -340,13 +342,26 @@ export async function findExecutionById(id: string): Promise<ExecutionDto | null
 export async function findItemFile(
   executionId: string,
   itemId: string,
-): Promise<{ fileName: string | null; dbName: string; status: ExecutionDto["status"]; prunedAt: Date | null } | null> {
-  const { rows } = await query<{ file_name: string | null; db_name: string; status: ExecutionDto["status"]; pruned_at: Date | null }>(
-    "SELECT file_name, db_name, status, pruned_at FROM core.execution_items WHERE id = $1 AND execution_id = $2",
+): Promise<{
+  fileName: string | null;
+  logFile: string | null;
+  dbName: string;
+  status: ExecutionDto["status"];
+  prunedAt: Date | null;
+} | null> {
+  const { rows } = await query<{
+    file_name: string | null;
+    log_file: string | null;
+    db_name: string;
+    status: ExecutionDto["status"];
+    pruned_at: Date | null;
+  }>(
+    "SELECT file_name, log_file, db_name, status, pruned_at FROM core.execution_items WHERE id = $1 AND execution_id = $2",
     [itemId, executionId],
   );
-  return rows[0]
-    ? { fileName: rows[0].file_name, dbName: rows[0].db_name, status: rows[0].status, prunedAt: rows[0].pruned_at }
+  const r = rows[0];
+  return r
+    ? { fileName: r.file_name, logFile: r.log_file, dbName: r.db_name, status: r.status, prunedAt: r.pruned_at }
     : null;
 }
 
@@ -424,13 +439,16 @@ export async function finishItem(
     checksums?: FileChecksums | null;
     /** Copia conservada en disco de un backup subido a bucket (keepLocalCopy). */
     localFileName?: string | null;
+    /** Log completo guardado como archivo (null = no se guardó). */
+    fullLog?: { file: string; bytes: number; sha256: string } | null;
   },
 ): Promise<void> {
   const c = result.checksums;
   await query(
     `UPDATE core.execution_items
      SET status = $2, file_name = $3, file_bytes = $4, log = $5,
-         file_sha256 = $6, file_md5 = $7, file_crc32c = $8, local_file_name = $9, finished_at = now()
+         file_sha256 = $6, file_md5 = $7, file_crc32c = $8, local_file_name = $9,
+         log_file = $10, log_bytes = $11, log_sha256 = $12, finished_at = now()
      WHERE id = $1`,
     [
       itemId,
@@ -442,6 +460,9 @@ export async function finishItem(
       c?.md5 ?? null,
       c?.crc32c ?? null,
       result.localFileName ?? null,
+      result.fullLog?.file ?? null,
+      result.fullLog?.bytes ?? null,
+      result.fullLog?.sha256 ?? null,
     ],
   );
 }
@@ -695,6 +716,8 @@ export async function listExecutions(p: ExecutionListQuery): Promise<{ items: Ex
 export interface PrunableItem {
   id: string;
   fileName: string;
+  /** Log completo en disco que se purga con el dump (null si no hay o está en bucket). */
+  logFile: string | null;
 }
 
 /**
@@ -722,22 +745,24 @@ export async function findPrunableItems(
     target === "local"
       ? ["i.local_file_name", "i.local_pruned_at", "i.local_file_name IS NOT NULL"]
       : ["i.file_name", "i.pruned_at", "i.file_name IS NOT NULL AND i.file_name NOT LIKE 'gs://%'"];
-  const { rows } = await query<{ id: string; file_name: string }>(
+  const { rows } = await query<{ id: string; file_name: string; log_file: string | null }>(
     `WITH ranked AS (
        SELECT i.id, ${fileCol} AS file_name, ${prunedCol} AS pruned_at, e.created_at,
+              -- Solo el destino "file" arrastra su log local (el de un backup a bucket está en el bucket).
+              ${target === "file" ? "CASE WHEN i.log_file NOT LIKE 'gs://%' THEN i.log_file END" : "NULL::text"} AS log_file,
               row_number() OVER (PARTITION BY i.db_name ORDER BY e.created_at DESC) AS rn
        FROM core.execution_items i
        JOIN core.executions e ON e.id = i.execution_id
        -- En buckets la app no borra (ciclo de vida de GCS): solo archivos en disco.
        WHERE e.job_id = $1 AND i.status = 'success' AND ${hasFile}
      )
-     SELECT id, file_name FROM ranked
+     SELECT id, file_name, log_file FROM ranked
      WHERE pruned_at IS NULL
        AND ( ($2::int IS NOT NULL AND rn > $2::int)
           OR ($3::int IS NOT NULL AND created_at < now() - make_interval(days => $3::int)) )`,
     [jobId, policy.keepLast, policy.days],
   );
-  return rows.map((r) => ({ id: r.id, fileName: r.file_name }));
+  return rows.map((r) => ({ id: r.id, fileName: r.file_name, logFile: r.log_file }));
 }
 
 /** Marca un ítem como purgado (su archivo físico ya se borró). */

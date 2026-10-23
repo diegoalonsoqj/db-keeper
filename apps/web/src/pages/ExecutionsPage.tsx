@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Copy, Download, FileText, RotateCcw, ShieldAlert, ShieldCheck, Square } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Download, FileDown, FileText, RotateCcw, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import {
   EXECUTION_ORIGINS,
   EXECUTION_STATES,
@@ -343,9 +343,9 @@ export function ExecutionsPage() {
       .catch((err) => toast.error(errMsg(err)));
   }
 
-  async function download(execId: string, itemId: string, name: string) {
+  async function download(execId: string, itemId: string, name: string, what: "download" | "log" = "download") {
     try {
-      await api.download(`/backups/executions/${execId}/items/${itemId}/download`, name);
+      await api.download(`/backups/executions/${execId}/items/${itemId}/${what}`, name);
     } catch (err) {
       toast.error(errMsg(err));
     }
@@ -603,6 +603,17 @@ export function ExecutionsPage() {
                                       onClick={() => setLogFor({ execId: e.id, dbName: it.dbName })}
                                     >
                                       <FileText size={16} />
+                                    </button>
+                                  )}
+                                  {/* Log completo (archivo junto al backup); uno local se purga con su dump. */}
+                                  {canDownload && it.fullLog && !it.prunedAt && (
+                                    <button
+                                      className="icon-btn"
+                                      title={t("executions.downloadFullLog")}
+                                      aria-label={t("executions.downloadFullLog")}
+                                      onClick={() => download(e.id, it.id, `${it.dbName}.log`, "log")}
+                                    >
+                                      <FileDown size={16} />
                                     </button>
                                   )}
                                   {it.checksums && it.fileName && (

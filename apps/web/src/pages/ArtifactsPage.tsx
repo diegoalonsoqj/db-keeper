@@ -84,7 +84,8 @@ function CatalogView() {
 
   async function download(a: BackupArtifactDto) {
     try {
-      await api.download(`/backups/executions/${a.executionId}/items/${a.itemId}/download`, a.dbName);
+      const what = a.kind === "log" ? "log" : "download";
+      await api.download(`/backups/executions/${a.executionId}/items/${a.itemId}/${what}`, a.kind === "log" ? `${a.dbName}.log` : a.dbName);
     } catch (err) {
       toast.error(errMsg(err));
     }

@@ -110,7 +110,7 @@ const backupsSchema = z
       Object.entries(BACKUP_SETTINGS_LIMITS).map(([k, l]) => [k, z.number().int().min(l.min).max(l.max).optional()]),
     ) as Record<keyof typeof BACKUP_SETTINGS_LIMITS, z.ZodOptional<z.ZodNumber>>,
   )
-  .extend({ mongoPasswordViaConfig: z.boolean().optional() });
+  .extend({ mongoPasswordViaConfig: z.boolean().optional(), saveFullLog: z.boolean().optional() });
 
 settingsRouter.patch("/backups", authorize("settings:write"), async (req, res, next) => {
   try {
