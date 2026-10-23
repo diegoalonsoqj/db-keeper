@@ -47,6 +47,8 @@ async function run(): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      // Una migración puede tardar (índices, backfills); el lock_timeout del pool se mantiene.
+      await client.query("SET LOCAL statement_timeout = 0");
       await client.query(sql);
       await client.query("INSERT INTO public._migrations (name) VALUES ($1)", [file]);
       await client.query("COMMIT");

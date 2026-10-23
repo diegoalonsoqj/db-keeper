@@ -628,6 +628,74 @@ export async function notifyStaleJobs(jobs: StaleJob[], graceHours: number): Pro
   await Promise.all(tasks);
 }
 
+// ---- Disparo programado que no se pudo lanzar ----
+
+/** Programación cuyo disparo falló antes de crear ejecuciones. */
+export interface ScheduleFailure {
+  kind: "Grupo" | "Evento";
+  /** Nombre del grupo/evento, o el código de la programación si no se pudo leer. */
+  name: string;
+  scheduledAt: Date;
+  error: string;
+}
+
+/**
+ * Aviso inmediato de un disparo programado que falló (no se creó ninguna ejecución),
+ * sin esperar a la vigilancia de frescura. Respeta la bandera de fallos. **Nunca lanza.**
+ */
+export async function notifyScheduleFailure(f: ScheduleFailure): Promise<void> {
+  let cfg: NotifRuntimeConfig;
+  try {
+    cfg = await settings.getNotifRuntimeConfig();
+  } catch (err) {
+    logger.error({ err }, "No se pudo leer la configuración de notificaciones");
+    return;
+  }
+  if (!cfg.notifyOnFailure) return;
+
+  const title = `No se pudo lanzar el backup programado: ${f.name}`;
+  const intro =
+    "El disparo programado falló antes de crear las ejecuciones: este backup no se hizo. " +
+    "Revisa el motivo y lánzalo a mano desde DBKeeper si hace falta.";
+  const rows = [
+    { emoji: f.kind === "Grupo" ? "📚" : "🗂️", label: f.kind, value: f.name },
+    { emoji: "🕒", label: "Programado", value: shortDate(f.scheduledAt) },
+    { emoji: "❌", label: "Motivo", value: f.error.slice(0, 500) },
+  ];
+
+  const tasks: Promise<void>[] = [];
+  if (cfg.email.enabled) {
+    const text = [title, "", intro, "", ...rows.map((r) => `${r.label}: ${r.value}`)].join("\n");
+    const html = renderEmail({
+      tone: "danger",
+      status: "Sin lanzar",
+      title,
+      preheader: f.error.slice(0, 120),
+      intro,
+      rows: rows.map(({ label, value }) => ({ label, value })),
+      sentAt: sentAt(),
+    });
+    tasks.push(
+      sendEmail(cfg.email, { subject: `[DBKeeper] ${title}`, text, html }).catch((err) => {
+        logger.error({ err }, "Fallo al enviar correo de disparo programado fallido");
+      }),
+    );
+  }
+  if (cfg.telegram.enabled) {
+    const parts = [`<b>🚫 ${escapeHtml(title)}</b>`, "", escapeHtml(intro), ""];
+    for (const r of rows) parts.push(`${r.emoji} <b>${r.label}:</b> ${escapeHtml(r.value)}`);
+    tasks.push(
+      sendTelegram(cfg.telegram, parts.join("\n")).then(
+        () => {},
+        (err) => {
+          logger.error({ err }, "Fallo al enviar Telegram de disparo programado fallido");
+        },
+      ),
+    );
+  }
+  await Promise.all(tasks);
+}
+
 // ---- Vigilancia: poco espacio en el disco de backups ----
 
 /** Espacio del disco de backups para el aviso. */

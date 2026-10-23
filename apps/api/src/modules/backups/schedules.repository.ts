@@ -72,6 +72,16 @@ export async function upsert(target: ScheduleTarget, f: ScheduleFields): Promise
   return toDto(rows[0]!);
 }
 
+/** Nombre actual del grupo o evento de una programación (null si ya no existe). */
+export async function findTargetName(target: ScheduleTarget): Promise<string | null> {
+  const sql =
+    "jobId" in target
+      ? "SELECT name FROM core.backup_jobs WHERE id = $1"
+      : "SELECT name FROM core.job_groups WHERE id = $1";
+  const { rows } = await query<{ name: string }>(sql, ["jobId" in target ? target.jobId : target.groupId]);
+  return rows[0]?.name ?? null;
+}
+
 export async function deleteByTarget(target: ScheduleTarget): Promise<void> {
   const { col, id } = targetColumn(target);
   await query(`DELETE FROM core.backup_schedules WHERE ${col} = $1`, [id]);

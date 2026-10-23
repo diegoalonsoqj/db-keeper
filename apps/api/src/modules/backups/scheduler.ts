@@ -1,4 +1,6 @@
+import { executionCode, type ScheduleDto } from "@dbkeeper/shared";
 import { logger } from "../../config/logger.js";
+import { notifyScheduleFailure } from "../notifications/notifications.service.js";
 import * as repo from "./schedules.repository.js";
 import { nextRunForCron } from "./schedule-time.js";
 import { runScheduled } from "./backups.service.js";
@@ -15,8 +17,20 @@ let timer: NodeJS.Timeout | null = null;
 let lastRetentionSweep = 0;
 let lastFreshnessCheck = 0;
 
-/** Dispara las programaciones vencidas y recalcula el próximo disparo. */
-async function tick(): Promise<void> {
+/** Avisa de un disparo fallido con el nombre del grupo/evento (o el código si no se puede leer). */
+async function reportFailure(s: ScheduleDto, err: unknown): Promise<void> {
+  const target = s.groupId ? { groupId: s.groupId } : { jobId: s.jobId! };
+  const name = await repo.findTargetName(target).catch(() => null);
+  await notifyScheduleFailure({
+    kind: s.groupId ? "Grupo" : "Evento",
+    name: name ?? `programación #${executionCode(s.id)}`,
+    scheduledAt: new Date(s.nextRunAt!),
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
+/** Dispara las programaciones vencidas y recalcula el próximo disparo (exportada para tests). */
+export async function tick(): Promise<void> {
   const now = new Date();
   const due = await repo.findDue(now);
   for (const s of due) {
@@ -41,6 +55,8 @@ async function tick(): Promise<void> {
       else if (s.jobId) await runScheduled(s.jobId);
     } catch (err) {
       logger.error({ err, jobId: s.jobId, groupId: s.groupId }, "No se pudo disparar el backup programado");
+      // El disparo ya se reservó: sin este aviso nadie se entera hasta la vigilancia de frescura.
+      void reportFailure(s, err);
     }
   }
 

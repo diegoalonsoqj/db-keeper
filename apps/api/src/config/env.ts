@@ -16,6 +16,10 @@ const envSchema = z.object({
 
   // Única conexión que no puede vivir en la BD: la de la propia BD de metadatos.
   DATABASE_URL: z.string().url("DATABASE_URL debe ser una URL de conexión válida"),
+  // Límites por sesión del pool (ms, 0 = sin límite): una espera de bloqueo o una
+  // consulta colgada falla con error en vez de dejar el scheduler/la cola esperando.
+  DB_LOCK_TIMEOUT_MS: z.coerce.number().int().min(0).default(30_000),
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).default(300_000),
 
   // Broker de tareas / tiempo real (se usará desde la Etapa 4).
   REDIS_URL: z.string().url().optional(),

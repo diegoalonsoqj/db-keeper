@@ -16,6 +16,9 @@ export const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
+  // 0 = sin límite (valor por defecto de PostgreSQL).
+  lock_timeout: env.DB_LOCK_TIMEOUT_MS,
+  statement_timeout: env.DB_STATEMENT_TIMEOUT_MS,
 });
 
 pool.on("error", (err) => {
