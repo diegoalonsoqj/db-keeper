@@ -251,9 +251,11 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
 
   if (cfg.email.enabled) {
     tasks.push(
-      sendEmail(cfg.email, { subject, text, html: buildEmailHtml(n), threadId: `dbkeeper-exec-${n.executionId}` }).catch((err) => {
-        logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar correo de notificación");
-      }),
+      sendEmail(cfg.email, { subject, text, html: buildEmailHtml(n), threadId: `dbkeeper-exec-${n.executionId}` })
+        .then(() => logSent("email", n.event, n.executionId))
+        .catch((err) => {
+          logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar correo de notificación");
+        }),
     );
   }
 
@@ -261,13 +263,20 @@ export async function notifyBackup(n: BackupNotification): Promise<void> {
     // Los eventos de una corrida de grupo van al hilo de la corrida.
     const thread: repo.TelegramThread = run ? { kind: "group_run", id: run.runId } : { kind: "execution", id: n.executionId };
     tasks.push(
-      sendTelegramThreaded(cfg.telegram, thread, buildTelegramHtml(n)).catch((err) => {
-        logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
-      }),
+      sendTelegramThreaded(cfg.telegram, thread, buildTelegramHtml(n))
+        .then(() => logSent("telegram", n.event, n.executionId))
+        .catch((err) => {
+          logger.error({ err, jobName: n.jobName, event: n.event }, "Fallo al enviar notificación de Telegram");
+        }),
     );
   }
 
   await Promise.all(tasks);
+}
+
+/** Traza de un aviso entregado al proveedor (sin destinatarios ni contenido). */
+function logSent(channel: "email" | "telegram", event: string, id: string): void {
+  logger.info({ channel, event, code: executionCode(id) }, "Aviso enviado");
 }
 
 /**
@@ -510,16 +519,20 @@ export async function notifyGroupRun(n: GroupRunNotification): Promise<void> {
         text: buildGroupText(n),
         html: buildGroupEmailHtml(n),
         threadId: `dbkeeper-group-${n.runId}`,
-      }).catch((err) => {
-        logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar correo del grupo");
-      }),
+      })
+        .then(() => logSent("email", `group_${n.event}`, n.runId))
+        .catch((err) => {
+          logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar correo del grupo");
+        }),
     );
   }
   if (cfg.telegram.enabled) {
     tasks.push(
-      sendTelegramThreaded(cfg.telegram, { kind: "group_run", id: n.runId }, buildGroupTelegramHtml(n)).catch((err) => {
-        logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar Telegram del grupo");
-      }),
+      sendTelegramThreaded(cfg.telegram, { kind: "group_run", id: n.runId }, buildGroupTelegramHtml(n))
+        .then(() => logSent("telegram", `group_${n.event}`, n.runId))
+        .catch((err) => {
+          logger.error({ err, group: n.group, event: n.event }, "Fallo al enviar Telegram del grupo");
+        }),
     );
   }
   await Promise.all(tasks);

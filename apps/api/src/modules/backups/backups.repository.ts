@@ -673,8 +673,10 @@ export async function listExecutions(p: ExecutionListQuery): Promise<{ items: Ex
   if (p.from) w.add(`e.created_at >= ${w.param(p.from)}`);
   if (p.to) w.add(`e.created_at < ${w.param(p.to)}::timestamptz + interval '1 day'`);
   // El código del asunto de los avisos es el prefijo del id (sin guiones en sus 8 primeros caracteres).
+  // Los avisos de grupo llevan el de la corrida: ese código lista todas sus ejecuciones.
   const code = p.q ? parseExecutionCode(p.q) : null;
-  w.search(["e.label"], p.q, code ? [`e.id::text LIKE ${w.param(`${code}%`)}`] : []);
+  const like = code ? w.param(`${code}%`) : null;
+  w.search(["e.label"], p.q, like ? [`e.id::text LIKE ${like}`, `e.group_run_id::text LIKE ${like}`] : []);
 
   const totalRes = await query<{ count: string }>(`SELECT count(*)::text AS count FROM core.executions e ${w.sql}`, w.params);
   const total = Number(totalRes.rows[0]?.count ?? 0);
